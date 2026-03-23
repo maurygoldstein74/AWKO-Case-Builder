@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Litigation Review Guide Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0d12;--sf:#13141c;--sf2:#191b26;--sf3:#1f2230;
+  --bd:#262940;--bdh:#3a3f62;--tx:#dfe1ef;--tx2:#a0a4c0;--tx3:#686c90;
+  --ac:#8b7bf5;--ac2:#a89cff;--acbg:rgba(139,123,245,.06);
+  --am:#e0a848;--ambg:rgba(224,168,72,.06);--ambd:rgba(224,168,72,.18);
+  --gn:#56c490;--gnbg:rgba(86,196,144,.06);
+  --rd:#e06060;--rdbg:rgba(224,96,96,.06);--rdbd:rgba(224,96,96,.2);
+  --cy:#48b8e0;--cybg:rgba(72,184,224,.06);--cybd:rgba(72,184,224,.18);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;line-height:1.55}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+
+.shell{display:grid;grid-template-columns:420px 1fr;min-height:100vh}
+.side{background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;max-height:100vh;position:sticky;top:0}
+.side-scroll{flex:1;overflow-y:auto;padding:28px 24px 24px}
+.side-foot{padding:12px 24px 20px;border-top:1px solid var(--bd);background:var(--sf)}
+.main{overflow-y:auto;max-height:100vh}
+
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.brand-mark{width:32px;height:32px;border-radius:7px;background:linear-gradient(135deg,var(--ac),var(--am));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff}
+.brand h1{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:700;letter-spacing:-.3px}
+.brand-sub{font-size:11.5px;color:var(--tx3);margin-bottom:22px;padding-left:43px}
+
+.fg{margin-bottom:14px}
+.fg label{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--tx2);margin-bottom:5px}
+.fg label .tag{font-size:9px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--tx3);background:var(--sf3);padding:1px 5px;border-radius:3px}
+.fg input,.fg textarea,.fg select{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:7px;padding:9px 11px;color:var(--tx);font-family:'Outfit',sans-serif;font-size:13px;transition:border-color .15s}
+.fg input:focus,.fg textarea:focus,.fg select:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(139,123,245,.1)}
+.fg textarea{min-height:54px;resize:vertical}
+.fg select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23686c90' viewBox='0 0 16 16'%3E%3Cpath d='M8 12L2 5h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.fg .note{font-size:10.5px;color:var(--tx3);margin-top:3px;line-height:1.4}
+.hr{height:1px;background:var(--bd);margin:16px 0}
+
+/* Keys */
+.keys-area{display:flex;flex-direction:column;gap:6px}
+.key-row{display:flex;gap:6px;align-items:center}
+.key-row input{flex:1;font-size:12px;padding:8px 10px}
+.key-row .key-rm{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:4px;width:24px;flex-shrink:0}
+.key-row .key-rm:hover{color:var(--rd)}
+.key-add{background:none;border:1px dashed var(--bd);border-radius:6px;padding:6px;color:var(--tx3);font-size:11px;cursor:pointer;font-family:'Outfit',sans-serif;text-align:center;margin-top:2px}
+.key-add:hover{border-color:var(--ac);color:var(--ac2)}
+.key-status{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.key-dot{width:8px;height:8px;border-radius:50%;background:var(--bd)}
+.key-dot.ready{background:var(--gn)}
+.key-dot.active{background:var(--am);animation:kpulse 1s infinite}
+.key-dot.used{background:var(--tx3)}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Sections */
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.sec-acts{display:flex;gap:6px}
+.sec-acts button{background:none;border:none;color:var(--ac);font-size:10px;cursor:pointer;font-family:'Outfit',sans-serif}.sec-acts button:hover{text-decoration:underline}
+.sec-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.stog{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;cursor:pointer;font-size:10px;color:var(--tx3);transition:all .12s;user-select:none}
+.stog:hover{border-color:var(--bdh);color:var(--tx2)}
+.stog.on{background:var(--acbg);border-color:rgba(139,123,245,.3);color:var(--ac2)}
+.stog input{display:none}
+.stog .ck{width:12px;height:12px;border:1.5px solid var(--bd);border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;transition:all .12s}
+.stog.on .ck{background:var(--ac);border-color:var(--ac);color:#fff}
+
+/* Model select */
+.model-row{display:flex;gap:8px}
+.model-opt{flex:1;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;cursor:pointer;text-align:center;font-size:11px;color:var(--tx3);transition:all .12s}
+.model-opt:hover{border-color:var(--bdh)}
+.model-opt.sel{background:var(--acbg);border-color:var(--ac);color:var(--ac2)}
+.model-opt strong{display:block;font-size:12px;color:var(--tx2);margin-bottom:2px}
+.model-opt.sel strong{color:var(--ac2)}
+
+.btn-go{width:100%;padding:13px;background:linear-gradient(135deg,var(--ac),#7b6be5);color:#fff;border:none;border-radius:9px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.2px}
+.btn-go:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 24px rgba(139,123,245,.25)}
+.btn-go:disabled{opacity:.45;cursor:not-allowed}
+.btn-stop{width:100%;padding:10px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:9px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px}
+
+/* Progress */
+.prog{margin-top:12px;display:flex;flex-direction:column;gap:3px}
+.ps{padding:6px 10px;background:var(--sf2);border-radius:5px;font-size:10.5px;color:var(--tx3);display:flex;align-items:center;gap:8px;border:1px solid transparent;transition:all .2s}
+.ps .pi{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0;background:var(--sf3);color:var(--tx3);border:1.5px solid var(--bd);transition:all .2s}
+.ps .pinfo{flex:1;min-width:0}
+.ps .pl{font-weight:500;color:var(--tx2);font-size:10.5px}
+.ps .pd{font-size:9.5px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps.run{border-color:var(--ambd);color:var(--tx)}
+.ps.run .pi{background:var(--am);border-color:var(--am);color:#fff;animation:pdot 1.4s infinite}
+.ps.par{border-color:var(--cybd);color:var(--cy)}
+.ps.par .pi{background:var(--cy);border-color:var(--cy);color:#fff;animation:pdot 1.2s infinite}
+.ps.done{color:var(--gn)}.ps.done .pi{background:var(--gn);border-color:var(--gn);color:#fff}
+.ps.err{color:var(--rd)}.ps.err .pi{background:var(--rd);border-color:var(--rd);color:#fff}
+@keyframes pdot{0%,100%{box-shadow:0 0 0 0 rgba(224,168,72,.3)}50%{box-shadow:0 0 0 4px rgba(224,168,72,0)}}
+.pfoot{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--tx3);text-align:right;margin-top:5px}
+
+/* Main */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:40px}
+.empty .ei{font-size:44px;margin-bottom:18px;opacity:.22}
+.empty h2{font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--tx2);margin-bottom:10px;font-weight:600}
+.empty p{color:var(--tx3);font-size:13px;max-width:500px;line-height:1.7}
+.feats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:24px;text-align:left;max-width:540px}
+.feat{padding:12px 14px;background:var(--sf);border:1px solid var(--bd);border-radius:7px}
+.feat strong{display:block;font-size:11px;color:var(--ac2);margin-bottom:2px}
+.feat span{font-size:10.5px;color:var(--tx3);line-height:1.45}
+
+.out-wrap{padding:36px 48px 80px}
+.toolbar{display:flex;gap:7px;margin-bottom:18px;flex-wrap:wrap}
+.toolbar button{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:6px;color:var(--tx2);font-family:'Outfit',sans-serif;font-size:11.5px;cursor:pointer;transition:all .12s}
+.toolbar button:hover{border-color:var(--bdh);color:var(--tx)}
+.wc{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--tx3);display:flex;align-items:center}
+
+/* Research panel */
+.rp{background:var(--sf);border:1px solid var(--ambd);border-radius:8px;margin-bottom:20px;overflow:hidden}
+.rp summary{padding:12px 16px;cursor:pointer;font-size:12px;font-weight:600;color:var(--am);list-style:none;display:flex;align-items:center;gap:7px}
+.rp summary::before{content:'▸';transition:transform .15s}
+.rp[open] summary::before{transform:rotate(90deg)}
+.rp-body{padding:0 16px 14px;display:flex;flex-direction:column;gap:6px}
+.rp-pass{background:var(--sf2);border-radius:5px;overflow:hidden}
+.rp-pass summary{padding:8px 12px;font-size:11px;color:var(--tx2);font-weight:500}
+.rp-pass-body{padding:6px 12px 10px;font-size:10.5px;color:var(--tx3);font-family:'JetBrains Mono',monospace;line-height:1.5;white-space:pre-wrap;max-height:250px;overflow-y:auto}
+
+/* Verification panel */
+.vp{background:var(--sf);border:1px solid var(--cybd);border-radius:8px;margin-bottom:20px;overflow:hidden}
+.vp summary{padding:12px 16px;cursor:pointer;font-size:12px;font-weight:600;color:var(--cy);list-style:none;display:flex;align-items:center;gap:7px}
+.vp summary::before{content:'▸';transition:transform .15s}
+.vp[open] summary::before{transform:rotate(90deg)}
+.vp-body{padding:8px 16px 14px;font-size:13px;color:var(--tx2);line-height:1.65}
+.vp-body strong{color:var(--rd)}
+.vp-body em{color:var(--gn)}
+
+/* Guide */
+.guide{max-width:880px}
+.guide-head{border-bottom:2px solid var(--ac);padding-bottom:16px;margin-bottom:14px}
+.guide-head h1{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;line-height:1.3}
+.guide-head .meta{font-size:12px;color:var(--tx2);margin-top:4px}
+.toc{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:16px 20px;margin-bottom:24px}
+.toc h3{font-size:12px;font-weight:600;color:var(--ac2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.toc ol{list-style:none;counter-reset:toc;columns:2;column-gap:24px}
+.toc li{counter-increment:toc;break-inside:avoid}
+.toc li::before{content:counter(toc) ".";color:var(--tx3);font-size:11px;margin-right:5px;font-family:'JetBrains Mono',monospace}
+.toc a{color:var(--tx2);text-decoration:none;font-size:12.5px;line-height:1.9;transition:color .12s}
+.toc a:hover{color:var(--ac2)}
+
+.sec-block{position:relative;margin-bottom:4px}
+.sec-block .regen-btn{position:absolute;top:2px;right:0;background:var(--sf2);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;font-size:9.5px;color:var(--tx3);cursor:pointer;font-family:'Outfit',sans-serif;opacity:0;transition:opacity .15s;z-index:2}
+.sec-block:hover .regen-btn{opacity:1}
+.sec-block .regen-btn:hover{border-color:var(--ac);color:var(--ac)}
+.sec-block.regen{opacity:.5;pointer-events:none}
+
+.gc h1{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:var(--tx);margin:36px 0 14px;padding-bottom:7px;border-bottom:1px solid var(--bd)}
+.gc h2{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:var(--ac2);margin:28px 0 10px}
+.gc h3{font-size:15px;font-weight:600;color:var(--tx);margin:22px 0 8px}
+.gc h4{font-size:12.5px;font-weight:600;color:var(--tx2);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+.gc p{font-size:13.5px;line-height:1.78;margin-bottom:10px}
+.gc ul,.gc ol{margin:8px 0 14px 18px;font-size:13.5px;line-height:1.78}
+.gc li{margin-bottom:5px}.gc li strong{color:var(--ac2)}
+.gc strong{font-weight:600}.gc em{color:var(--tx2)}.gc u{text-underline-offset:3px}
+.gc blockquote{border-left:3px solid var(--ac);padding:10px 16px;margin:14px 0;background:var(--acbg);border-radius:0 7px 7px 0;font-size:13px}
+.gc table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+.gc th{background:var(--sf3);padding:8px 11px;text-align:left;font-weight:600;color:var(--ac2);border-bottom:2px solid var(--bd)}
+.gc td{padding:7px 11px;border-bottom:1px solid var(--bd)}.gc tr:hover td{background:rgba(139,123,245,.02)}
+.gc code{font-family:'JetBrains Mono',monospace;font-size:11.5px;background:var(--sf3);padding:2px 5px;border-radius:3px;color:var(--ac2)}
+.gc hr{border:none;border-top:1px solid var(--bd);margin:28px 0}
+
+/* Key test panel */
+.kt-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;font-size:11.5px;color:var(--tx3);transition:all .2s}
+.kt-row .kt-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:all .3s}
+.kt-row .kt-dot.pending{background:var(--bd);animation:kdim 1s infinite}
+.kt-row .kt-dot.testing{background:var(--am);animation:kpulse 1s infinite}
+.kt-row .kt-dot.pass{background:var(--gn)}
+.kt-row .kt-dot.fail{background:var(--rd)}
+.kt-row .kt-label{font-weight:500;color:var(--tx2)}
+.kt-row .kt-detail{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px}
+.kt-row.pass{border-color:rgba(86,196,144,.2)}.kt-row.pass .kt-label{color:var(--gn)}
+.kt-row.fail{border-color:var(--rdbd)}.kt-row.fail .kt-label{color:var(--rd)}
+@keyframes kdim{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* Refinement bar */
+.refine-bar{position:sticky;bottom:0;background:var(--sf);border-top:1px solid var(--bd);padding:16px 48px 20px;display:none;z-index:10}
+.refine-bar.show{display:block}
+.refine-inner{max-width:880px;display:flex;flex-direction:column;gap:8px}
+.refine-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--tx2);display:flex;align-items:center;gap:8px}
+.refine-label select{font-size:11px;font-family:'Outfit',sans-serif;background:var(--sf2);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:var(--tx2);appearance:none;cursor:pointer}
+.refine-row{display:flex;gap:8px}
+.refine-row textarea{flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);font-family:'Outfit',sans-serif;font-size:13px;resize:none;min-height:44px;max-height:120px;transition:border-color .15s}
+.refine-row textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(139,123,245,.1)}
+.refine-row textarea::placeholder{color:var(--tx3)}
+.refine-send{padding:10px 20px;background:linear-gradient(135deg,var(--ac),#7b6be5);color:#fff;border:none;border-radius:8px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;align-self:flex-end}
+.refine-send:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 16px rgba(139,123,245,.25)}
+.refine-send:disabled{opacity:.4;cursor:not-allowed}
+.refine-history{display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;margin-top:4px}
+.refine-hist-item{font-size:11px;color:var(--tx3);padding:4px 8px;background:var(--sf2);border-radius:4px;display:flex;gap:6px}
+.refine-hist-item .rh-scope{color:var(--ac2);font-weight:500;flex-shrink:0}
+.refine-hist-item .rh-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media(max-width:960px){.shell{grid-template-columns:1fr}.side{position:relative;max-height:none;border-right:none;border-bottom:1px solid var(--bd)}.out-wrap{padding:20px 16px 60px}.toc ol{columns:1}.refine-bar{padding:12px 16px 16px}}
+@media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.refine-bar{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="side">
+<div class="side-scroll">
+  <div class="brand"><div class="brand-mark">§</div><h1>Review Guide Builder</h1></div>
+  <div class="brand-sub">Pharmaceutical &amp; Medical Device Litigation</div>
+
+  <div id="keyPanel" style="margin-bottom:16px">
+    <div id="keyTestResults" style="display:flex;flex-direction:column;gap:4px"></div>
+    <button id="keyTestBtn" onclick="testAllKeys()" style="margin-top:6px;width:100%;padding:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;color:var(--tx2);font-family:'Outfit',sans-serif;font-size:11.5px;cursor:pointer;transition:all .15s">Test API Keys</button>
+  </div>
+  <div class="hr"></div>
+
+  <div class="fg">
+    <label>Drug / Device Name</label>
+    <input type="text" id="drugName" placeholder="e.g., Oxbryta, Philips CPAP, Zantac">
+    <div class="note">Only required field. Everything else auto-researched via web search.</div>
+  </div>
+  <div class="fg">
+    <label>Medical Condition <span class="tag">auto</span></label>
+    <input type="text" id="condition" placeholder="Auto-discovered from research">
+  </div>
+  <div class="fg">
+    <label>Lit Type <span class="tag">optional</span></label>
+    <select id="litType"><option value="pharmaceutical">Pharmaceutical</option><option value="medical_device">Medical Device</option><option value="mass_tort">Mass Tort / MDL</option><option value="product_liability">Product Liability</option></select>
+  </div>
+  <div class="fg">
+    <label>Alleged Injuries <span class="tag">auto</span></label>
+    <textarea id="injuries" placeholder="Leave blank — discovered from FDA safety data, FAERS, litigation filings."></textarea>
+  </div>
+  <div class="fg">
+    <label>Extra Context <span class="tag">optional</span></label>
+    <textarea id="extra" placeholder="Anything else to incorporate..."></textarea>
+  </div>
+  <div class="fg">
+    <label>Custom Instructions <span class="tag">optional</span></label>
+    <textarea id="customInstr" placeholder="e.g., Focus heavily on the VOC controversy and mechanism of action dispute. Our cases involve pediatric patients ages 4-12 so emphasize that population. Include ICD-10 codes for every injury. Be extra thorough on confounders because defense will argue pre-existing conditions." style="min-height:90px"></textarea>
+    <div class="note">Shapes both research and writing. Tell it what to emphasize, what your case theory is, what the defense argues, what your reviewers struggle with, tone preferences, etc.</div>
+  </div>
+
+  <div class="hr"></div>
+
+  <div class="fg">
+    <label>Generation Model</label>
+    <div class="model-row" id="modelRow">
+      <div class="model-opt sel" onclick="selModel(this,'claude-opus-4-20250514')"><strong>Opus</strong>Most thorough</div>
+      <div class="model-opt" onclick="selModel(this,'claude-sonnet-4-20250514')"><strong>Sonnet</strong>Faster, cheaper</div>
+    </div>
+    <div class="note">Opus is recommended — more exhaustive, fewer omissions. Research always uses Sonnet for speed.</div>
+  </div>
+
+  <div class="fg">
+    <label>Rate Limit Controls</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div>
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:3px">Stagger delay (sec)</div>
+        <input type="number" id="staggerDelay" value="15" min="0" max="120" style="text-align:center">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:3px">Max parallel calls</div>
+        <input type="number" id="maxConc" value="2" min="1" max="10" style="text-align:center">
+      </div>
+    </div>
+    <div class="note">Stagger = seconds between launching parallel research calls. Lower = faster but more rate limits. With 3 keys, try 10-15s stagger / 2 parallel. Auto-retries on 429 with exponential backoff.</div>
+  </div>
+
+  <div class="hr"></div>
+
+  <div class="sec-head">
+    <label style="margin:0">Sections</label>
+    <div class="sec-acts"><button onclick="togAll(true)">All</button><button onclick="togAll(false)">None</button></div>
+  </div>
+  <div class="sec-grid" id="secGrid"></div>
+</div>
+
+<div class="side-foot">
+  <button class="btn-go" id="btnGo" onclick="run()">Generate Review Guide</button>
+  <button class="btn-stop" id="btnStop" style="display:none" onclick="stop()">Stop</button>
+  <div class="prog" id="prog" style="display:none"></div>
+  <div class="pfoot" id="pfoot"></div>
+</div>
+</div>
+
+<div class="main" id="mainPanel">
+<div class="empty" id="emptyState">
+  <div class="ei">§</div>
+  <h2>Litigation Review Guide Builder</h2>
+  <p>Type a drug name. Add API keys. Hit generate. The tool runs five parallel research sweeps, analyzes gaps, writes with Opus, then verifies every claim against the research.</p>
+  <div class="feats">
+    <div class="feat"><strong>5 Parallel Research Passes</strong><span>Drug/regulatory, disease, types/labs, mechanism/adverse events, confounders/treatment — each with 20 web searches.</span></div>
+    <div class="feat"><strong>Gap Analysis + Follow-Up</strong><span>After research, AI identifies missing data and runs targeted follow-up searches to fill holes.</span></div>
+    <div class="feat"><strong>Opus Generation in Batches</strong><span>Guide written in 3 focused batches so no section gets truncated. Full depth on every topic.</span></div>
+    <div class="feat"><strong>Verification Audit</strong><span>Final pass cross-checks the guide against research notes. Flags unsourced claims and potential inaccuracies.</span></div>
+  </div>
+</div>
+
+<div id="outWrap" class="out-wrap" style="display:none">
+  <div class="toolbar" id="toolbar">
+    <button onclick="copyHTML()">📋 Copy</button>
+    <button onclick="printGuide()">🖨 Print</button>
+    <button onclick="dlHTML()">💾 .html</button>
+    <button onclick="dlMD()">📄 .md</button>
+    <div class="wc" id="wc"></div>
+  </div>
+
+  <details class="rp" id="rpanel" style="display:none">
+    <summary>📚 Research Notes — <span id="rcount"></span></summary>
+    <div class="rp-body" id="rpBody"></div>
+  </details>
+
+  <details class="vp" id="vpanel" style="display:none">
+    <summary>✓ Verification Audit</summary>
+    <div class="vp-body" id="vpBody"></div>
+  </details>
+
+  <div class="guide" id="guide">
+    <div class="guide-head" id="gHead"></div>
+    <div class="toc" id="toc" style="display:none"><h3>Table of Contents</h3><ol id="tocList"></ol></div>
+    <div id="gBody"></div>
+  </div>
+</div>
+
+<!-- Refinement bar (sticky to bottom of main panel) -->
+<div class="refine-bar" id="refineBar">
+  <div class="refine-inner">
+    <div class="refine-label">
+      Refine Output
+      <select id="refineScope">
+        <option value="full">Entire Guide</option>
+      </select>
+    </div>
+    <div class="refine-row">
+      <textarea id="refineInput" placeholder="e.g., Expand the confounders section with more detail on cardiac conditions. Add ICD-10 codes to every injury. Make the mechanism of action section more accessible for non-clinical reviewers." rows="2"></textarea>
+      <button class="refine-send" id="refineBtn" onclick="refine()">Refine</button>
+    </div>
+    <div class="refine-history" id="refineHistory"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+/* ═══════════ CONSTANTS ═══════════ */
+const SEC=[
+  {id:'drug_overview',l:'Drug/Device Overview'},
+  {id:'regulatory_timeline',l:'Regulatory Timeline'},
+  {id:'disease_background',l:'Disease Background'},
+  {id:'pathophysiology',l:'Pathophysiology'},
+  {id:'types_classifications',l:'Types & Classifications'},
+  {id:'anatomy_physiology',l:'Anatomy & Physiology'},
+  {id:'normal_lab_values',l:'Normal vs Disease Lab Values'},
+  {id:'symptoms_complications',l:'Symptoms & Complications'},
+  {id:'mechanism_of_action',l:'Mechanism of Action'},
+  {id:'dosing',l:'Dosing Information'},
+  {id:'injuries_adverse',l:'Injuries / Adverse Events'},
+  {id:'confounders',l:'Confounders & Differentials'},
+  {id:'triggers_risk',l:'Triggers & Risk Factors'},
+  {id:'diagnostic_tests',l:'Diagnostic Tests'},
+  {id:'treatment_standard',l:'Treatments & Standard of Care'},
+  {id:'specialists',l:'Specialists Involved'},
+  {id:'other_medications',l:'Other Medications'},
+  {id:'review_instructions',l:'Reviewer Instructions'},
+];
+
+const RP=[
+  {id:'drug_reg',l:'Drug Identity & Regulatory History',q:`
+1. DRUG IDENTITY: Full generic/brand names, ALL manufacturers past+present, corporate acquisition history (who developed, who acquired, who markets now), drug class, all formulations, route of administration.
+2. REGULATORY HISTORY: Exact FDA approval date, pathway (accelerated/standard/breakthrough/fast track), EVERY subsequent expansion with exact dates+populations, FDA safety communications (search "[DRUG] FDA safety communication"), boxed warnings, REMS. If withdrawn: exact date, EXACT FDA language and manufacturer statement (search "[DRUG] FDA withdrawal announcement" and "[DRUG] voluntary market withdrawal"). Post-marketing study commitments and results.
+3. KEY CLINICAL TRIALS: Pivotal trial names/identifiers. Post-marketing trial names. For each: design, primary endpoints, enrollment, key efficacy results, adverse event rates, DEATH RATES treatment vs placebo (search "[DRUG] clinical trial results" and "[DRUG] phase 3 data" and "[DRUG] post-marketing study results").
+4. LITIGATION: Search "[DRUG] litigation," "[DRUG] MDL," "[DRUG] lawsuit filed," "[DRUG] bellwether." Plaintiff allegations, legal theory, MDL status/number, case count, key rulings, settlement info.`},
+
+  {id:'disease_path',l:'Disease Background & Pathophysiology',q:`
+5. THE CONDITION: Complete medical definition. Etiology (inherited/acquired, specific genetic mutations involved). Diagnosis methods (newborn screening programs, hemoglobin electrophoresis, genetic testing, clinical criteria). Prevalence worldwide and US. Demographics. Prognosis and life expectancy with and without treatment.
+6. PATHOPHYSIOLOGY: Step-by-step molecular/cellular mechanism. The specific protein/gene defect. How normal physiology works (oxygen binding, transport, release). How the defect disrupts this. The full cascade: molecular defect → cell-level changes → vascular events → tissue/organ damage → clinical symptoms. How pathophysiology connects to EACH major complication.
+7. SYMPTOMS & COMPLICATIONS — EXHAUSTIVE: Every complication in CHILDREN with age of onset. Every complication in ADULTS including chronic progressive damage. Every emergency/life-threatening complication. For EACH: full name, ALL synonyms/alternate names used in medical records, clinical presentation, severity spectrum, mortality risk. Search "[CONDITION] complications comprehensive list" and "[CONDITION] pediatric complications" and "[CONDITION] adult complications."`},
+
+  {id:'types_labs',l:'Types, Anatomy & Lab Values',q:`
+8. ALL TYPES & SUBTYPES: Every recognized subtype with genetic basis, severity, distinguishing features. ALL related but distinct conditions. Genetic/molecular markers defining each type. Search "[CONDITION] types" and "[CONDITION] subtypes classification" and related hemoglobinopathies/conditions.
+9. ANATOMY & NORMAL PHYSIOLOGY: Normal function of all involved body systems, cells, organs, proteins, molecules. Normal cell lifespan vs disease. Key proteins with definitions. Normal hemoglobin values by age/sex.
+10. LAB VALUES — COMPREHENSIVE: Normal range for EVERY relevant lab AND disease-state range AND clinical significance. Search "[CONDITION] lab values" and "[CONDITION] normal labs." Include: Hemoglobin (by age/sex/gender), Hematocrit, WBC (total and differential), Platelets, Reticulocyte Count (absolute and percentage), Bilirubin (total, direct, indirect), LDH, Haptoglobin, Ferritin, Iron/TIBC, CRP, ESR, D-dimer, Fibrinogen, Creatinine, BUN, eGFR, Liver enzymes (AST/ALT/ALP), Albumin.`},
+
+  {id:'moa_adverse',l:'Mechanism of Action & Adverse Events',q:`
+11. MECHANISM OF ACTION — DETAILED: How the drug works at the molecular level. Specific target (receptor/enzyme/protein/pathway). Intended therapeutic effect. CRITICAL SEARCH: "[DRUG] mechanism of action controversy" and "[DRUG] oxygen affinity" (or equivalent for the drug's specific mechanism). Any evidence the mechanism paradoxically contributes to harm. The scientific debate. Search for published papers criticizing the mechanism.
+12. DOSING: Standard adult dose, frequency, route. Pediatric dose by age AND weight ranges. All formulations (tablets, suspension, etc). Dose adjustments. Max dose. Search "[DRUG] prescribing information dosing."
+13. ALL ADVERSE EVENTS: Clinical trial AEs with rates. Post-marketing AEs. FAERS reports. Real-world evidence. Search "[DRUG] adverse events," "[DRUG] side effects rates," "[DRUG] FAERS data." Specific safety signals leading to regulatory action. Death data: exact numbers, treatment vs placebo, in each study. Vaso-occlusive crisis rates or equivalent primary safety signal.`},
+
+  {id:'conf_treat',l:'Confounders, Triggers & Treatments',q:`
+14. CONFOUNDERS — EVERY SINGLE ONE:
+  - Cardiovascular: CAD, CHF (diastolic HFpEF/systolic HFrEF), left-sided HF, right-sided HF, biventricular HF, arrhythmias, valve disease, congenital heart defects, peripheral artery disease, pericardial disease (pericarditis, effusion, tamponade, constrictive), cardiomyopathy, rheumatic heart disease
+  - Hypertension / hypertensive heart disease, pulmonary hypertension
+  - Pulmonary: ARDS, PE, pneumonia, ACS
+  - Infections: Parvovirus B19 (→aplastic crisis), Streptococcus pneumoniae, Haemophilus influenzae type B, RSV, meningitis organisms, pneumonia organisms (→ACS)
+  - Metabolic: Diabetes Type I, Type II, Obesity (note: BMI documentation required)
+  - Renal disease/chronic kidney disease
+  - Environmental: altitude sickness, cold exposure, dehydration
+  - Lifestyle: smoking, alcohol abuse (must be physician-diagnosed)
+  - Pregnancy
+  - Systemic steroids: Hydrocortisone, Aldosterone, Cortisone, Prednisone, Prednisolone, Methylprednisolone, Dexamethasone, Triamcinolone
+15. TRIGGERS: ALL triggers for disease crises. Phases of acute crisis (day-by-day timeline, symptoms, physiology each phase). Secondary/cyclical crises.
+16. ALL TREATMENTS: Every medication (generic/brand, class, mechanism, dosing). Blood transfusions (simple vs exchange, risks including hyperhemolysis). Stem cell transplant (who qualifies, risks). Gene therapy (gene addition, gene editing/CRISPR — FDA status, age requirements). Supportive care. Home management. Prevention. Standard of care. Search "[CONDITION] treatment guidelines" and "[CONDITION] gene therapy FDA approved."
+17. SPECIALISTS: Every type of physician involved and their role.`}
+];
+
+const GG=[
+  {id:'A',l:'Background & Disease',secs:['drug_overview','regulatory_timeline','disease_background','pathophysiology','types_classifications','anatomy_physiology']},
+  {id:'B',l:'Clinical & Injuries',secs:['normal_lab_values','symptoms_complications','mechanism_of_action','dosing','injuries_adverse']},
+  {id:'C',l:'Confounders, Treatment & Review',secs:['confounders','triggers_risk','diagnostic_tests','treatment_standard','specialists','other_medications','review_instructions']}
+];
+
+let ac=null,allRes={},secMD={},allMD='',genModel='claude-opus-4-20250514';
+
+/* ═══════ KEYS (server-side via Netlify env vars) ═══════ */
+let serverKeyCount=0;
+let keyTestResults={}; // {1:'pass', 2:'fail', 3:'pass'}
+
+async function checkServerKeys(){
+  const panel=document.getElementById('keyTestResults');
+  const testBtn=document.getElementById('keyTestBtn');
+  try{
+    const r=await fetch('/api/anthropic');
+    const data=await r.json();
+    serverKeyCount=data.keys||0;
+
+    if(serverKeyCount===0){
+      panel.innerHTML='<div class="kt-row fail"><div class="kt-dot fail"></div><span class="kt-label">No keys configured</span><span class="kt-detail">Add ANTHROPIC_KEY_1 to Netlify env vars</span></div>';
+      testBtn.style.display='none';
+      return;
+    }
+
+    // Show pending state for each key
+    panel.innerHTML='';
+    for(let i=1;i<=serverKeyCount;i++){
+      panel.innerHTML+='<div class="kt-row" id="kt-'+i+'"><div class="kt-dot pending"></div><span class="kt-label">Key '+i+'</span><span class="kt-detail" id="ktd-'+i+'">Not tested</span></div>';
+    }
+
+    // Auto-test on load
+    testAllKeys();
+  }catch(e){
+    panel.innerHTML='<div class="kt-row fail"><div class="kt-dot fail"></div><span class="kt-label">Cannot reach server</span><span class="kt-detail">Deploy to Netlify first</span></div>';
+    testBtn.style.display='none';
+  }
+}
+
+async function testAllKeys(){
+  const btn=document.getElementById('keyTestBtn');
+  btn.disabled=true;btn.textContent='Testing...';
+  keyTestResults={};
+
+  for(let i=1;i<=serverKeyCount;i++){
+    const row=document.getElementById('kt-'+i);
+    const dot=row.querySelector('.kt-dot');
+    const detail=document.getElementById('ktd-'+i);
+    row.className='kt-row';
+    dot.className='kt-dot testing';
+    detail.textContent='Testing...';
+
+    const t0=Date.now();
+    try{
+      const headers={'Content-Type':'application/json','x-key-index':String(i)};
+
+      const r=await fetch('/api/anthropic',{
+        method:'POST',
+        headers,
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:10,
+          messages:[{role:'user',content:'Reply with OK'}]
+        })
+      });
+
+      const ms=Date.now()-t0;
+
+      if(r.status===429||r.status===529){
+        // Rate limited means the key IS valid, just busy
+        row.className='kt-row pass';dot.className='kt-dot pass';
+        detail.textContent='✓ Valid (rate limited — '+ms+'ms)';
+        keyTestResults[i]='pass';
+      }else if(r.ok){
+        row.className='kt-row pass';dot.className='kt-dot pass';
+        detail.textContent='✓ Working — '+ms+'ms';
+        keyTestResults[i]='pass';
+      }else{
+        const err=await r.json().catch(()=>({}));
+        const msg=err.error?.message||err.error||'HTTP '+r.status;
+        // Check if it's an auth error from Anthropic (invalid key)
+        if(r.status===401||msg.toLowerCase().includes('invalid')||msg.toLowerCase().includes('key')){
+          row.className='kt-row fail';dot.className='kt-dot fail';
+          detail.textContent='Invalid key';
+          keyTestResults[i]='fail';
+        }else{
+          row.className='kt-row fail';dot.className='kt-dot fail';
+          detail.textContent=msg.substring(0,40);
+          keyTestResults[i]='fail';
+        }
+      }
+    }catch(e){
+      row.className='kt-row fail';dot.className='kt-dot fail';
+      detail.textContent=e.message.substring(0,30);
+      keyTestResults[i]='fail';
+    }
+
+    // Small delay between tests to not slam the proxy
+    if(i<serverKeyCount)await new Promise(r=>setTimeout(r,1500));
+  }
+
+  const passing=Object.values(keyTestResults).filter(v=>v==='pass').length;
+  btn.disabled=false;
+  btn.textContent=passing+'/'+serverKeyCount+' keys working — Retest';
+  btn.style.borderColor=passing===serverKeyCount?'rgba(86,196,144,.3)':'var(--rdbd)';
+  btn.style.color=passing===serverKeyCount?'var(--gn)':'var(--rd)';
+}
+
+function getKeys(){
+  // Return only passing key indices
+  const arr=[];
+  for(let i=1;i<=serverKeyCount;i++){
+    if(keyTestResults[i]==='pass')arr.push(i);
+  }
+  // Fallback: if no tests run yet, return all configured
+  if(!arr.length)for(let i=1;i<=serverKeyCount;i++)arr.push(i);
+  return arr;
+}
+function updateKeyStatus(states){
+  // Update the dot indicators on the test rows during generation
+  states.forEach((s,idx)=>{
+    const row=document.getElementById('kt-'+(idx+1));
+    if(!row)return;
+    const dot=row.querySelector('.kt-dot');
+    if(s==='active'){dot.className='kt-dot testing'}
+    else if(s==='used'){dot.className='kt-dot pass'}
+    else if(s==='ready'){dot.className='kt-dot pass'}
+  });
+}
+
+/* ═══════ MODEL ═══════ */
+function selModel(el,m){
+  genModel=m;
+  document.querySelectorAll('.model-opt').forEach(e=>e.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+/* ═══════ SECTIONS ═══════ */
+function initSec(){
+  document.getElementById('secGrid').innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}"><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">✓</span>${s.l}</label>`).join('');
+}
+function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checked=v;c.parentElement.classList.toggle('on',v);c.parentElement.querySelector('.ck').textContent=v?'✓':''})}
+function getSecs(){return Array.from(document.querySelectorAll('.stog input:checked')).map(c=>c.parentElement.dataset.id)}
+
+/* ═══════ API WITH RETRY (via Netlify proxy) ═══════ */
+const MAX_RETRIES=6;
+const BASE_DELAY=15000;
+let callLog=[];
+
+function sleep(ms,signal){
+  return new Promise((res,rej)=>{
+    const timer=setTimeout(res,ms);
+    if(signal)signal.addEventListener('abort',()=>{clearTimeout(timer);rej(new DOMException('Aborted','AbortError'))},{once:true});
+  });
+}
+
+async function callApi(keyIndex,msgs,sys,opts={}){
+  // keyIndex is now a number (1,2,3...) not an API key string
+  const body={model:opts.model||'claude-sonnet-4-20250514',max_tokens:opts.maxTok||16000,system:sys,messages:msgs};
+  if(opts.stream)body.stream=true;
+  if(opts.tools)body.tools=opts.tools;
+
+  const headers={'Content-Type':'application/json','x-key-index':String(keyIndex)};
+
+  for(let attempt=0;attempt<=MAX_RETRIES;attempt++){
+    try{
+      const r=await fetch('/api/anthropic',{
+        method:'POST',headers,body:JSON.stringify(body),signal:opts.signal
+      });
+
+      // Rate limited — retry with backoff
+      if(r.status===429||r.status===529){
+        if(attempt===MAX_RETRIES)throw new Error('Rate limited after '+MAX_RETRIES+' retries');
+        const retryAfter=r.headers.get('retry-after');
+        let wait=retryAfter?parseInt(retryAfter)*1000:BASE_DELAY*Math.pow(1.8,attempt);
+        wait=Math.min(wait,120000);
+        if(opts.onRetry)opts.onRetry('Rate limited — retry in '+(wait/1000|0)+'s (attempt '+(attempt+2)+'/'+MAX_RETRIES+')');
+        await sleep(wait,opts.signal);
+        continue;
+      }
+
+      // Server errors — retry
+      if(r.status===502||r.status===503||r.status===500){
+        if(attempt===MAX_RETRIES)throw new Error('Server error after '+MAX_RETRIES+' retries');
+        const wait=BASE_DELAY*Math.pow(1.5,attempt);
+        if(opts.onRetry)opts.onRetry('Server busy — retry in '+(wait/1000|0)+'s');
+        await sleep(Math.min(wait,90000),opts.signal);
+        continue;
+      }
+
+      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||e.error||'API '+r.status)}
+      callLog.push({key:keyIndex,time:Date.now()});
+      return r;
+    }catch(e){
+      if(e.name==='AbortError')throw e;
+      if(attempt===MAX_RETRIES)throw e;
+      if(e.message.includes('fetch')||e.message.includes('network')||e.message.includes('Failed')){
+        await sleep(BASE_DELAY*Math.pow(1.5,attempt),opts.signal);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+/* ═══════ PROGRESS ═══════ */
+function initProg(steps){
+  const el=document.getElementById('prog');el.style.display='flex';
+  el.innerHTML=steps.map((s,i)=>`<div class="ps" id="ps${i}"><div class="pi">${i<10?i+1:'✓'}</div><div class="pinfo"><div class="pl">${s.l}</div><div class="pd" id="pd${i}">${s.d||'Queued'}</div></div></div>`).join('');
+}
+function setP(i,cls,d){const el=document.getElementById('ps'+i);if(!el)return;el.className='ps '+cls;if(d)document.getElementById('pd'+i).textContent=d}
+
+/* ═══════ RESEARCH (parallel with key rotation) ═══════ */
+function buildResSys(drug,cond,inj,extra,pass){
+  const ci=document.getElementById('customInstr').value.trim();
+  return `You are a medical-legal research specialist. Use web search AGGRESSIVELY — make 15-20+ targeted searches to be exhaustive on every topic below. Each sub-topic deserves its own search query.
+
+DRUG: ${drug}
+${cond?'CONDITION: '+cond:'CONDITION: Discover from research.'}
+${inj?'KNOWN INJURIES: '+inj:'INJURIES: Discover from FDA safety data, FAERS, litigation filings.'}
+${extra?'CONTEXT: '+extra:''}
+${ci?'\nCUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nThese instructions should guide your research priorities and depth. If the team emphasizes certain topics, spend extra search effort on those areas.\n':''}
+YOUR RESEARCH FOCUS:
+${pass.q}
+
+RULES:
+- Replace [DRUG] and [CONDITION] with actual names in searches.
+- Include SPECIFIC facts, dates, numbers, percentages, study names, exact figures.
+- When information conflicts, include both with sources.
+- Be thorough but focused. Prioritize litigation-relevant facts over general medical background.
+- 1,500-3,000 words of structured research notes.`;
+}
+
+async function doResearch(keys,drug,cond,inj,extra,sig){
+  const results={};
+  const nKeys=keys.length;
+  const states=keys.map(()=>'ready');
+  updateKeyStatus(states);
+
+  const stagger=parseInt(document.getElementById('staggerDelay').value)||15;
+  const maxConc=parseInt(document.getElementById('maxConc').value)||nKeys;
+  const concurrency=Math.min(maxConc,nKeys,RP.length);
+
+  // Key-level rate tracking: ensure each key waits between calls
+  const keyLastCall=keys.map(()=>0);
+  const keyMinGap=12000; // 12s min between calls on same key
+
+  let nextPass=0;
+  const lock={acquiring:false,queue:[]};
+
+  // Simple mutex to prevent race on nextPass
+  async function acquirePass(){
+    while(lock.acquiring)await new Promise(r=>lock.queue.push(r));
+    lock.acquiring=true;
+    const pi=nextPass<RP.length?nextPass++:-1;
+    lock.acquiring=false;
+    if(lock.queue.length)lock.queue.shift()();
+    return pi;
+  }
+
+  async function runWorker(workerIdx){
+    const keyIdx=workerIdx%nKeys;
+    const key=keys[keyIdx];
+
+    // Stagger launch: each worker waits (workerIdx * stagger) seconds before starting
+    if(workerIdx>0){
+      setP(0,'par','Staggering launches ('+stagger+'s between)...');
+      await sleep(workerIdx*stagger*1000,sig);
+    }
+
+    while(true){
+      const pi=await acquirePass();
+      if(pi<0)break;
+
+      const pass=RP[pi];
+      states[keyIdx]='active';updateKeyStatus(states);
+
+      // Enforce min gap per key
+      const sinceLastCall=Date.now()-keyLastCall[keyIdx];
+      if(sinceLastCall<keyMinGap){
+        const gap=keyMinGap-sinceLastCall;
+        setP(pi,'par','Key '+(keyIdx+1)+' cooling ('+Math.ceil(gap/1000)+'s)...');
+        await sleep(gap,sig);
+      }
+
+      setP(pi,'par','Searching — Key '+(keyIdx+1)+(nKeys>1?' of '+nKeys:'')+'...');
+      const t0=Date.now();
+      try{
+        const sys=buildResSys(drug,cond,inj,extra,pass);
+        const r=await callApi(key,[{role:'user',content:'Research now. Use web search for every topic. Be exhaustive. Output structured notes.'}],sys,{
+          tools:[{type:'web_search_20250305',name:'web_search',max_uses:15}],maxTok:8000,signal:sig,
+          onRetry:(msg)=>setP(pi,'par',msg)
+        });
+        keyLastCall[keyIdx]=Date.now();
+        const data=await r.json();
+        let txt='';if(data.content)for(const b of data.content)if(b.type==='text')txt+=b.text+'\n\n';
+        results[pass.id]=txt.trim();
+        setP(pi,'done',((Date.now()-t0)/1000|0)+'s — '+results[pass.id].length.toLocaleString()+' chars');
+      }catch(e){
+        if(e.name==='AbortError')throw e;
+        setP(pi,'err',e.message);results[pass.id]='[Failed: '+e.message+']';
+      }
+      states[keyIdx]='used';updateKeyStatus(states);
+    }
+  }
+
+  const workers=[];
+  for(let i=0;i<concurrency;i++)workers.push(runWorker(i));
+  await Promise.all(workers);
+  return results;
+}
+
+/* ═══════ GAP ANALYSIS ═══════ */
+async function gapAnalysis(key,drug,research,sig){
+  const allText=Object.values(research).join('\n\n');
+  const sys=`You are a medical-legal research auditor. Review the research notes below and identify SPECIFIC gaps — data that is missing or incomplete that would be needed for a comprehensive litigation review guide.
+
+RESEARCH NOTES:
+${allText.substring(0,60000)}
+
+Look for:
+- Missing specific dates (FDA approval, withdrawal, trial dates)
+- Missing lab values or normal ranges
+- Incomplete confounder lists
+- Missing clinical trial names or death rate data
+- Missing mechanism of action details or controversy
+- Missing dosing information
+- Missing complication names or synonyms
+- Any category that seems thin
+
+For each gap, provide a SPECIFIC web search query that would fill it. Format:
+GAP: [what's missing]
+SEARCH: [exact search query]
+
+List 5-15 gaps. Be specific — not "more info needed" but exactly what fact is missing.`;
+
+  const r=await callApi(key,[{role:'user',content:'Analyze now. List specific gaps with search queries.'}],sys,{maxTok:4000,signal:sig,
+    onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
+  });
+  const data=await r.json();
+  let gaps='';if(data.content)for(const b of data.content)if(b.type==='text')gaps+=b.text;
+
+  // Extract search queries and run them
+  const searches=[];
+  const lines=gaps.split('\n');
+  for(const line of lines){
+    const m=line.match(/SEARCH:\s*(.+)/i);
+    if(m)searches.push(m[1].trim());
+  }
+
+  if(!searches.length)return{gaps,followUp:''};
+
+  // Run follow-up searches
+  const searchList=searches.slice(0,12).map((q,i)=>(i+1)+'. '+q).join('\n');
+  const sys2=`You are a medical-legal researcher. Run each of these searches and compile the findings. Be thorough — include specific facts, dates, numbers.
+
+DRUG: ${drug}
+SEARCHES TO RUN:
+${searchList}
+
+For each search, write the key findings. Include all specific data points found.`;
+
+  const r2=await callApi(key,[{role:'user',content:'Run all searches now and compile findings.'}],sys2,{
+    tools:[{type:'web_search_20250305',name:'web_search',max_uses:15}],maxTok:12000,signal:sig,
+    onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
+  });
+  const data2=await r2.json();
+  let followUp='';if(data2.content)for(const b of data2.content)if(b.type==='text')followUp+=b.text+'\n';
+
+  return{gaps,followUp:followUp.trim()};
+}
+
+/* ═══════ GENERATION ═══════ */
+// Section prompt map (abbreviated keys for space - full instructions embedded)
+const SP={
+drug_overview:`# Drug/Device Overview\nBrand/generic names, manufacturer(s) + corporate history, drug class, approved indications (populations + age ranges), formulations, route. 2-3 sentence summary of why litigation exists.`,
+regulatory_timeline:`# Regulatory & Market Timeline\nTimeline table or bullet list: FDA approval date + pathway, each expansion with dates, safety communications, withdrawal date + exact stated reason. Key clinical trial identifiers. Keep to facts and dates — no editorializing.`,
+disease_background:`# Disease Background\nConcise definition, inheritance/etiology, how diagnosed (name key tests), prevalence, prognosis. 1-2 sentences on what gap the drug was designed to fill. Skip general medical education — only what a reviewer needs for context.`,
+pathophysiology:`# Pathophysiology\nBrief explanation of the disease mechanism: what goes wrong at the molecular level, how it causes symptoms. Focus on the pathway that connects to the drug's mechanism and the alleged injuries. 1-2 short paragraphs, not a textbook chapter.`,
+types_classifications:`# Types & Classifications\nBullet list of all types/subtypes: name, genetic basis, severity (one line each). Separately note related but distinct conditions. Flag which types the drug was indicated for.`,
+anatomy_physiology:`# Relevant Anatomy & Physiology\nBrief: normal cell/protein function, normal lifespan vs disease, normal lab ranges vs disease. Only what's needed to understand the mechanism and injuries. Combine with lab values section if both are selected.`,
+normal_lab_values:`# Lab Values Reference\nTABLE format: Lab Test | Normal Range | Disease Range | Litigation Relevance. Include only labs a reviewer will actually encounter and need to interpret. Flag which values to track longitudinally (before/during/after drug).`,
+symptoms_complications:`# Symptoms & Complications\nBullet list format. Split: Children (with onset ages) | Adults (including chronic) | Emergencies. For each: name + all synonyms/alternate chart terms + one-line description. Prioritize complications relevant to the alleged injuries.`,
+mechanism_of_action:`# Mechanism of Action\nHow the drug works (2-3 sentences). What it targets. The intended effect. Then THE CONTROVERSY: how the mechanism may paradoxically contribute to harm. This is often the core litigation theory — explain it clearly enough that a non-clinician can articulate it. Connect to alleged injuries.`,
+dosing:`# Dosing\nAdult dose. Pediatric dose TABLE (by age + weight). Formulations. Max dose. Keep it tight — a reference table, not prose.`,
+injuries_adverse:`# Injuries & Adverse Events\nFor EACH alleged injury, use this compact format:\n**Injury Name** (aka: synonym1, synonym2, synonym3)\nDefinition in one sentence. How it presents. Causal theory: how drug causes/worsens this (1-2 sentences). How to distinguish drug-induced from pre-existing disease progression.`,
+confounders:`# Confounders\nChecklist format — one line per confounder:\n**Confounder Name** — why it matters, what to look for in the chart\nGroup by: Cardiovascular, Pulmonary, Infections (name each pathogen + what it triggers), Metabolic, Renal, Environmental, Lifestyle (alcohol=must be MD-diagnosed), Pregnancy, Systemic Steroids (list each by name), Genetic.\nNote: Document BMI at drug start date.`,
+triggers_risk:`# Triggers & Risk Factors\nBullet list of all triggers (one line each). If the disease has defined crisis phases, describe each phase briefly (duration + key features). Note secondary/cyclical crises.`,
+diagnostic_tests:`# Diagnostic Tests\nBullet list: Test Name (abbreviation) — what it shows, when ordered, litigation relevance. Group by: screening, diagnostic, monitoring, emergency. Include pain scales (VAS/NRS) briefly. Flag which tests reviewers should specifically look for.`,
+treatment_standard:`# Treatment & Standard of Care\nCompact format for each treatment:\n**Drug/Procedure Name** — what it does, typical use, key distinction from litigated drug\nCover: other medications (disease-modifying, pain management, preventive), transfusions (simple vs exchange), transplant, gene therapy, home management. Focus on what reviewers will see in charts.`,
+specialists:`# Specialists\nBullet list: **Title** — what they manage (one line each).`,
+other_medications:`# Other Medications in Records\nBullet list grouped by purpose: disease-modifying, pain (non-opioid + opioid — name each), preventive, emergency. One line each: name + why patient takes it + litigation relevance.`,
+review_instructions:`# Reviewer Instructions & Red Flags\nAction-oriented checklist:\n- Key dates to capture\n- Lab values to track (before/during/after drug)\n- Red flags for drug-caused harm\n- How to distinguish drug AEs from natural disease course\n- Confounder documentation rules (BMI, alcohol, steroids)\n- Key terminology/synonyms to flag\n- Relevant ICD-10 codes`
+};
+
+function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
+  const secInstr=secIds.map(id=>SP[id]||('# '+SEC.find(x=>x.id===id)?.l)).join('\n\n');
+  const researchText=Object.values(research).join('\n\n---\n\n');
+  return `You are a senior medical-legal consultant and nurse educator writing a Litigation Review Guide for a law firm's medical records review team. Write with the authority and exhaustiveness of a nurse educator creating a training manual. Your audience is nurse reviewers and paralegals — define every medical term on first use.
+
+RESEARCH NOTES:
+<research>
+${researchText}
+</research>
+
+${followUp?'FOLLOW-UP RESEARCH (filling identified gaps):\n<followup>\n'+followUp+'\n</followup>':''}
+${extra?'USER CONTEXT: '+extra:''}
+${userInj?'USER-SPECIFIED INJURIES: '+userInj:''}
+
+DRUG: ${drug}
+${cond?'CONDITION: '+cond:'(From research)'}
+TYPE: ${litType.replace(/_/g,' ')}
+
+${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully. They reflect the legal team\'s priorities, case theory, and what their reviewers need most. Adjust emphasis, depth, and focus areas accordingly.\n':''})()}FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key terms first use. Bullets for lists. Tables for lab values/dosing. --- between major sections. "**Term**: Definition" pattern.
+
+DEPTH & LENGTH — CRITICAL CONSTRAINT:
+The ENTIRE guide across ALL sections must fit within approximately 6,000 words (≈12 printed pages). This means every section must be CONCISE and HIGH-SIGNAL. Follow these rules:
+- Lead with the most litigation-relevant information in each section. Cut anything a reviewer wouldn't actually need.
+- Use tight bullet points, not flowing paragraphs. One line per item, not three.
+- For lists (complications, confounders, medications): name + one-line description. Do not write a paragraph for each.
+- For lab values and dosing: use TABLES — they're denser than prose.
+- Combine related subsections where possible. Don't create a heading for two bullets.
+- Skip general medical education. Only include what a reviewer needs to connect a record entry to this litigation.
+- Define terms inline ("**VOC** (vaso-occlusive crisis) — blocked blood flow causing severe pain") not in separate definition blocks.
+- The Confounders section should be a checklist, not an encyclopedia. Name + why it matters + what to look for in the chart. One line each.
+- Reviewer Instructions should be a tight action-oriented checklist, not guidance paragraphs.
+
+YOU ARE WRITING FOR SECTIONS IN THIS BATCH. Aim for roughly 2,000 words per batch (3 batches = ~6,000 total). Be thorough but ruthlessly concise.
+
+SECTIONS TO WRITE NOW:
+${secInstr}
+
+Output ONLY Markdown. No preamble. No closing. Start with first # heading.`;
+}
+
+/* ═══════ VERIFICATION ═══════ */
+async function verify(key,drug,research,guide,sig){
+  const researchText=Object.values(research).join('\n\n').substring(0,40000);
+  const guideText=guide.substring(0,40000);
+  const sys=`You are a medical-legal accuracy auditor. Cross-check the generated litigation review guide against the research notes it was derived from.
+
+RESEARCH NOTES:
+${researchText}
+
+GENERATED GUIDE:
+${guideText}
+
+AUDIT TASKS:
+1. UNSOURCED CLAIMS: Identify any specific factual claims in the guide (dates, numbers, drug names, dosing, clinical trial results) that do NOT appear in the research notes. These could be hallucinations. List each with the exact claim.
+2. MISSING FROM GUIDE: Identify important facts from the research notes that were NOT included in the guide but should have been.
+3. POTENTIAL INACCURACIES: Flag anything that seems wrong — wrong dates, wrong dosing, wrong mechanism description, incorrect lab values.
+4. COMPLETENESS CHECK: Are the confounder lists exhaustive? Are all drug synonyms listed? Are all complications included?
+
+Format your audit as:
+
+## Unsourced Claims (Potential Hallucinations)
+[list each, or "None identified"]
+
+## Important Research Data Missing from Guide  
+[list each]
+
+## Potential Inaccuracies
+[list each, or "None identified"]
+
+## Completeness Gaps
+[list each, or "All sections appear complete"]
+
+Be thorough but fair. Not every claim needs a direct citation — common medical knowledge is fine. Focus on specific factual assertions (dates, numbers, study results, drug names).`;
+
+  const r=await callApi(key,[{role:'user',content:'Conduct the accuracy audit now.'}],sys,{model:'claude-sonnet-4-20250514',maxTok:6000,signal:sig,
+    onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
+  });
+  const data=await r.json();
+  let txt='';if(data.content)for(const b of data.content)if(b.type==='text')txt+=b.text;
+  return txt;
+}
+
+/* ═══════ STREAM ═══════ */
+async function streamTo(resp,el,onChunk){
+  const reader=resp.body.getReader(),dec=new TextDecoder();
+  let buf='',md='',last=0;
+  while(true){
+    const{done,value}=await reader.read();if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n');buf=lines.pop()||'';
+    for(const ln of lines){
+      if(!ln.startsWith('data: '))continue;
+      const d=ln.slice(6).trim();if(d==='[DONE]')continue;
+      try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){md+=ev.delta.text;const now=Date.now();if(now-last>200){el.innerHTML=md2html(md);last=now;if(onChunk)onChunk(md)}}}catch(e){}
+    }
+  }
+  el.innerHTML=md2html(md);if(onChunk)onChunk(md);return md;
+}
+
+/* ═══════ MD→HTML ═══════ */
+function md2html(md){
+  let h=md;
+  h=h.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm,(m,hd,sp,bd)=>{
+    const ths=hd.split('|').filter(c=>c.trim()).map(c=>'<th>'+c.trim()+'</th>').join('');
+    const trs=bd.trim().split('\n').map(r=>'<tr>'+r.split('|').filter(c=>c.trim()).map(c=>'<td>'+c.trim()+'</td>').join('')+'</tr>').join('');
+    return'<table><thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table>';
+  });
+  h=h.replace(/^#### (.+)$/gm,'<h4>$1</h4>');
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  h=h.replace(/^---+$/gm,'<hr>');
+  h=h.replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h=h.replace(/(?<![*\\])\*([^*\n]+?)\*(?!\*)/g,'<em>$1</em>');
+  h=h.replace(/__(.+?)__/g,'<u>$1</u>');
+  h=h.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
+  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h=h.replace(/^(\s*)-\s+(.+)$/gm,'<li>$2</li>');
+  h=h.replace(/((?:<li>.*<\/li>\n?)+)/g,'<ul>$1</ul>');
+  return h.split('\n').map(l=>{const t=l.trim();if(!t)return'';if(/^<(h[1-4]|hr|table|thead|tbody|tr|th|td|ul|\/ul|li|blockquote|\/blockquote|\/t|p)/.test(t))return t;return'<p>'+t+'</p>'}).join('\n');
+}
+
+function countW(md){return md.split(/\s+/).filter(w=>w.length>0&&!/^[#*\-|>]$/.test(w)).length}
+function updWC(){document.getElementById('wc').textContent=countW(allMD).toLocaleString()+' words'}
+function buildTOC(){
+  const h1s=document.getElementById('gBody').querySelectorAll('h1');
+  if(!h1s.length){document.getElementById('toc').style.display='none';return}
+  const list=document.getElementById('tocList');list.innerHTML='';
+  h1s.forEach((h,i)=>{h.id='s'+i;const li=document.createElement('li');const a=document.createElement('a');a.href='#s'+i;a.textContent=h.textContent;li.appendChild(a);list.appendChild(li)});
+  document.getElementById('toc').style.display='block';
+}
+
+/* ═══════ SECTION REGEN ═══════ */
+async function regenSec(secId){
+  const keys=getKeys();if(!keys.length)return alert('No API keys configured on server.');
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const litType=document.getElementById('litType').value;
+  const inj=document.getElementById('injuries').value.trim();
+  const extra=document.getElementById('extra').value.trim();
+  const block=document.getElementById('sb-'+secId);if(!block)return;
+  block.classList.add('regen');
+  try{
+    const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,[secId]);
+    const resp=await callApi(keys[0],[{role:'user',content:'Rewrite this section. Be thorough but concise — aim for the density of a reference card, not a textbook. Output only Markdown.'}],sys,{stream:true,maxTok:3000,model:genModel});
+    const gc=block.querySelector('.gc');
+    const newMD=await streamTo(resp,gc);
+    secMD[secId]=newMD;allMD=Object.values(secMD).join('\n\n---\n\n');updWC();buildTOC();
+  }catch(e){alert('Failed: '+e.message)}
+  finally{block.classList.remove('regen')}
+}
+
+/* ═══════ MAIN ═══════ */
+async function run(){
+  const keys=getKeys();
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const litType=document.getElementById('litType').value;
+  const inj=document.getElementById('injuries').value.trim();
+  const extra=document.getElementById('extra').value.trim();
+  const secs=getSecs();
+
+  if(!keys.length)return alert('No API keys configured on the server. Add ANTHROPIC_KEY_1 to your Netlify environment variables.');
+  if(!drug)return alert('Enter a drug or device name.');
+  if(!secs.length)return alert('Select at least one section.');
+
+  const btn=document.getElementById('btnGo'),stopBtn=document.getElementById('btnStop');
+  btn.disabled=true;btn.textContent='Working...';stopBtn.style.display='block';
+
+  const activeGG=GG.map(g=>({...g,secs:g.secs.filter(s=>secs.includes(s))})).filter(g=>g.secs.length);
+  const steps=[
+    ...RP.map(p=>({l:'🔍 '+p.l,d:'Queued'})),
+    {l:'🔎 Gap Analysis + Follow-Up',d:'Queued'},
+    ...activeGG.map(g=>({l:'✍ Write: '+g.l,d:'Queued'})),
+    {l:'✓ Verification Audit',d:'Queued'}
+  ];
+  initProg(steps);
+
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('outWrap').style.display='block';
+  document.getElementById('rpanel').style.display='none';
+  document.getElementById('vpanel').style.display='none';
+
+  const gHead=document.getElementById('gHead');
+  const gBody=document.getElementById('gBody');
+  gHead.innerHTML='<h1>Litigation Review Guide: '+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
+  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+RP.length+' research passes across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(parseInt(document.getElementById('maxConc').value)||2)+' parallel, '+(parseInt(document.getElementById('staggerDelay').value)||15)+'s stagger). Auto-retries on rate limits with exponential backoff. This takes 3–8 minutes...</p></div>';
+  document.getElementById('toc').style.display='none';
+  document.getElementById('wc').textContent='';
+
+  allMD='';secMD={};allRes={};
+  ac=new AbortController();
+  const t0=Date.now();
+
+  try{
+    // ═══ PHASE 1: PARALLEL RESEARCH ═══
+    allRes=await doResearch(keys,drug,cond,inj,extra,ac.signal);
+
+    const rpBody=document.getElementById('rpBody');
+    rpBody.innerHTML=RP.map((p,i)=>`<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}</div></details>`).join('');
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    document.getElementById('rpanel').style.display='block';
+
+    // Update header if auto-discovered
+    if(!cond){
+      const all=Object.values(allRes).join(' ');
+      const m=all.match(/(?:treats?|indicated for|approved for|used (?:for|to treat)|treatment of)\s+([A-Z][^.;\n]{5,80})/i);
+      if(m){const f=m[1].trim().replace(/[.,]$/,'');document.getElementById('gMeta').innerHTML=f+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+    }
+
+    // ═══ PHASE 2: GAP ANALYSIS ═══
+    const gapIdx=RP.length;
+    setP(gapIdx,'run','Analyzing research gaps...');
+    let followUp='';
+    try{
+      const gapResult=await gapAnalysis(keys[keys.length>1?1:0],drug,allRes,ac.signal);
+      followUp=gapResult.followUp;
+      // Add gap follow-up to research panel
+      if(followUp){
+        rpBody.innerHTML+='<details class="rp-pass"><summary>Follow-Up Research (Gap Fills)</summary><div class="rp-pass-body">'+followUp+'</div></details>';
+        document.getElementById('rcount').textContent=(Object.values(allRes).join('').length+followUp.length).toLocaleString()+' chars';
+      }
+      setP(gapIdx,'done','Found '+(gapResult.gaps.match(/GAP:/gi)||[]).length+' gaps, ran follow-up searches');
+    }catch(e){
+      if(e.name==='AbortError')throw e;
+      setP(gapIdx,'err',e.message);
+    }
+
+    // Cooldown before generation phase
+    await sleep(10000,ac.signal);
+
+    // ═══ PHASE 3: GENERATION (batched, with inter-batch delays) ═══
+    gBody.innerHTML='';
+    const genBase=gapIdx+1;
+    const genDelay=15000; // 15s between gen batches to avoid rate limits
+
+    for(let gi=0;gi<activeGG.length;gi++){
+      const grp=activeGG[gi];
+      const genKey=keys[gi%keys.length]; // rotate keys across gen batches
+      setP(genBase+gi,'run','Writing with '+(genModel.includes('opus')?'Opus':'Sonnet')+' (Key '+(gi%keys.length+1)+')...');
+
+      // Delay between gen batches (not before first)
+      if(gi>0){
+        setP(genBase+gi,'run','Cooling down before next batch ('+Math.round(genDelay/1000)+'s)...');
+        await sleep(genDelay,ac.signal);
+        setP(genBase+gi,'run','Writing with '+(genModel.includes('opus')?'Opus':'Sonnet')+' (Key '+(gi%keys.length+1)+')...');
+      }
+
+      const groupDiv=document.createElement('div');groupDiv.className='sec-block';groupDiv.id='sb-grp-'+grp.id;
+      groupDiv.innerHTML='<div class="gc"></div>';
+      gBody.appendChild(groupDiv);
+
+      const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs);
+      const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. Be thorough but concise — this batch should be ~2,000 words. Use bullet points, tables, and one-line descriptions over paragraphs. Output only Markdown.'}],sys,{
+        stream:true,maxTok:5000,model:genModel,signal:ac.signal,
+        onRetry:(msg)=>setP(genBase+gi,'par',msg)
+      });
+
+      const gc=groupDiv.querySelector('.gc');
+      const grpMD=await streamTo(resp,gc,()=>updWC());
+      grp.secs.forEach(sid=>{secMD[sid]=grpMD});
+      allMD+='\n\n---\n\n'+grpMD;
+      setP(genBase+gi,'done','Complete');
+    }
+
+    updWC();buildTOC();
+
+    // ═══ PHASE 4: VERIFICATION (use a different key if available) ═══
+    const vIdx=genBase+activeGG.length;
+    setP(vIdx,'run','Cooling before verification...');
+    await sleep(10000,ac.signal); // 10s gap before verification
+    setP(vIdx,'run','Cross-checking guide against research...');
+    try{
+      const vKey=keys[(keys.length>1)?keys.length-1:0]; // use last key for verification
+      const audit=await verify(vKey,drug,allRes,allMD,ac.signal);
+      document.getElementById('vpBody').innerHTML=md2html(audit);
+      document.getElementById('vpanel').style.display='block';
+      const issues=(audit.match(/^- /gm)||[]).length;
+      setP(vIdx,'done',issues+' items flagged');
+    }catch(e){
+      if(e.name==='AbortError')throw e;
+      setP(vIdx,'err',e.message);
+    }
+
+    // Wrap sections with regen buttons
+    const h1s=gBody.querySelectorAll('h1');
+    h1s.forEach(h1=>{
+      const text=h1.textContent.trim().toLowerCase();
+      const match=SEC.find(s=>text.includes(s.l.toLowerCase().split(' ')[0]));
+      if(match){
+        // Find existing parent sec-block or wrap
+        const parent=h1.closest('.sec-block');
+        if(parent&&!parent.querySelector('.regen-btn')){
+          parent.id='sb-'+match.id;
+          const btn=document.createElement('button');
+          btn.className='regen-btn';btn.textContent='↻ Regenerate';
+          btn.onclick=()=>regenSec(match.id);
+          parent.prepend(btn);
+        }
+      }
+    });
+
+    const elapsed=((Date.now()-t0)/1000/60).toFixed(1);
+    document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
+
+    // Show refinement bar and populate scope dropdown
+    showRefineBar();
+
+  }catch(err){
+    if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Stopped';if(allMD)showRefineBar()}
+    else{document.getElementById('pfoot').textContent='Error: '+err.message;if(!allMD)gBody.innerHTML='<div class="gc"><p style="color:var(--rd)">'+err.message+'</p></div>';else showRefineBar()}
+  }finally{
+    btn.disabled=false;btn.textContent='Generate Review Guide';stopBtn.style.display='none';ac=null;
+  }
+}
+
+function stop(){if(ac)ac.abort()}
+
+/* ═══════ EXPORTS ═══════ */
+function copyHTML(){navigator.clipboard.writeText(document.getElementById('gBody').innerHTML).then(()=>alert('Copied.'))}
+function printGuide(){window.print()}
+function dlHTML(){
+  const drug=document.getElementById('drugName').value.trim()||'Guide';
+  const h=document.getElementById('gHead').innerHTML,c=document.getElementById('gBody').innerHTML;
+  const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Litigation Review Guide — ${drug}</title>
+<style>body{font-family:Georgia,'Times New Roman',serif;max-width:860px;margin:48px auto;padding:0 32px;color:#1a1a2e;line-height:1.75;font-size:15px}h1{font-size:26px;font-weight:bold;border-bottom:2px solid #1a2e6c;padding-bottom:10px;margin:40px 0 16px;page-break-after:avoid}h2{font-size:21px;color:#1a2e6c;margin:32px 0 12px;page-break-after:avoid}h3{font-size:17px;margin:24px 0 10px;page-break-after:avoid}h4{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:#444;margin:18px 0 8px}p{margin-bottom:10px}ul,ol{margin:8px 0 14px 24px}li{margin-bottom:5px}strong{color:#1a1a2e}u{text-underline-offset:3px}blockquote{border-left:3px solid #1a2e6c;padding:10px 18px;margin:14px 0;background:#f4f5fa;font-size:14px}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;page-break-inside:avoid}th{background:#e6e8f0;padding:9px 12px;text-align:left;font-weight:600;border-bottom:2px solid #bbb}td{padding:8px 12px;border-bottom:1px solid #ddd}hr{border:none;border-top:1px solid #ccc;margin:32px 0}code{font-family:monospace;font-size:13px;background:#f0f0f0;padding:2px 5px;border-radius:3px}.guide-head{border-bottom:2px solid #1a2e6c;padding-bottom:16px;margin-bottom:32px}.guide-head h1{margin-top:0;font-size:28px}.meta{font-size:13px;color:#555}.sec-block{position:relative}.regen-btn{display:none}@media print{body{margin:24px;font-size:12pt}h1{font-size:18pt}h2{font-size:15pt}h3{font-size:13pt}table{font-size:10pt}}</style></head><body><div class="guide-head">${h}</div>${c}</body></html>`;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.html';a.click();
+}
+function dlMD(){
+  const drug=document.getElementById('drugName').value.trim()||'Guide';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([allMD],{type:'text/markdown'}));a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.md';a.click();
+}
+
+/* ═══════ REFINEMENT ═══════ */
+let refineHist=[];
+
+function showRefineBar(){
+  const bar=document.getElementById('refineBar');
+  bar.classList.add('show');
+  // Populate scope dropdown with detected sections
+  const sel=document.getElementById('refineScope');
+  sel.innerHTML='<option value="full">Entire Guide</option>';
+  const h1s=document.getElementById('gBody').querySelectorAll('h1');
+  h1s.forEach((h,i)=>{
+    const text=h.textContent.trim();
+    const opt=document.createElement('option');
+    opt.value='sec-'+i;
+    opt.textContent=text;
+    sel.appendChild(opt);
+  });
+}
+
+async function refine(){
+  const keys=getKeys();
+  if(!keys.length)return alert('No API keys configured on server.');
+  const input=document.getElementById('refineInput');
+  const instruction=input.value.trim();
+  if(!instruction)return;
+
+  const scope=document.getElementById('refineScope').value;
+  const btn=document.getElementById('refineBtn');
+  btn.disabled=true;btn.textContent='Refining...';
+
+  // Log to history
+  const scopeLabel=scope==='full'?'Entire Guide':document.querySelector('#refineScope option:checked').textContent;
+  refineHist.push({scope:scopeLabel,text:instruction});
+  const histEl=document.getElementById('refineHistory');
+  histEl.innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
+
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const researchText=Object.values(allRes).join('\n\n---\n\n');
+
+  try{
+    if(scope==='full'){
+      // Refine entire guide
+      const sys=`You are a senior medical-legal consultant revising a Litigation Review Guide. You have the original research notes and the current guide. Apply the user's refinement instruction to improve the ENTIRE guide.
+
+RESEARCH NOTES (for fact-checking and adding detail):
+<research>
+${researchText.substring(0,50000)}
+</research>
+
+CURRENT GUIDE:
+<guide>
+${allMD.substring(0,50000)}
+</guide>
+
+REFINEMENT INSTRUCTION: ${instruction}
+
+RULES:
+- Apply the instruction thoughtfully across the entire guide
+- Maintain the same Markdown format (# for major, ## for sub, etc.)
+- Keep all existing content UNLESS the instruction says to remove something
+- The TOTAL guide must stay under ~6,000 words (≈12 pages). If adding content, trim elsewhere to compensate.
+- Use bullet points, tables, and one-line descriptions — not paragraphs
+- Use research notes to add factual detail where the instruction calls for more depth
+- Output the COMPLETE revised guide in Markdown — not just the changed parts
+
+Output ONLY the revised Markdown. No preamble.`;
+
+      const resp=await callApi(keys[0],[{role:'user',content:'Apply the refinement now. Output the complete revised guide. Stay under 6,000 words.'}],sys,{
+        stream:true,maxTok:8000,model:genModel,signal:null,
+        onRetry:(msg)=>{btn.textContent=msg}
+      });
+
+      const gBody=document.getElementById('gBody');
+      gBody.innerHTML='<div class="gc"></div>';
+      const gc=gBody.querySelector('.gc');
+      allMD=await streamTo(resp,gc,()=>updWC());
+      updWC();buildTOC();showRefineBar();
+
+    }else{
+      // Refine a specific section
+      const secIdx=parseInt(scope.replace('sec-',''));
+      const h1s=document.getElementById('gBody').querySelectorAll('h1');
+      const targetH1=h1s[secIdx];
+      if(!targetH1)throw new Error('Section not found');
+
+      // Extract this section's markdown (approximate: from this h1 to next h1 or end)
+      const allLines=allMD.split('\n');
+      const secTitle=targetH1.textContent.trim();
+      let startLine=-1,endLine=allLines.length;
+      for(let i=0;i<allLines.length;i++){
+        if(allLines[i].startsWith('# ')&&allLines[i].includes(secTitle)&&startLine<0)startLine=i;
+        else if(allLines[i].startsWith('# ')&&startLine>=0){endLine=i;break}
+      }
+      if(startLine<0)startLine=0;
+      const secMDText=allLines.slice(startLine,endLine).join('\n');
+
+      const sys=`You are a senior medical-legal consultant revising ONE SECTION of a Litigation Review Guide.
+
+RESEARCH NOTES:
+<research>
+${researchText.substring(0,40000)}
+</research>
+
+CURRENT SECTION:
+<section>
+${secMDText}
+</section>
+
+REFINEMENT INSTRUCTION: ${instruction}
+
+RULES:
+- Apply the instruction to THIS SECTION ONLY
+- Maintain Markdown format — bullet points and tables over paragraphs
+- Keep existing content unless told to remove it
+- Stay concise — this section should fit proportionally within a 12-page total guide
+- Use research notes to add factual detail
+- Output the COMPLETE revised section — not just changes
+- Start with the # heading
+
+Output ONLY the revised section Markdown.`;
+
+      const resp=await callApi(keys[0],[{role:'user',content:'Revise this section. Keep it tight and concise. Output the complete revised section.'}],sys,{
+        stream:true,maxTok:3000,model:genModel,signal:null,
+        onRetry:(msg)=>{btn.textContent=msg}
+      });
+
+      // Stream into a temp element
+      const tempDiv=document.createElement('div');tempDiv.className='gc';
+      document.body.appendChild(tempDiv);tempDiv.style.display='none';
+      const newSecMD=await streamTo(resp,tempDiv);
+      document.body.removeChild(tempDiv);
+
+      // Replace in allMD
+      const before=allLines.slice(0,startLine).join('\n');
+      const after=allLines.slice(endLine).join('\n');
+      allMD=before+(before?'\n':'')+newSecMD+(after?'\n':'')+after;
+
+      // Re-render full guide
+      const gBody=document.getElementById('gBody');
+      gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+      updWC();buildTOC();showRefineBar();
+    }
+
+    input.value='';
+  }catch(e){
+    if(e.name!=='AbortError')alert('Refinement failed: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='Refine';
+  }
+}
+
+// Allow Enter to send (Shift+Enter for newline)
+document.addEventListener('DOMContentLoaded',()=>{
+  const el=document.getElementById('refineInput');
+  if(el)el.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();refine()}
+  });
+});
+
+initSec();
+checkServerKeys();
+</script>
+</body>
+</html>
