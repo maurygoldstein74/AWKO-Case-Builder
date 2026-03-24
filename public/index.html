@@ -312,11 +312,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 <div class="empty" id="emptyState">
   <div class="ei">§</div>
   <h2>Litigation Review Guide Builder</h2>
-  <p>Type a drug name. Hit generate. The tool researches, writes, and verifies — with full cost control.</p>
+  <p>Type a drug name. Hit generate. The tool researches injuries, severity grading, causation evidence, and confounder defenses — everything your reviewers need to build the case.</p>
   <div class="feats">
-    <div class="feat"><strong>5 Focused Research Passes</strong><span>Drug/regulatory, disease, types/labs, mechanism/adverse events, confounders/treatment — configurable search depth.</span></div>
+    <div class="feat"><strong>Litigation-Focused Research</strong><span>5 passes targeting the five case elements: exposure, injury, severity grading, causation, and confounders.</span></div>
     <div class="feat"><strong>Cost Controls</strong><span>Set searches per pass, toggle gap analysis and verification, see cost estimate before running.</span></div>
-    <div class="feat"><strong>Sonnet or Opus Generation</strong><span>Guide written in focused batches. Sonnet default (~$2-5). Opus for max depth (~$8-15).</span></div>
+    <div class="feat"><strong>Severity Grading & Diagnosis</strong><span>Auto-researches medical grading scales, diagnostic criteria, and ICD-10 codes for every alleged injury.</span></div>
     <div class="feat"><strong>Refine After Generation</strong><span>Prompt the output to expand, restructure, or fix any section after the initial run.</span></div>
   </div>
 </div>
@@ -370,69 +370,84 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 <script>
 /* ═══════════ CONSTANTS ═══════════ */
 const SEC=[
-  {id:'drug_overview',l:'Drug/Device Overview'},
-  {id:'regulatory_timeline',l:'Regulatory Timeline'},
-  {id:'disease_background',l:'Disease Background'},
-  {id:'pathophysiology',l:'Pathophysiology'},
-  {id:'types_classifications',l:'Types & Classifications'},
-  {id:'anatomy_physiology',l:'Anatomy & Physiology'},
-  {id:'normal_lab_values',l:'Normal vs Disease Lab Values'},
-  {id:'symptoms_complications',l:'Symptoms & Complications'},
-  {id:'mechanism_of_action',l:'Mechanism of Action'},
-  {id:'dosing',l:'Dosing Information'},
-  {id:'injuries_adverse',l:'Injuries / Adverse Events'},
-  {id:'confounders',l:'Confounders & Differentials'},
+  {id:'drug_overview',l:'Drug/Device & Exposure'},
+  {id:'dosing',l:'Dosing & Administration'},
+  {id:'regulatory_timeline',l:'Regulatory & Safety History'},
+  {id:'injuries_adverse',l:'Injuries & Severity Grading'},
+  {id:'diagnostic_tests',l:'Diagnosis & Diagnostic Criteria'},
+  {id:'normal_lab_values',l:'Lab Values & Monitoring'},
+  {id:'mechanism_of_action',l:'Mechanism of Harm & Causation'},
+  {id:'disease_background',l:'Underlying Condition'},
+  {id:'pathophysiology',l:'Pathophysiology (Brief)'},
+  {id:'symptoms_complications',l:'Disease vs. Drug Complications'},
+  {id:'confounders',l:'Confounders & Defense Arguments'},
   {id:'triggers_risk',l:'Triggers & Risk Factors'},
-  {id:'diagnostic_tests',l:'Diagnostic Tests'},
   {id:'treatment_standard',l:'Treatments & Standard of Care'},
+  {id:'other_medications',l:'Other Medications in Records'},
   {id:'specialists',l:'Specialists Involved'},
-  {id:'other_medications',l:'Other Medications'},
-  {id:'review_instructions',l:'Reviewer Instructions'},
+  {id:'types_classifications',l:'Types & Classifications'},
+  {id:'anatomy_physiology',l:'Anatomy & Physiology (Brief)'},
+  {id:'review_instructions',l:'Reviewer Extraction Checklist'},
 ];
 
 const RP=[
-  {id:'drug_reg',l:'Drug Identity & Regulatory History',q:`
-1. DRUG IDENTITY: Full generic/brand names, ALL manufacturers past+present, corporate acquisition history (who developed, who acquired, who markets now), drug class, all formulations, route of administration.
-2. REGULATORY HISTORY: Exact FDA approval date, pathway (accelerated/standard/breakthrough/fast track), EVERY subsequent expansion with exact dates+populations, FDA safety communications (search "[DRUG] FDA safety communication"), boxed warnings, REMS. If withdrawn: exact date, EXACT FDA language and manufacturer statement (search "[DRUG] FDA withdrawal announcement" and "[DRUG] voluntary market withdrawal"). Post-marketing study commitments and results.
-3. KEY CLINICAL TRIALS: Pivotal trial names/identifiers. Post-marketing trial names. For each: design, primary endpoints, enrollment, key efficacy results, adverse event rates, DEATH RATES treatment vs placebo (search "[DRUG] clinical trial results" and "[DRUG] phase 3 data" and "[DRUG] post-marketing study results").
-4. LITIGATION: Search "[DRUG] litigation," "[DRUG] MDL," "[DRUG] lawsuit filed," "[DRUG] bellwether." Plaintiff allegations, legal theory, MDL status/number, case count, key rulings, settlement info.`},
+  {id:'drug_reg',l:'Drug Identity, Exposure & Regulatory',q:`
+1. DRUG IDENTITY: Full generic/brand names, ALL manufacturers past+present, drug class, all formulations, route of administration. This establishes WHAT the client was exposed to.
+2. EXPOSURE DOCUMENTATION: What records prove ingestion/exposure? Search "[DRUG] prescribing information" for: standard dosing (adult + pediatric by weight/age), frequency, duration of treatment, formulations. What pharmacy records, administration records, or prescription records would document exposure? How is the drug typically prescribed — specialist only, primary care, hospital-administered?
+3. REGULATORY HISTORY: FDA approval date + pathway, expansions, safety communications, boxed warnings, REMS, withdrawal. Search "[DRUG] FDA safety communication" and "[DRUG] FDA withdrawal." For each safety action: exact date, what injury/risk triggered it, exact FDA language. This establishes the manufacturer KNEW about the risk.
+4. LITIGATION: Search "[DRUG] litigation," "[DRUG] MDL," "[DRUG] lawsuit." Plaintiff allegations (what injuries), legal theories (failure to warn, design defect, negligence), MDL status/number, case count, bellwether results, settlements. What injuries are being alleged? What is the causation theory?`},
 
-  {id:'disease_path',l:'Disease Background & Pathophysiology',q:`
-5. THE CONDITION: Complete medical definition. Etiology (inherited/acquired, specific genetic mutations involved). Diagnosis methods (newborn screening programs, hemoglobin electrophoresis, genetic testing, clinical criteria). Prevalence worldwide and US. Demographics. Prognosis and life expectancy with and without treatment.
-6. PATHOPHYSIOLOGY: Step-by-step molecular/cellular mechanism. The specific protein/gene defect. How normal physiology works (oxygen binding, transport, release). How the defect disrupts this. The full cascade: molecular defect → cell-level changes → vascular events → tissue/organ damage → clinical symptoms. How pathophysiology connects to EACH major complication.
-7. SYMPTOMS & COMPLICATIONS — EXHAUSTIVE: Every complication in CHILDREN with age of onset. Every complication in ADULTS including chronic progressive damage. Every emergency/life-threatening complication. For EACH: full name, ALL synonyms/alternate names used in medical records, clinical presentation, severity spectrum, mortality risk. Search "[CONDITION] complications comprehensive list" and "[CONDITION] pediatric complications" and "[CONDITION] adult complications."`},
+  {id:'injury_severity',l:'Injuries, Severity Grading & Diagnosis',q:`
+5. ALL ALLEGED INJURIES — EXHAUSTIVE: Search "[DRUG] adverse events," "[DRUG] injuries alleged," "[DRUG] side effects," "[DRUG] FAERS data," "[DRUG] clinical trial adverse events rates." For EACH injury: full medical name, ALL synonyms/alternate names a reviewer might see in medical records (nursing terminology, physician shorthand, coding terms), ICD-10 codes, how it presents clinically, what a chart entry looks like when this injury is documented.
+6. SEVERITY GRADING — THIS IS THE MOST IMPORTANT RESEARCH TASK — IT DIRECTLY DETERMINES THE CLIENT'S PAYOUT:
+For EACH alleged injury, search specifically for its grading/staging/classification system:
+  - Search "[INJURY] grading scale" and "[INJURY] severity classification" and "[INJURY] staging criteria"
+  - Search "[INJURY] CTCAE grading" (Common Terminology Criteria for Adverse Events — used widely in drug injury cases)
+  - Search for condition-specific scales: NYHA Class I-IV (heart failure), CKD Stage 1-5 + GFR thresholds (kidney), Child-Pugh A/B/C + MELD score (liver), NIHSS (stroke), Wells score + Geneva score (PE), CTCAE Grade 1-5 (general adverse events), Hunt & Hess or Fisher grade (hemorrhage), Ranson/BISAP (pancreatitis), mRS 0-6 (neurological disability)
+  - For EACH grade/stage: what specific clinical findings, lab values, symptoms, and functional limitations define that grade
+  - What is the MINIMUM documentation needed to assign each grade
+  - What grade constitutes "serious" vs. "life-threatening" vs. "fatal" under FDA definitions
+  - A Grade 1 injury has minimal damages value. A Grade 4-5 injury can be worth millions. The reviewer MUST know how to grade accurately.
+7. DIAGNOSTIC CRITERIA — WHAT CONFIRMS THE CLIENT HAS THE INJURY:
+  - For each injury: formal diagnostic criteria (e.g., KDIGO for AKI, Framingham for CHF, Berlin for ARDS)
+  - What tests confirm diagnosis vs. merely suggest it
+  - Lab thresholds that are DIAGNOSTIC (not just abnormal)
+  - Imaging findings that confirm (specific findings, not just "abnormal imaging")
+  - What documentation the reviewer needs to find: physician diagnosis in notes, ICD-10 on problem list, confirmed by specialist
+  - Search "[INJURY] diagnostic criteria guidelines" and "[INJURY] definition consensus"
+8. CAUSATION TIMELINE & EVIDENCE:
+  - Expected time from drug exposure to injury onset for each injury
+  - Is the injury dose-dependent? Duration-dependent?
+  - Dechallenge data: does injury improve/resolve when drug stopped? (strong causation evidence)
+  - Rechallenge data: does injury recur on re-exposure? (strongest causation evidence)
+  - Published case reports or studies establishing temporal relationship
+  - Search "[DRUG] time to onset [INJURY]" and "[DRUG] dechallenge rechallenge"`},
 
-  {id:'types_labs',l:'Types, Anatomy & Lab Values',q:`
-8. ALL TYPES & SUBTYPES: Every recognized subtype with genetic basis, severity, distinguishing features. ALL related but distinct conditions. Genetic/molecular markers defining each type. Search "[CONDITION] types" and "[CONDITION] subtypes classification" and related hemoglobinopathies/conditions.
-9. ANATOMY & NORMAL PHYSIOLOGY: Normal function of all involved body systems, cells, organs, proteins, molecules. Normal cell lifespan vs disease. Key proteins with definitions. Normal hemoglobin values by age/sex.
-10. LAB VALUES — COMPREHENSIVE: Normal range for EVERY relevant lab AND disease-state range AND clinical significance. Search "[CONDITION] lab values" and "[CONDITION] normal labs." Include: Hemoglobin (by age/sex/gender), Hematocrit, WBC (total and differential), Platelets, Reticulocyte Count (absolute and percentage), Bilirubin (total, direct, indirect), LDH, Haptoglobin, Ferritin, Iron/TIBC, CRP, ESR, D-dimer, Fibrinogen, Creatinine, BUN, eGFR, Liver enzymes (AST/ALT/ALP), Albumin.`},
+  {id:'disease_path',l:'Disease Background & Mechanism',q:`
+9. THE UNDERLYING CONDITION: Medical definition, etiology, prevalence. ONLY what a reviewer needs to understand WHY the client was on this drug and to distinguish disease complications from drug-caused injuries. Search "[CONDITION] natural history" and "[CONDITION] expected complications." This is critical because defense will argue the injury is from the disease, not the drug.
+10. MECHANISM OF HARM: How does the drug cause the alleged injuries? Search "[DRUG] mechanism of action" and "[DRUG] mechanism toxicity" and "[DRUG] how causes [INJURY]." The scientific theory connecting drug → injury. Any published research supporting causation. Any evidence the mechanism paradoxically worsens the condition. Search "[DRUG] mechanism controversy." This is the core causation argument.
+11. CLINICAL TRIAL SAFETY DATA: Pivotal trial names. For each: adverse event rates DRUG vs PLACEBO, death rates drug vs placebo, specific injury rates. Search "[DRUG] clinical trial results" and "[DRUG] phase 3 safety data" and "[DRUG] post-marketing study." Numbers that show the drug causes harm at higher rates than placebo = causation evidence.`},
 
-  {id:'moa_adverse',l:'Mechanism of Action & Adverse Events',q:`
-11. MECHANISM OF ACTION — DETAILED: How the drug works at the molecular level. Specific target (receptor/enzyme/protein/pathway). Intended therapeutic effect. CRITICAL SEARCH: "[DRUG] mechanism of action controversy" and "[DRUG] oxygen affinity" (or equivalent for the drug's specific mechanism). Any evidence the mechanism paradoxically contributes to harm. The scientific debate. Search for published papers criticizing the mechanism.
-12. DOSING: Standard adult dose, frequency, route. Pediatric dose by age AND weight ranges. All formulations (tablets, suspension, etc). Dose adjustments. Max dose. Search "[DRUG] prescribing information dosing."
-13. ALL ADVERSE EVENTS: Clinical trial AEs with rates. Post-marketing AEs. FAERS reports. Real-world evidence. Search "[DRUG] adverse events," "[DRUG] side effects rates," "[DRUG] FAERS data." Specific safety signals leading to regulatory action. Death data: exact numbers, treatment vs placebo, in each study. Vaso-occlusive crisis rates or equivalent primary safety signal.`},
+  {id:'types_labs',l:'Lab Values, Monitoring & Baseline',q:`
+12. LAB VALUES FOR INJURY DETECTION: For each alleged injury, what lab values confirm or track it? Search "[INJURY] lab values" and "[INJURY] monitoring labs." TABLE format: Lab | Normal | Abnormal threshold that suggests injury | What it means for severity grading. Flag which labs should be tracked BEFORE drug start (baseline), DURING treatment, and AFTER injury onset — the trajectory proves causation.
+13. BASELINE VS. ON-DRUG COMPARISON: What tests/values should exist BEFORE the drug was started? What changes during treatment suggest drug-caused harm vs. disease progression? This before/during/after comparison is often the strongest evidence. Search "[DRUG] monitoring recommendations" and "[DRUG] prescribing information monitoring."
+14. TYPES & SUBTYPES of the condition: Which subtypes was the drug indicated for? Which subtypes have worse outcomes on the drug? This affects both exposure proof (was the drug appropriate?) and severity. Keep brief — only what matters for the case.`},
 
-  {id:'conf_treat',l:'Confounders, Triggers & Treatments',q:`
-14. CONFOUNDERS — EVERY SINGLE ONE:
-  - Cardiovascular: CAD, CHF (diastolic HFpEF/systolic HFrEF), left-sided HF, right-sided HF, biventricular HF, arrhythmias, valve disease, congenital heart defects, peripheral artery disease, pericardial disease (pericarditis, effusion, tamponade, constrictive), cardiomyopathy, rheumatic heart disease
-  - Hypertension / hypertensive heart disease, pulmonary hypertension
-  - Pulmonary: ARDS, PE, pneumonia, ACS
-  - Infections: Parvovirus B19 (→aplastic crisis), Streptococcus pneumoniae, Haemophilus influenzae type B, RSV, meningitis organisms, pneumonia organisms (→ACS)
-  - Metabolic: Diabetes Type I, Type II, Obesity (note: BMI documentation required)
-  - Renal disease/chronic kidney disease
-  - Environmental: altitude sickness, cold exposure, dehydration
-  - Lifestyle: smoking, alcohol abuse (must be physician-diagnosed)
-  - Pregnancy
-  - Systemic steroids: Hydrocortisone, Aldosterone, Cortisone, Prednisone, Prednisolone, Methylprednisolone, Dexamethasone, Triamcinolone
-15. TRIGGERS: ALL triggers for disease crises. Phases of acute crisis (day-by-day timeline, symptoms, physiology each phase). Secondary/cyclical crises.
-16. ALL TREATMENTS: Every medication (generic/brand, class, mechanism, dosing). Blood transfusions (simple vs exchange, risks including hyperhemolysis). Stem cell transplant (who qualifies, risks). Gene therapy (gene addition, gene editing/CRISPR — FDA status, age requirements). Supportive care. Home management. Prevention. Standard of care. Search "[CONDITION] treatment guidelines" and "[CONDITION] gene therapy FDA approved."
-17. SPECIALISTS: Every type of physician involved and their role.`}
+  {id:'conf_treat',l:'Confounders, Comorbidities & Defenses',q:`
+15. CONFOUNDERS — FRAMED AS DEFENSE ARGUMENTS: For each potential confounder, document:
+  (a) What the defense will argue: "[Confounder] caused the injury, not the drug"
+  (b) What chart documentation DEFEATS that argument
+  (c) What chart documentation SUPPORTS the defense (so reviewers can flag risk)
+  Search "[DRUG] confounding factors" and "[INJURY] differential diagnosis" and "[INJURY] other causes."
+  Cover: Pre-existing cardiovascular disease (CAD, CHF types, arrhythmias, valve disease, cardiomyopathy, hypertension, pulmonary hypertension), pulmonary conditions (ARDS, PE, pneumonia), infections, metabolic (diabetes, obesity — document BMI), renal disease/CKD, environmental factors, lifestyle (smoking, alcohol — must be MD-diagnosed), pregnancy, concomitant medications especially steroids, genetic factors, age/frailty.
+16. COMORBIDITY DOCUMENTATION RULES: What must be physician-documented vs. self-reported to count? (e.g., alcohol abuse must be MD-diagnosed, not just patient-reported). BMI must be documented at drug start date. Pre-existing conditions must be documented BEFORE drug exposure to be valid confounders.
+17. STANDARD OF CARE & TREATMENTS: What other treatments exist? Did the prescriber follow standard of care in choosing this drug? Were alternatives available? What treatments are used for the alleged injuries once they occur? Search "[CONDITION] treatment guidelines." This matters for both causation (was the drug even appropriate?) and damages (what treatment did the injury require?).`}
 ];
 
 const GG=[
-  {id:'A',l:'Background & Disease',secs:['drug_overview','regulatory_timeline','disease_background','pathophysiology','types_classifications','anatomy_physiology']},
-  {id:'B',l:'Clinical & Injuries',secs:['normal_lab_values','symptoms_complications','mechanism_of_action','dosing','injuries_adverse']},
-  {id:'C',l:'Confounders, Treatment & Review',secs:['confounders','triggers_risk','diagnostic_tests','treatment_standard','specialists','other_medications','review_instructions']}
+  {id:'A',l:'Exposure, Injuries & Severity',secs:['drug_overview','dosing','regulatory_timeline','injuries_adverse','diagnostic_tests','normal_lab_values']},
+  {id:'B',l:'Causation, Disease & Mechanism',secs:['mechanism_of_action','disease_background','pathophysiology','symptoms_complications','types_classifications','anatomy_physiology']},
+  {id:'C',l:'Confounders, Defenses & Review',secs:['confounders','triggers_risk','treatment_standard','other_medications','specialists','review_instructions']}
 ];
 
 let ac=null,allRes={},secMD={},allMD='',genModel='claude-sonnet-4-20250514';
@@ -662,7 +677,7 @@ function setP(i,cls,d){const el=document.getElementById('ps'+i);if(!el)return;el
 function buildResSys(drug,cond,inj,extra,pass){
   const searchBudget=parseInt(document.getElementById('searchBudget').value)||5;
   const ci=document.getElementById('customInstr').value.trim();
-  return `You are a medical-legal research specialist. Use web search to gather specific facts on the topics below. You have a budget of ${searchBudget} searches for this pass — make each one count. Use precise, targeted queries rather than broad ones.
+  return `You are a medical-legal research specialist gathering facts to build a litigation review guide. Your research must focus on what gets clients paid: EXPOSURE proof, INJURY identification, SEVERITY grading scales, CAUSATION evidence, and CONFOUNDER documentation. Use web search to gather specific facts on the topics below. You have a budget of ${searchBudget} searches for this pass — make each one count. Use precise, targeted queries rather than broad ones.
 
 DRUG: ${drug}
 ${cond?'CONDITION: '+cond:'CONDITION: Discover from research.'}
@@ -762,18 +777,22 @@ async function doResearch(keys,drug,cond,inj,extra,sig){
 /* ═══════ GAP ANALYSIS ═══════ */
 async function gapAnalysis(key,drug,research,sig){
   const allText=Object.values(research).join('\n\n');
-  const sys=`You are a medical-legal research auditor. Review the research notes below and identify SPECIFIC gaps — data that is missing or incomplete that would be needed for a comprehensive litigation review guide.
+  const sys=`You are a medical-legal research auditor. Review the research notes below and identify SPECIFIC gaps — data that is missing that would be needed to build cases and get clients paid. Focus on the five litigation elements: exposure proof, injury identification, severity grading, causation evidence, and confounder documentation.
 
 RESEARCH NOTES:
 ${allText.substring(0,60000)}
 
 Look for:
-- Missing specific dates (FDA approval, withdrawal, trial dates)
-- Missing lab values or normal ranges
-- Incomplete confounder lists
-- Missing clinical trial names or death rate data
-- Missing mechanism of action details or controversy
-- Missing dosing information
+- Missing severity grading scales for alleged injuries (CTCAE, NYHA, CKD stage, etc.)
+- Missing diagnostic criteria (what confirms the injury exists?)
+- Missing causation timeline (drug exposure → injury onset timing)
+- Missing dechallenge/rechallenge data
+- Missing clinical trial safety data (drug vs. placebo rates)
+- Missing ICD-10 codes for injuries
+- Missing confounder documentation rules
+- Missing lab thresholds that define severity grades
+- Missing dosing information for exposure verification
+- Missing specific dates (FDA approval, safety communications, withdrawal)
 - Missing complication names or synonyms
 - Any category that seems thin
 
@@ -820,24 +839,24 @@ For each search, write the key findings. Include all specific data points found.
 /* ═══════ GENERATION ═══════ */
 // Section prompt map (abbreviated keys for space - full instructions embedded)
 const SP={
-drug_overview:`# Drug/Device Overview\nBrand/generic names, manufacturer(s) + corporate history, drug class, approved indications (populations + age ranges), formulations, route. 2-3 sentence summary of why litigation exists.`,
-regulatory_timeline:`# Regulatory & Market Timeline\nTimeline table or bullet list: FDA approval date + pathway, each expansion with dates, safety communications, withdrawal date + exact stated reason. Key clinical trial identifiers. Keep to facts and dates — no editorializing.`,
-disease_background:`# Disease Background\nConcise definition, inheritance/etiology, how diagnosed (name key tests), prevalence, prognosis. 1-2 sentences on what gap the drug was designed to fill. Skip general medical education — only what a reviewer needs for context.`,
-pathophysiology:`# Pathophysiology\nBrief explanation of the disease mechanism: what goes wrong at the molecular level, how it causes symptoms. Focus on the pathway that connects to the drug's mechanism and the alleged injuries. 1-2 short paragraphs, not a textbook chapter.`,
-types_classifications:`# Types & Classifications\nBullet list of all types/subtypes: name, genetic basis, severity (one line each). Separately note related but distinct conditions. Flag which types the drug was indicated for.`,
-anatomy_physiology:`# Relevant Anatomy & Physiology\nBrief: normal cell/protein function, normal lifespan vs disease, normal lab ranges vs disease. Only what's needed to understand the mechanism and injuries. Combine with lab values section if both are selected.`,
-normal_lab_values:`# Lab Values Reference\nTABLE format: Lab Test | Normal Range | Disease Range | Litigation Relevance. Include only labs a reviewer will actually encounter and need to interpret. Flag which values to track longitudinally (before/during/after drug).`,
-symptoms_complications:`# Symptoms & Complications\nBullet list format. Split: Children (with onset ages) | Adults (including chronic) | Emergencies. For each: name + all synonyms/alternate chart terms + one-line description. Prioritize complications relevant to the alleged injuries.`,
-mechanism_of_action:`# Mechanism of Action\nHow the drug works (2-3 sentences). What it targets. The intended effect. Then THE CONTROVERSY: how the mechanism may paradoxically contribute to harm. This is often the core litigation theory — explain it clearly enough that a non-clinician can articulate it. Connect to alleged injuries.`,
-dosing:`# Dosing\nAdult dose. Pediatric dose TABLE (by age + weight). Formulations. Max dose. Keep it tight — a reference table, not prose.`,
-injuries_adverse:`# Injuries & Adverse Events\nFor EACH alleged injury, use this compact format:\n**Injury Name** (aka: synonym1, synonym2, synonym3)\nDefinition in one sentence. How it presents. Causal theory: how drug causes/worsens this (1-2 sentences). How to distinguish drug-induced from pre-existing disease progression.`,
-confounders:`# Confounders\nChecklist format — one line per confounder:\n**Confounder Name** — why it matters, what to look for in the chart\nGroup by: Cardiovascular, Pulmonary, Infections (name each pathogen + what it triggers), Metabolic, Renal, Environmental, Lifestyle (alcohol=must be MD-diagnosed), Pregnancy, Systemic Steroids (list each by name), Genetic.\nNote: Document BMI at drug start date.`,
-triggers_risk:`# Triggers & Risk Factors\nBullet list of all triggers (one line each). If the disease has defined crisis phases, describe each phase briefly (duration + key features). Note secondary/cyclical crises.`,
-diagnostic_tests:`# Diagnostic Tests\nBullet list: Test Name (abbreviation) — what it shows, when ordered, litigation relevance. Group by: screening, diagnostic, monitoring, emergency. Include pain scales (VAS/NRS) briefly. Flag which tests reviewers should specifically look for.`,
-treatment_standard:`# Treatment & Standard of Care\nCompact format for each treatment:\n**Drug/Procedure Name** — what it does, typical use, key distinction from litigated drug\nCover: other medications (disease-modifying, pain management, preventive), transfusions (simple vs exchange), transplant, gene therapy, home management. Focus on what reviewers will see in charts.`,
-specialists:`# Specialists\nBullet list: **Title** — what they manage (one line each).`,
-other_medications:`# Other Medications in Records\nBullet list grouped by purpose: disease-modifying, pain (non-opioid + opioid — name each), preventive, emergency. One line each: name + why patient takes it + litigation relevance.`,
-review_instructions:`# Reviewer Instructions & Red Flags\nAction-oriented checklist:\n- Key dates to capture\n- Lab values to track (before/during/after drug)\n- Red flags for drug-caused harm\n- How to distinguish drug AEs from natural disease course\n- Confounder documentation rules (BMI, alcohol, steroids)\n- Key terminology/synonyms to flag\n- Relevant ICD-10 codes`
+drug_overview:`# Drug/Device Overview\nBrand/generic names, manufacturer(s), drug class, approved indications, formulations, route. 2-3 sentences on WHY litigation exists (what injuries, what the manufacturer knew). Keep brief — this is context for the reviewer, not the main event.`,
+regulatory_timeline:`# Regulatory & Exposure Timeline\nTimeline table: FDA approval date + pathway, expansions with dates, safety communications (with what injury triggered each), withdrawal if applicable. For each safety action: what did the manufacturer know, and when? This establishes the "failure to warn" element. Include: what records prove exposure (Rx records, pharmacy fills, administration logs, duration of use).`,
+disease_background:`# Disease Background (Brief)\nWhat condition was the drug prescribed for? Definition, how diagnosed, prevalence. ONLY enough context for the reviewer to understand why the client was on this drug and to distinguish disease complications from drug-caused injuries. NOT a medical education chapter.`,
+pathophysiology:`# Mechanism of Harm — Causation Theory\nHow does the drug cause the alleged injuries? The molecular/cellular pathway from drug exposure → injury. If the drug's mechanism paradoxically worsens the condition, explain that clearly. This is the core causation argument — write it so a non-clinician can articulate it in a demand letter. Include any published research supporting this theory.`,
+types_classifications:`# Types & Classifications\nSubtypes of the condition relevant to the litigation. Which subtypes was the drug indicated for? Which have worse outcomes? One line each. Flag which subtype documentation to look for in the chart — this affects case eligibility.`,
+anatomy_physiology:`# Relevant Anatomy & Normal Function\nBrief: only what a reviewer needs to understand the injury mechanism. Normal function of the affected system → how the drug disrupts it → how that disruption causes the injury. Connect every anatomical fact to the causation chain.`,
+normal_lab_values:`# Lab Values — Severity Grading & Causation Evidence\nTABLE format: Lab Test | Normal Range | Threshold That Confirms Injury | Which Severity Grade It Maps To | Causation Use\n\nFor each lab:\n- What does an abnormal value PROVE about injury severity? (e.g., "eGFR <15 = CKD Stage 5 = highest damages")\n- BASELINE value (before drug start) vs. ON-DRUG value vs. POST-INJURY value — this trajectory is the strongest causation evidence\n- Flag labs the reviewer MUST find at each time point: pre-drug baseline, during treatment, at injury onset, current/most recent\n- If baseline labs are missing, note this — it weakens causation but doesn't kill it\n- Labs that directly determine severity grade should be marked with the specific grade cutoffs`,
+symptoms_complications:`# Injury Presentation — What Reviewers Will See in Charts\nFor EACH alleged injury:\n**Injury Name** (aka: every synonym/alternate term used in medical records, ICD-10 codes)\nHow it presents: what symptoms, vitals, lab findings, imaging findings would appear in the chart. What the reviewer should search for — exact charting language, nursing notes terminology, physician assessment terms. Prioritize: what chart entries PROVE the client has this injury.`,
+mechanism_of_action:`# Mechanism of Action & Causation Evidence\nHow the drug works (brief). What it targets. Then: HOW IT CAUSES HARM. The scientific pathway drug → injury. Clinical trial data showing higher injury rates drug vs. placebo (cite specific rates). Dechallenge evidence (injury resolved when drug stopped?). Rechallenge evidence (injury returned when drug restarted?). Published studies supporting causation. This section must arm the reviewer to identify causation evidence in the chart.`,
+dosing:`# Dosing & Exposure Verification\nAdult dose, pediatric dose TABLE (by age + weight), formulations, max dose. LITIGATION FOCUS: What records document exposure — Rx records, pharmacy fills, administration records, MAR entries, refill history? How to calculate total exposure duration. How to identify dose changes. Was the client on the correct dose for their age/weight? Overdosing or off-label dosing strengthens the case.`,
+injuries_adverse:`# Injuries & Severity Grading — THE CORE SECTION\nThis section directly determines case value. For EACH alleged injury, use this EXACT structure:\n\n**INJURY NAME** (ICD-10: codes)\n*Also documented as:* every synonym, alternate chart term, nursing shorthand, physician abbreviation\n\n**Diagnosis — How to Confirm the Client Has This Injury:**\n- Diagnostic criteria (name the formal criteria set if one exists, e.g., KDIGO for AKI, Framingham for CHF)\n- Lab values that confirm: specific thresholds (not just "elevated")\n- Imaging/test findings that confirm: specific findings\n- Where in the chart to look: physician assessments, specialist consults, discharge summaries, problem list\n\n**Severity Grading — THIS DETERMINES DAMAGES:**\nName the specific grading scale used for this injury (e.g., CTCAE, NYHA, CKD Stage, Child-Pugh, MELD, mRS).\nThen TABLE format:\n| Grade/Stage | Clinical Definition | Key Lab Values | Functional Impact | Damages Implication |\nFor each grade: what specific findings put the client at that grade. The reviewer must be able to read a chart and assign a grade.\n- Grade 1-2 = mild, lower damages\n- Grade 3 = serious, significant damages\n- Grade 4 = life-threatening, high damages\n- Grade 5 = fatal\nDocument the HIGHEST grade reached and whether it resolved or is permanent (permanent = ongoing damages).\n\n**Causation Link:**\n- How the drug causes this injury (1-2 sentences)\n- Expected onset timeline after drug start\n- Dechallenge: did it improve when drug stopped?\n- Rechallenge: did it return on re-exposure?\n\n**Drug-Caused vs. Disease Progression — The Defense Will Attack This:**\n- What evidence points to drug causation\n- What evidence points to natural disease course\n- How the reviewer distinguishes them in the chart`,
+confounders:`# Confounders & Defense Arguments — What Will Be Used Against Your Client\nThe defense will argue the injury was NOT caused by the drug. This section prepares the reviewer to find documentation that defeats each argument.\n\nFor EACH confounder:\n**CONFOUNDER NAME**\n- Defense will say: "[Confounder] caused the injury, not the drug" — e.g., "the client had pre-existing CKD, the renal failure is from that"\n- To DEFEAT this: Find chart evidence showing [specific documentation] — e.g., "stable CKD Stage 2 with eGFR >60 for years before drug, then acute decline to Stage 4 within 3 months of drug start"\n- CAUTION — this HURTS our case: If the chart shows [specific documentation] — e.g., "CKD Stage 3 with declining eGFR trend BEFORE drug start"\n- Documentation rule: [timing/source requirement] — e.g., "must be diagnosed by physician BEFORE drug exposure date to count as pre-existing"\n- Key question: Was this condition STABLE before drug exposure, or was it already progressing?\n\nGroup by: Cardiovascular (CAD, CHF by type, arrhythmias, valve disease, cardiomyopathy, HTN, pulmonary HTN), Pulmonary (ARDS, PE, pneumonia), Infections (name each pathogen + what it triggers), Metabolic (diabetes types, obesity — MUST document BMI at drug start), Renal (CKD staging BEFORE drug), Environmental, Lifestyle (alcohol = MUST be MD-diagnosed, smoking), Pregnancy, Concomitant Medications (list each steroid individually: hydrocortisone, prednisone, prednisolone, methylprednisolone, dexamethasone), Genetic/hereditary.\n\nCRITICAL RULE: A confounder only works as a defense argument if it is documented BEFORE drug exposure. Post-exposure comorbidities may actually be ADDITIONAL drug-caused injuries.`,
+triggers_risk:`# Triggers & Risk Factors\nWhat triggers the injuries or worsens them? For the underlying condition: crisis triggers and phases. For the drug-caused injuries: risk factors that increase likelihood or severity. Flag which risk factors the reviewer should document — they affect both case strength and damages valuation.`,
+diagnostic_tests:`# Diagnostic Tests — What Confirms the Injury & Its Severity\nFor EACH relevant test:\n**Test Name** (abbreviation)\n- What it shows for THIS litigation\n- Result that CONFIRMS the injury (threshold/finding)\n- How results MAP TO SEVERITY GRADES (e.g., "eGFR 30-44 = CKD Stage 3b, eGFR 15-29 = Stage 4")\n- When it should have been ordered (baseline before drug, during treatment, after injury onset)\n- If this test WASN'T ordered when it should have been, that may be a failure-to-monitor claim\n\nGroup by:\n1. Tests that CONFIRM injury exists (diagnostic)\n2. Tests that GRADE severity (staging/grading)\n3. Tests that PROVE CAUSATION (before drug vs. after — the trajectory)\n4. Tests that RULE OUT CONFOUNDERS\n\nFor the before→during→after trajectory: which specific labs should the reviewer track across the timeline? What change pattern proves drug causation vs. disease progression?`,
+treatment_standard:`# Treatment & Standard of Care\nWhat treatments exist for the alleged injuries? What treatment did the injury REQUIRE — this quantifies damages (hospitalization, surgery, chronic treatment = higher value). Was the drug the appropriate choice vs. alternatives? Were prescribing guidelines followed? Did the prescriber monitor appropriately? Failure to follow standard of care in prescribing or monitoring can be an additional claim.`,
+specialists:`# Specialists & Medical Team\nWhich specialists should have been involved? Which specialists' notes are most important for the reviewer to find? One line each: **Title** — what they document that matters for the case.`,
+other_medications:`# Other Medications in Records\nGrouped by litigation relevance:\n- Medications that CONFIRM the injury (prescribed to treat it)\n- Medications that are CONFOUNDERS (could independently cause similar injury)\n- Medications that show disease progression (context)\nOne line each: name + why it matters for the case.`,
+review_instructions:`# Reviewer Extraction Checklist — Getting the Client Paid\nEvery review should extract and document these five elements. A case is only as strong as the weakest element.\n\n## 1. EXPOSURE — Did the client take the drug?\nWithout exposure proof, there is no case.\n- [ ] Prescription records with prescriber name, date, drug name, dose, quantity\n- [ ] Pharmacy fill records / refill history — establishes duration\n- [ ] MAR (Medication Administration Records) for inpatient\n- [ ] Start date: ____  Stop date: ____  Total duration: ____\n- [ ] Dose taken vs. prescribed dose (over/underdosing?)\n- [ ] Any dose changes, interruptions, or early discontinuation — WHY?\n- [ ] Off-label use? (prescribed for unapproved indication/population = stronger case)\n\n## 2. INJURY — Does the client have the alleged injury?\nThe injury must be DIAGNOSED, not just symptomatic.\n- [ ] Physician diagnosis in assessment/plan (not just "rule out")\n- [ ] ICD-10 code on problem list or encounter diagnosis\n- [ ] Specialist confirmation (e.g., cardiologist diagnosed CHF, nephrologist confirmed AKI)\n- [ ] Diagnostic test results that meet formal criteria (see Injuries section above)\n- [ ] Document EVERY synonym — same injury may appear under different names across records\n\n## 3. SEVERITY GRADING — This is what determines the payout\nHigher severity = more damages = larger recovery. This is the most important extraction task.\n- [ ] Identify the correct grading scale for each injury (see Injuries section for specific scales)\n- [ ] Assign a grade based on chart findings: labs, symptoms, functional status, imaging\n- [ ] Document the HIGHEST grade reached at any point\n- [ ] Is the injury RESOLVED or PERMANENT/ONGOING? (permanent = ongoing damages)\n- [ ] Hospitalizations: dates, length of stay, ICU days (quantifies damages)\n- [ ] Surgeries/procedures required (quantifies damages)\n- [ ] ER visits related to the injury\n- [ ] Functional impact: work disability, activity limitations, quality of life changes\n- [ ] Death: if fatal, document cause of death and whether drug/injury is listed\n\n## 4. CAUSATION — Connecting the drug to the injury\n- [ ] Timeline: Drug start date → Injury onset date. Is timing consistent with known onset pattern?\n- [ ] Baseline labs BEFORE drug start vs. labs AFTER injury onset — did values change?\n- [ ] Dechallenge: Did injury improve/resolve when drug stopped? Date drug stopped: ____ Date improvement noted: ____\n- [ ] Rechallenge: Was drug restarted? Did injury recur? (strongest causation evidence)\n- [ ] Any physician note attributing the injury to the drug (e.g., "likely drug-induced," "discontinue due to")\n- [ ] Any adverse event report filed (MedWatch, hospital incident report)\n\n## 5. CONFOUNDERS — What the defense will use\n- [ ] Document ALL pre-existing conditions with diagnosis dates\n- [ ] For each: was it STABLE before drug start, or already progressing?\n- [ ] BMI at drug start date: ____ (defense will argue obesity caused it)\n- [ ] Alcohol use: MD-diagnosed? Y/N (self-reported doesn't count)\n- [ ] Smoking status at drug start\n- [ ] All concomitant medications (especially steroids, other drugs with similar injury risk)\n- [ ] Genetic/hereditary conditions\n- [ ] Any pre-existing condition that could independently explain the injury = case risk\n\n## CASE STRENGTH QUICK ASSESSMENT\n- ✅ STRONG: Clear exposure proof + confirmed diagnosis + high severity grade (3-5) + clean timeline + drug stopped and injury improved + few/no confounders\n- ⚠️ MODERATE: Exposure proven but gaps in severity documentation, some confounders present but manageable\n- 🚩 WEAK: Exposure gaps + low severity grade (1-2) + multiple pre-existing conditions that could explain injury + no dechallenge evidence + physician notes suggesting alternative cause`
 };
 
 function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
@@ -880,7 +899,16 @@ You are writing ${numSecs} sections in this batch. Budget: ~${dc.wordsPerBatch} 
 - YOU MUST STILL FINISH ALL ${numSecs} SECTIONS. If running long, compress less critical sections.`
   };
 
-  return `You are a senior medical-legal consultant and nurse educator writing a Litigation Review Guide for a law firm's medical records review team. Your audience is nurse reviewers and paralegals — define every medical term on first use.
+  return `You are a senior medical-legal consultant writing a Litigation Review Guide — a practical tool for nurse reviewers and paralegals who review medical records to BUILD CASES THAT GET CLIENTS PAID.
+
+This is NOT a medical education document. Every sentence must serve one of these five litigation elements:
+1. EXPOSURE — proving the client took the drug (Rx records, pharmacy fills, duration, dose)
+2. INJURY — proving the client has the alleged injury (diagnosis, chart terms, ICD-10 codes)
+3. SEVERITY — grading the injury using medical scales (higher grade = more damages = higher payout)
+4. CAUSATION — connecting drug to injury (timeline, baseline vs. on-drug labs, dechallenge/rechallenge)
+5. CONFOUNDERS — anticipating defense arguments and documenting what defeats them
+
+If something doesn't help the reviewer find, document, or prove one of these five elements, leave it out.
 
 RESEARCH NOTES:
 <research>
@@ -899,6 +927,12 @@ ${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'
 
 ${depthInstructions[outputDepth]}
 
+SECTION WEIGHTING — NOT ALL SECTIONS ARE EQUAL:
+- HEAVY (give these 2-3x the words): Injuries & Severity Grading, Confounders & Defense Arguments, Reviewer Extraction Checklist, Diagnostic Tests
+- MEDIUM: Lab Values, Mechanism of Harm, Dosing & Exposure, Disease vs. Drug Complications
+- LIGHT (keep brief — context only): Drug Overview, Disease Background, Pathophysiology, Types, Anatomy, Specialists, Other Medications, Triggers
+The injuries/severity section should be the largest section in the guide. Compress the light sections aggressively to give the heavy sections room.
+
 CRITICAL RULES:
 1. You MUST write ALL sections below. Skipping or truncating any section is a failure.
 2. HARD WORD LIMIT: ~${dc.wordsPerBatch} words total for this batch. Going significantly over means other batches get crowded out.
@@ -915,7 +949,7 @@ Output ONLY Markdown. No preamble. No closing. Start with first # heading.`;
 async function verify(key,drug,research,guide,sig){
   const researchText=Object.values(research).join('\n\n').substring(0,40000);
   const guideText=guide.substring(0,40000);
-  const sys=`You are a medical-legal accuracy auditor. Cross-check the generated litigation review guide against the research notes it was derived from.
+  const sys=`You are a medical-legal accuracy auditor. Cross-check the generated litigation review guide against the research notes, with special focus on whether the guide adequately covers the five case elements: exposure, injury, severity grading, causation, and confounders.
 
 RESEARCH NOTES:
 ${researchText}
@@ -924,26 +958,34 @@ GENERATED GUIDE:
 ${guideText}
 
 AUDIT TASKS:
-1. UNSOURCED CLAIMS: Identify any specific factual claims in the guide (dates, numbers, drug names, dosing, clinical trial results) that do NOT appear in the research notes. These could be hallucinations. List each with the exact claim.
-2. MISSING FROM GUIDE: Identify important facts from the research notes that were NOT included in the guide but should have been.
-3. POTENTIAL INACCURACIES: Flag anything that seems wrong — wrong dates, wrong dosing, wrong mechanism description, incorrect lab values.
-4. COMPLETENESS CHECK: Are the confounder lists exhaustive? Are all drug synonyms listed? Are all complications included?
+1. UNSOURCED CLAIMS: Identify any specific factual claims (dates, numbers, drug names, dosing, clinical trial results, severity grades) that do NOT appear in the research notes. These could be hallucinations.
+2. MISSING SEVERITY GRADING: Are severity grading scales included for every alleged injury? Are the grade definitions specific (what labs/findings define each grade)?
+3. MISSING CAUSATION DATA: Is the exposure→injury timeline documented? Is dechallenge/rechallenge data included if available? Are clinical trial rates (drug vs placebo) cited?
+4. INCOMPLETE CONFOUNDERS: Is the confounder section framed as defense arguments with what defeats each? Are documentation rules included?
+5. MISSING DIAGNOSTIC CRITERIA: For each injury, are the specific tests and thresholds that confirm the diagnosis included?
+6. IMPORTANT RESEARCH DATA MISSING: Facts from research notes that were NOT included but should have been.
 
 Format your audit as:
 
 ## Unsourced Claims (Potential Hallucinations)
 [list each, or "None identified"]
 
-## Important Research Data Missing from Guide  
+## Severity Grading Gaps
+[list each injury missing a grading scale, or "All injuries have grading scales"]
+
+## Causation Evidence Gaps
+[missing timeline data, trial rates, dechallenge/rechallenge info]
+
+## Confounder & Defense Gaps
+[missing confounders, missing defense-framing, missing documentation rules]
+
+## Diagnostic Criteria Gaps
+[injuries missing diagnostic criteria or specific thresholds]
+
+## Important Research Data Missing from Guide
 [list each]
 
-## Potential Inaccuracies
-[list each, or "None identified"]
-
-## Completeness Gaps
-[list each, or "All sections appear complete"]
-
-Be thorough but fair. Not every claim needs a direct citation — common medical knowledge is fine. Focus on specific factual assertions (dates, numbers, study results, drug names).`;
+Be thorough but fair. Focus on what's missing that a reviewer would need to build the case.`;
 
   const r=await callApi(key,[{role:'user',content:'Conduct the accuracy audit now.'}],sys,{model:'claude-sonnet-4-20250514',maxTok:6000,signal:sig,stream:true,
     onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
@@ -1331,7 +1373,9 @@ async function refine(){
   try{
     if(scope==='full'){
       // Refine entire guide
-      const sys=`You are a senior medical-legal consultant revising a Litigation Review Guide. You have the original research notes and the current guide. Apply the user's refinement instruction to improve the ENTIRE guide.
+      const sys=`You are a senior medical-legal consultant revising a Litigation Review Guide. This guide exists to help reviewers BUILD CASES THAT GET CLIENTS PAID. Every section must serve one of five elements: exposure proof, injury identification, severity grading, causation evidence, or confounder defense.
+
+You have the original research notes and the current guide. Apply the user's refinement instruction to improve the ENTIRE guide.
 
 RESEARCH NOTES (for fact-checking and adding detail):
 <research>
@@ -1385,7 +1429,7 @@ Output ONLY the revised Markdown. No preamble.`;
       if(startLine<0)startLine=0;
       const secMDText=allLines.slice(startLine,endLine).join('\n');
 
-      const sys=`You are a senior medical-legal consultant revising ONE SECTION of a Litigation Review Guide.
+      const sys=`You are a senior medical-legal consultant revising ONE SECTION of a Litigation Review Guide. This guide exists to help reviewers build cases — every sentence must serve exposure proof, injury identification, severity grading, causation evidence, or confounder defense.
 
 RESEARCH NOTES:
 <research>
