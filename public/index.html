@@ -438,10 +438,10 @@ const GG=[
 let ac=null,allRes={},secMD={},allMD='',genModel='claude-sonnet-4-20250514';
 
 const DEPTH_CONFIG={
-  brief:    {wordsPerBatch:1000, totalWords:3000,  tokPerBatch:2500,  label:'~1,000 words/batch, ~3k total'},
-  standard: {wordsPerBatch:2000, totalWords:6000,  tokPerBatch:5000,  label:'~2,000 words/batch, ~6k total'},
-  thorough: {wordsPerBatch:3500, totalWords:10000, tokPerBatch:8000,  label:'~3,500 words/batch, ~10k total'},
-  exhaustive:{wordsPerBatch:5000,totalWords:15000, tokPerBatch:12000, label:'~5,000 words/batch, ~15k total'}
+  brief:    {wordsPerBatch:1000, totalWords:3000,  tokPerBatch:2000,  label:'~1,000 words/batch, ~3k total'},
+  standard: {wordsPerBatch:2000, totalWords:6000,  tokPerBatch:3500,  label:'~2,000 words/batch, ~6k total'},
+  thorough: {wordsPerBatch:3500, totalWords:10000, tokPerBatch:6000,  label:'~3,500 words/batch, ~10k total'},
+  exhaustive:{wordsPerBatch:5000,totalWords:15000, tokPerBatch:8500,  label:'~5,000 words/batch, ~15k total'}
 };
 let outputDepth='standard';
 
@@ -844,43 +844,40 @@ function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
   const secInstr=secIds.map(id=>SP[id]||('# '+SEC.find(x=>x.id===id)?.l)).join('\n\n');
   const researchText=Object.values(research).join('\n\n---\n\n');
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-  const numBatches=3;
-
+  const numSecs=secIds.length;
   const depthInstructions={
-    brief:`DEPTH & LENGTH — HARD CONSTRAINT:
-This batch must be approximately ${dc.wordsPerBatch} words (${numBatches} batches × ${dc.wordsPerBatch} = ~${dc.totalWords} total guide). This is a quick-reference card, NOT a manual. Rules:
-- Maximum 3-5 bullet points per section. One line each.
-- No paragraphs. Only bullet lists and tables.
-- Name + one-sentence description for every item. Nothing more.
-- Skip background/context. Only include what directly helps a reviewer connect a chart entry to this litigation.
-- YOU MUST FINISH ALL ASSIGNED SECTIONS within ~${dc.wordsPerBatch} words. Do NOT run long. Complete every section even if brief.`,
+    brief:`HARD WORD LIMIT — THIS IS A STRICT CONSTRAINT, NOT A SUGGESTION:
+You are writing ${numSecs} sections in this batch. Total budget: ${dc.wordsPerBatch} words (${numSecs} sections × ~${Math.round(dc.wordsPerBatch/numSecs)} words each).
+- MAXIMUM ${Math.round(dc.wordsPerBatch/numSecs)} words per section. Count as you write.
+- One-line bullet points ONLY. No paragraphs. No multi-sentence descriptions.
+- Name + one sentence max for every item.
+- If you notice yourself writing more than ${Math.round(dc.wordsPerBatch/numSecs)} words for any section, STOP and move to the next section.
+- YOU MUST FINISH ALL ${numSecs} SECTIONS. Completing every section is more important than depth on any one section.
+- Total output must be under ${dc.wordsPerBatch} words. Going over is a failure condition.`,
 
-    standard:`DEPTH & LENGTH — HARD CONSTRAINT:
-This batch must be approximately ${dc.wordsPerBatch} words (${numBatches} batches × ${dc.wordsPerBatch} = ~${dc.totalWords} total guide). Rules:
-- Use tight bullet points, not flowing paragraphs. One line per item where possible.
-- For lists (complications, confounders, medications): name + one-line description. Not a paragraph for each.
-- For lab values and dosing: use TABLES.
-- Define terms inline ("**VOC** (vaso-occlusive crisis) — blocked blood flow causing severe pain").
-- Confounders section: checklist format. Name + why it matters + what to look for. One line each.
-- Reviewer Instructions: action-oriented checklist, not guidance paragraphs.
-- YOU MUST FINISH ALL ASSIGNED SECTIONS within ~${dc.wordsPerBatch} words. Do NOT get cut off. Wrap up every section completely.`,
+    standard:`HARD WORD LIMIT — THIS IS A STRICT CONSTRAINT, NOT A SUGGESTION:
+You are writing ${numSecs} sections in this batch. Total budget: ${dc.wordsPerBatch} words (${numSecs} sections × ~${Math.round(dc.wordsPerBatch/numSecs)} words each).
+- MAXIMUM ${Math.round(dc.wordsPerBatch/numSecs)} words per section. Count as you write.
+- Use tight bullet points, not paragraphs. One line per item where possible.
+- For lists (complications, confounders, medications): name + one-line description. NOT a paragraph for each.
+- Lab values and dosing: TABLES only.
+- Define terms inline: "**VOC** (vaso-occlusive crisis) — blocked blood flow causing severe pain"
+- Confounders: checklist format. Name + why it matters. One line each.
+- If you notice yourself exceeding ${Math.round(dc.wordsPerBatch/numSecs)} words on a section, STOP and move on.
+- YOU MUST FINISH ALL ${numSecs} SECTIONS. Total output must be under ${dc.wordsPerBatch} words.`,
 
-    thorough:`DEPTH & LENGTH — CONSTRAINT:
-This batch should be approximately ${dc.wordsPerBatch} words (${numBatches} batches × ${dc.wordsPerBatch} = ~${dc.totalWords} total guide). You have room for detail:
-- Use 2-3 sentence descriptions for important items (mechanism of action, key injuries, major confounders).
-- Bullet lists with explanatory text for clinical items.
-- Full tables for lab values and dosing.
-- Include clinical context that helps reviewers understand WHY something matters, not just WHAT it is.
-- YOU MUST FINISH ALL ASSIGNED SECTIONS. Plan your depth so you complete everything within ~${dc.wordsPerBatch} words for this batch.`,
+    thorough:`WORD LIMIT — IMPORTANT CONSTRAINT:
+You are writing ${numSecs} sections in this batch. Total budget: ${dc.wordsPerBatch} words (~${Math.round(dc.wordsPerBatch/numSecs)} words per section).
+- Budget up to ${Math.round(dc.wordsPerBatch/numSecs)} words per section. You have room for 2-3 sentence descriptions for important items.
+- Bullet lists with explanatory text. Full tables for lab values/dosing.
+- Include clinical context that helps reviewers understand WHY something matters.
+- YOU MUST FINISH ALL ${numSecs} SECTIONS within the ${dc.wordsPerBatch} word budget. Compress remaining sections rather than leaving them unfinished.`,
 
-    exhaustive:`DEPTH & LENGTH — GUIDANCE:
-This batch should be approximately ${dc.wordsPerBatch} words (${numBatches} batches × ${dc.wordsPerBatch} = ~${dc.totalWords} total guide). Be maximally thorough:
-- Full explanations for every item. Multiple sentences where warranted.
-- Detailed pathophysiology explanations. Full mechanism walkthroughs.
-- Comprehensive confounder descriptions with clinical reasoning.
-- Include all synonyms, ICD codes, and clinical presentation details.
-- Cross-reference between sections.
-- YOU MUST STILL FINISH ALL ASSIGNED SECTIONS. Depth is important but completing every section is mandatory. If running long, compress the less critical sections rather than leaving any unfinished.`
+    exhaustive:`WORD GUIDANCE:
+You are writing ${numSecs} sections in this batch. Budget: ~${dc.wordsPerBatch} words (~${Math.round(dc.wordsPerBatch/numSecs)} words per section).
+- Be thorough: full explanations, multiple sentences, detailed pathophysiology.
+- Include all synonyms, ICD codes, clinical presentation details.
+- YOU MUST STILL FINISH ALL ${numSecs} SECTIONS. If running long, compress less critical sections.`
   };
 
   return `You are a senior medical-legal consultant and nurse educator writing a Litigation Review Guide for a law firm's medical records review team. Your audience is nurse reviewers and paralegals — define every medical term on first use.
@@ -902,7 +899,11 @@ ${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'
 
 ${depthInstructions[outputDepth]}
 
-CRITICAL: You MUST write a COMPLETE response that covers ALL sections below. Do not stop mid-section. If you are approaching your limit, compress remaining sections rather than leaving them out. The last section must have a proper ending.
+CRITICAL RULES:
+1. You MUST write ALL sections below. Skipping or truncating any section is a failure.
+2. HARD WORD LIMIT: ~${dc.wordsPerBatch} words total for this batch. Going significantly over means other batches get crowded out.
+3. If approaching your limit, COMPRESS remaining sections (shorter bullets, fewer details) rather than stopping.
+4. The last section must have a proper ending — never stop mid-sentence or mid-list.
 
 SECTIONS TO WRITE NOW:
 ${secInstr}
@@ -972,6 +973,7 @@ async function streamToText(resp){
 async function streamTo(resp,el,onChunk){
   const reader=resp.body.getReader(),dec=new TextDecoder();
   let buf='',md='',last=0;
+  const mainPanel=document.getElementById('mainPanel');
   while(true){
     const{done,value}=await reader.read();if(done)break;
     buf+=dec.decode(value,{stream:true});
@@ -979,10 +981,10 @@ async function streamTo(resp,el,onChunk){
     for(const ln of lines){
       if(!ln.startsWith('data: '))continue;
       const d=ln.slice(6).trim();if(d==='[DONE]')continue;
-      try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){md+=ev.delta.text;const now=Date.now();if(now-last>200){el.innerHTML=md2html(md);last=now;if(onChunk)onChunk(md)}}}catch(e){}
+      try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){md+=ev.delta.text;const now=Date.now();if(now-last>200){el.innerHTML=md2html(md);last=now;if(mainPanel)mainPanel.scrollTop=mainPanel.scrollHeight;if(onChunk)onChunk(md)}}}catch(e){}
     }
   }
-  el.innerHTML=md2html(md);if(onChunk)onChunk(md);return md;
+  el.innerHTML=md2html(md);if(mainPanel)mainPanel.scrollTop=mainPanel.scrollHeight;if(onChunk)onChunk(md);return md;
 }
 
 /* ═══════ MD→HTML ═══════ */
@@ -1150,7 +1152,7 @@ async function run(){
 
       const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs);
       const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-      const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. Target ~'+dc.wordsPerBatch+' words for this batch. You MUST complete ALL assigned sections — do not stop mid-section or leave any out. If approaching your limit, compress rather than truncate. Output only Markdown.'}],sys,{
+      const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Output only Markdown.'}],sys,{
         stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:ac.signal,
         onRetry:(msg)=>setP(genBase+gi,'par',msg)
       });
@@ -1212,13 +1214,14 @@ async function run(){
     else{document.getElementById('pfoot').textContent='Error: '+err.message;if(!allMD)gBody.innerHTML='<div class="gc"><p style="color:var(--rd)">'+err.message+'</p></div>';else showRefineBar()}
   }finally{
     btn.disabled=false;btn.textContent='Generate Review Guide';stopBtn.style.display='none';ac=null;
+    togAll(false); // Deselect all sections after run
   }
 }
 
 function stop(){if(ac)ac.abort()}
 
 /* ═══════ EXPORTS ═══════ */
-function copyHTML(){navigator.clipboard.writeText(document.getElementById('gBody').innerHTML).then(()=>alert('Copied.'))}
+function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=document.getElementById('gBody').innerHTML;tmp.querySelectorAll('.regen-btn').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
 function printGuide(){window.print()}
 function dlPDF(){
   const drug=document.getElementById('drugName').value.trim()||'Guide';
@@ -1228,32 +1231,32 @@ function dlPDF(){
   // Build a clean print container
   const container=document.createElement('div');
   container.innerHTML=`
-    <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.75;font-size:14px">
-      <div style="border-bottom:2px solid #1a2e6c;padding-bottom:14px;margin-bottom:28px">
-        ${document.getElementById('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:24px;font-weight:bold;margin:0 0 6px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:12px;color:#555"')}
+    <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px">
+      <div style="border-bottom:1.5px solid #1a2e6c;padding-bottom:10px;margin-bottom:18px">
+        ${document.getElementById('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:20px;font-weight:bold;margin:0 0 4px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:10px;color:#555"')}
       </div>
       ${document.getElementById('gBody').innerHTML}
     </div>`;
 
-  // Style the clone for print
-  container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:20px;font-weight:bold;border-bottom:2px solid #1a2e6c;padding-bottom:8px;margin:32px 0 14px;color:#1a1a2e;page-break-after:avoid'});
-  container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:17px;color:#1a2e6c;margin:24px 0 10px;page-break-after:avoid'});
-  container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:15px;margin:20px 0 8px;page-break-after:avoid'});
-  container.querySelectorAll('h4').forEach(el=>{el.style.cssText='font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:#444;margin:16px 0 6px'});
-  container.querySelectorAll('p').forEach(el=>{el.style.cssText='font-size:13px;margin-bottom:8px;line-height:1.75'});
-  container.querySelectorAll('li').forEach(el=>{el.style.cssText='font-size:13px;margin-bottom:4px;line-height:1.65'});
-  container.querySelectorAll('ul,ol').forEach(el=>{el.style.cssText='margin:6px 0 12px 20px;font-size:13px'});
+  // Style the clone for print — tight formatting to reduce page count
+  container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;page-break-after:avoid'});
+  container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;page-break-after:avoid'});
+  container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;page-break-after:avoid'});
+  container.querySelectorAll('h4').forEach(el=>{el.style.cssText='font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#444;margin:10px 0 4px'});
+  container.querySelectorAll('p').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:4px;line-height:1.55'});
+  container.querySelectorAll('li').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:2px;line-height:1.5'});
+  container.querySelectorAll('ul,ol').forEach(el=>{el.style.cssText='margin:3px 0 8px 16px;font-size:11px'});
   container.querySelectorAll('strong,b').forEach(el=>{el.style.cssText='font-weight:600;color:#1a1a2e'});
-  container.querySelectorAll('table').forEach(el=>{el.style.cssText='width:100%;border-collapse:collapse;margin:12px 0;font-size:12px;page-break-inside:avoid'});
-  container.querySelectorAll('th').forEach(el=>{el.style.cssText='background:#e6e8f0;padding:7px 10px;text-align:left;font-weight:600;border-bottom:2px solid #bbb;font-size:12px'});
-  container.querySelectorAll('td').forEach(el=>{el.style.cssText='padding:6px 10px;border-bottom:1px solid #ddd;font-size:12px'});
-  container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:3px solid #1a2e6c;padding:8px 14px;margin:12px 0;background:#f4f5fa;font-size:13px'});
-  container.querySelectorAll('hr').forEach(el=>{el.style.cssText='border:none;border-top:1px solid #ccc;margin:24px 0'});
-  container.querySelectorAll('code').forEach(el=>{el.style.cssText='font-family:monospace;font-size:11px;background:#f0f0f0;padding:1px 4px;border-radius:2px'});
+  container.querySelectorAll('table').forEach(el=>{el.style.cssText='width:100%;border-collapse:collapse;margin:8px 0;font-size:10.5px;page-break-inside:avoid'});
+  container.querySelectorAll('th').forEach(el=>{el.style.cssText='background:#e6e8f0;padding:4px 7px;text-align:left;font-weight:600;border-bottom:1.5px solid #bbb;font-size:10.5px'});
+  container.querySelectorAll('td').forEach(el=>{el.style.cssText='padding:3px 7px;border-bottom:1px solid #ddd;font-size:10.5px'});
+  container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:2px solid #1a2e6c;padding:5px 10px;margin:8px 0;background:#f4f5fa;font-size:11px'});
+  container.querySelectorAll('hr').forEach(el=>{el.style.cssText='border:none;border-top:1px solid #ccc;margin:14px 0'});
+  container.querySelectorAll('code').forEach(el=>{el.style.cssText='font-family:monospace;font-size:10px;background:#f0f0f0;padding:1px 3px;border-radius:2px'});
   container.querySelectorAll('.regen-btn').forEach(el=>el.remove());
 
   const opt={
-    margin:[0.6,0.7,0.6,0.7],
+    margin:[0.45,0.5,0.45,0.5],
     filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
     image:{type:'jpeg',quality:0.95},
     html2canvas:{scale:2,useCORS:true,letterRendering:true},
@@ -1270,7 +1273,12 @@ function dlPDF(){
 }
 function dlHTML(){
   const drug=document.getElementById('drugName').value.trim()||'Guide';
-  const h=document.getElementById('gHead').innerHTML,c=document.getElementById('gBody').innerHTML;
+  const h=document.getElementById('gHead').innerHTML;
+  // Clone gBody and strip UI artifacts
+  const tmpDiv=document.createElement('div');
+  tmpDiv.innerHTML=document.getElementById('gBody').innerHTML;
+  tmpDiv.querySelectorAll('.regen-btn').forEach(el=>el.remove());
+  const c=tmpDiv.innerHTML;
   const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Litigation Review Guide — ${drug}</title>
 <style>body{font-family:Georgia,'Times New Roman',serif;max-width:860px;margin:48px auto;padding:0 32px;color:#1a1a2e;line-height:1.75;font-size:15px}h1{font-size:26px;font-weight:bold;border-bottom:2px solid #1a2e6c;padding-bottom:10px;margin:40px 0 16px;page-break-after:avoid}h2{font-size:21px;color:#1a2e6c;margin:32px 0 12px;page-break-after:avoid}h3{font-size:17px;margin:24px 0 10px;page-break-after:avoid}h4{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:#444;margin:18px 0 8px}p{margin-bottom:10px}ul,ol{margin:8px 0 14px 24px}li{margin-bottom:5px}strong{color:#1a1a2e}u{text-underline-offset:3px}blockquote{border-left:3px solid #1a2e6c;padding:10px 18px;margin:14px 0;background:#f4f5fa;font-size:14px}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;page-break-inside:avoid}th{background:#e6e8f0;padding:9px 12px;text-align:left;font-weight:600;border-bottom:2px solid #bbb}td{padding:8px 12px;border-bottom:1px solid #ddd}hr{border:none;border-top:1px solid #ccc;margin:32px 0}code{font-family:monospace;font-size:13px;background:#f0f0f0;padding:2px 5px;border-radius:3px}.guide-head{border-bottom:2px solid #1a2e6c;padding-bottom:16px;margin-bottom:32px}.guide-head h1{margin-top:0;font-size:28px}.meta{font-size:13px;color:#555}.sec-block{position:relative}.regen-btn{display:none}@media print{body{margin:24px;font-size:12pt}h1{font-size:18pt}h2{font-size:15pt}h3{font-size:13pt}table{font-size:10pt}}</style></head><body><div class="guide-head">${h}</div>${c}</body></html>`;
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.html';a.click();
@@ -1341,7 +1349,7 @@ RULES:
 - Apply the instruction thoughtfully across the entire guide
 - Maintain the same Markdown format (# for major, ## for sub, etc.)
 - Keep all existing content UNLESS the instruction says to remove something
-- The TOTAL guide must stay under ~6,000 words (≈12 pages). If adding content, trim elsewhere to compensate.
+- The TOTAL guide must stay under ~${(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords} words. If adding content, trim elsewhere to compensate.
 - Use bullet points, tables, and one-line descriptions — not paragraphs
 - Use research notes to add factual detail where the instruction calls for more depth
 - Output the COMPLETE revised guide in Markdown — not just the changed parts
