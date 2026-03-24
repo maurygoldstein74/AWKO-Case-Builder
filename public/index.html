@@ -500,10 +500,10 @@ const GG=[
 let ac=null,allRes={},secMD={},allMD='',genModel='claude-sonnet-4-20250514';
 
 const DEPTH_CONFIG={
-  brief:    {wordsPerBatch:1000, totalWords:3000,  tokPerBatch:2000,  label:'~1,000 words/batch, ~3k total'},
-  standard: {wordsPerBatch:2000, totalWords:6000,  tokPerBatch:3500,  label:'~2,000 words/batch, ~6k total'},
-  thorough: {wordsPerBatch:3500, totalWords:10000, tokPerBatch:6000,  label:'~3,500 words/batch, ~10k total'},
-  exhaustive:{wordsPerBatch:5000,totalWords:15000, tokPerBatch:8500,  label:'~5,000 words/batch, ~15k total'}
+  brief:    {totalWords:3000,  tokPerCall:5000,   label:'~3k words'},
+  standard: {totalWords:6000,  tokPerCall:10000,  label:'~6k words'},
+  thorough: {totalWords:10000, tokPerCall:16000,  label:'~10k words'},
+  exhaustive:{totalWords:15000, tokPerCall:24000,  label:'~15k+ words'}
 };
 let outputDepth='standard';
 
@@ -1270,47 +1270,56 @@ other_medications:`# Other Medications in Records\nGrouped by litigation relevan
 review_instructions:`# Reviewer Extraction Checklist — Getting the Client Paid\nEvery review should extract and document these five elements. A case is only as strong as the weakest element.\n\n## 1. EXPOSURE — Did the client take the drug?\nWithout exposure proof, there is no case.\n- [ ] Prescription records with prescriber name, date, drug name, dose, quantity\n- [ ] Pharmacy fill records / refill history — establishes duration\n- [ ] MAR (Medication Administration Records) for inpatient\n- [ ] Start date: ____  Stop date: ____  Total duration: ____\n- [ ] Dose taken vs. prescribed dose (over/underdosing?)\n- [ ] Any dose changes, interruptions, or early discontinuation — WHY?\n- [ ] Off-label use? (prescribed for unapproved indication/population = stronger case)\n\n## 2. INJURY — Does the client have the alleged injury?\nThe injury must be DIAGNOSED, not just symptomatic.\n- [ ] Physician diagnosis in assessment/plan (not just "rule out")\n- [ ] ICD-10 code on problem list or encounter diagnosis\n- [ ] Specialist confirmation (e.g., cardiologist diagnosed CHF, nephrologist confirmed AKI)\n- [ ] Diagnostic test results that meet formal criteria (see Injuries section above)\n- [ ] Document EVERY synonym — same injury may appear under different names across records\n\n## 3. SEVERITY GRADING — This is what determines the payout\nHigher severity = more damages = larger recovery. This is the most important extraction task.\n- [ ] Identify the correct grading scale for each injury (see Injuries section for specific scales)\n- [ ] Assign a grade based on chart findings: labs, symptoms, functional status, imaging\n- [ ] Document the HIGHEST grade reached at any point\n- [ ] Is the injury RESOLVED or PERMANENT/ONGOING? (permanent = ongoing damages)\n- [ ] Hospitalizations: dates, length of stay, ICU days (quantifies damages)\n- [ ] Surgeries/procedures required (quantifies damages)\n- [ ] ER visits related to the injury\n- [ ] Functional impact: work disability, activity limitations, quality of life changes\n- [ ] Death: if fatal, document cause of death and whether drug/injury is listed\n\n## 4. CAUSATION — Connecting the drug to the injury\n- [ ] Timeline: Drug start date → Injury onset date. Is timing consistent with known onset pattern?\n- [ ] Baseline labs BEFORE drug start vs. labs AFTER injury onset — did values change?\n- [ ] Dechallenge: Did injury improve/resolve when drug stopped? Date drug stopped: ____ Date improvement noted: ____\n- [ ] Rechallenge: Was drug restarted? Did injury recur? (strongest causation evidence)\n- [ ] Any physician note attributing the injury to the drug (e.g., "likely drug-induced," "discontinue due to")\n- [ ] Any adverse event report filed (MedWatch, hospital incident report)\n\n## 5. CONFOUNDERS — What the defense will use\n- [ ] Document ALL pre-existing conditions with diagnosis dates\n- [ ] For each: was it STABLE before drug start, or already progressing?\n- [ ] BMI at drug start date: ____ (defense will argue obesity caused it)\n- [ ] Alcohol use: MD-diagnosed? Y/N (self-reported doesn't count)\n- [ ] Smoking status at drug start\n- [ ] All concomitant medications (especially steroids, other drugs with similar injury risk)\n- [ ] Genetic/hereditary conditions\n- [ ] Any pre-existing condition that could independently explain the injury = case risk\n\n## CASE STRENGTH QUICK ASSESSMENT\n- ✅ STRONG: Clear exposure proof + confirmed diagnosis + high severity grade (3-5) + clean timeline + drug stopped and injury improved + few/no confounders\n- ⚠️ MODERATE: Exposure proven but gaps in severity documentation, some confounders present but manageable\n- 🚩 WEAK: Exposure gaps + low severity grade (1-2) + multiple pre-existing conditions that could explain injury + no dechallenge evidence + physician notes suggesting alternative cause`
 };
 
-function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds,priorOutput){
+function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
   const secInstr=secIds.map(id=>SP[id]||('# '+SEC.find(x=>x.id===id)?.l)).join('\n\n');
   const researchText=Object.values(research).join('\n\n---\n\n');
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
   const numSecs=secIds.length;
+
+  const heavySecs=['injuries_adverse','confounders','review_instructions','diagnostic_tests'];
+  const medSecs=['normal_lab_values','mechanism_of_action','dosing','symptoms_complications'];
+  const heavyCount=secIds.filter(s=>heavySecs.includes(s)).length;
+  const medCount=secIds.filter(s=>medSecs.includes(s)).length;
+  const lightCount=numSecs-heavyCount-medCount;
+  // Weight: heavy=3x, med=1.5x, light=0.5x
+  const totalWeight=heavyCount*3+medCount*1.5+lightCount*0.5;
+  const wordsPerWeight=Math.round(dc.totalWords/totalWeight);
+
   const depthInstructions={
-    brief:`HARD WORD LIMIT — THIS IS A STRICT CONSTRAINT, NOT A SUGGESTION:
-You are writing ${numSecs} sections in this batch. Total budget: ${dc.wordsPerBatch} words (${numSecs} sections × ~${Math.round(dc.wordsPerBatch/numSecs)} words each).
-- MAXIMUM ${Math.round(dc.wordsPerBatch/numSecs)} words per section. Count as you write.
-- One-line bullet points ONLY. No paragraphs. No multi-sentence descriptions.
-- Name + one sentence max for every item.
-- If you notice yourself writing more than ${Math.round(dc.wordsPerBatch/numSecs)} words for any section, STOP and move to the next section.
-- YOU MUST FINISH ALL ${numSecs} SECTIONS. Completing every section is more important than depth on any one section.
-- Total output must be under ${dc.wordsPerBatch} words. Going over is a failure condition.`,
+    brief:`HARD WORD LIMIT: ~${dc.totalWords} words total for the ENTIRE guide.
+- This is a quick-reference card, NOT a manual.
+- One-line bullet points only. No paragraphs.
+- Heavy sections (Injuries, Confounders, Checklist): ~${wordsPerWeight*3} words each
+- Medium sections: ~${wordsPerWeight*1.5|0} words each
+- Light sections: ~${wordsPerWeight*0.5|0} words each
+- YOU MUST FINISH ALL ${numSecs} SECTIONS within ~${dc.totalWords} words.`,
 
-    standard:`HARD WORD LIMIT — THIS IS A STRICT CONSTRAINT, NOT A SUGGESTION:
-You are writing ${numSecs} sections in this batch. Total budget: ${dc.wordsPerBatch} words (${numSecs} sections × ~${Math.round(dc.wordsPerBatch/numSecs)} words each).
-- MAXIMUM ${Math.round(dc.wordsPerBatch/numSecs)} words per section. Count as you write.
-- Use tight bullet points, not paragraphs. One line per item where possible.
-- For lists (complications, confounders, medications): name + one-line description. NOT a paragraph for each.
-- Lab values and dosing: TABLES only.
-- Define terms inline: "**VOC** (vaso-occlusive crisis) — blocked blood flow causing severe pain"
-- Confounders: checklist format. Name + why it matters. One line each.
-- If you notice yourself exceeding ${Math.round(dc.wordsPerBatch/numSecs)} words on a section, STOP and move on.
-- YOU MUST FINISH ALL ${numSecs} SECTIONS. Total output must be under ${dc.wordsPerBatch} words.`,
+    standard:`HARD WORD LIMIT: ~${dc.totalWords} words total for the ENTIRE guide.
+- Tight bullet points, not paragraphs. One line per item where possible.
+- Lists: name + one-line description. Tables for lab values/dosing.
+- Heavy sections (Injuries, Confounders, Checklist, Diagnostics): ~${wordsPerWeight*3} words each — these are the core
+- Medium sections (Labs, Mechanism, Dosing, Complications): ~${wordsPerWeight*1.5|0} words each
+- Light sections (Overview, Background, Types, Anatomy, Specialists): ~${wordsPerWeight*0.5|0} words each — brief context only
+- YOU MUST FINISH ALL ${numSecs} SECTIONS within ~${dc.totalWords} words. Compress light sections aggressively.`,
 
-    thorough:`WORD LIMIT — IMPORTANT CONSTRAINT:
-You are writing ${numSecs} sections in this batch. Total budget: ${dc.wordsPerBatch} words (~${Math.round(dc.wordsPerBatch/numSecs)} words per section).
-- Budget up to ${Math.round(dc.wordsPerBatch/numSecs)} words per section. You have room for 2-3 sentence descriptions for important items.
-- Bullet lists with explanatory text. Full tables for lab values/dosing.
-- Include clinical context that helps reviewers understand WHY something matters.
-- YOU MUST FINISH ALL ${numSecs} SECTIONS within the ${dc.wordsPerBatch} word budget. Compress remaining sections rather than leaving them unfinished.`,
+    thorough:`WORD LIMIT: ~${dc.totalWords} words total for the ENTIRE guide.
+- Room for 2-3 sentence descriptions on important items. Full tables.
+- Heavy sections: ~${wordsPerWeight*3} words each
+- Medium sections: ~${wordsPerWeight*1.5|0} words each  
+- Light sections: ~${wordsPerWeight*0.5|0} words each
+- YOU MUST FINISH ALL ${numSecs} SECTIONS. Compress remaining sections rather than leaving them unfinished.`,
 
-    exhaustive:`WORD GUIDANCE:
-You are writing ${numSecs} sections in this batch. Budget: ~${dc.wordsPerBatch} words (~${Math.round(dc.wordsPerBatch/numSecs)} words per section).
-- Be thorough: full explanations, multiple sentences, detailed pathophysiology.
-- Include all synonyms, ICD codes, clinical presentation details.
-- YOU MUST STILL FINISH ALL ${numSecs} SECTIONS. If running long, compress less critical sections.`
+    exhaustive:`WORD GUIDANCE: ~${dc.totalWords} words total.
+- Be thorough: full explanations, detailed pathophysiology, all synonyms, ICD codes.
+- Heavy sections: ~${wordsPerWeight*3} words each
+- Medium sections: ~${wordsPerWeight*1.5|0} words each
+- Light sections: ~${wordsPerWeight*0.5|0} words each
+- YOU MUST FINISH ALL ${numSecs} SECTIONS. If running long, compress light sections.`
   };
 
-  return `You are a senior medical-legal consultant writing a Litigation Review Guide — a practical tool for nurse reviewers and paralegals who review medical records to BUILD CASES THAT GET CLIENTS PAID.
+  return `You are a senior medical-legal consultant writing a COMPLETE Litigation Review Guide in a single pass — a practical tool for nurse reviewers and paralegals who review medical records to BUILD CASES THAT GET CLIENTS PAID.
+
+Write this as ONE COHESIVE DOCUMENT. Define every medical term on first use ONLY — do not redefine it in later sections. Cross-reference between sections where relevant: "See the Injuries section for severity grading" or "Lab thresholds for each grade are in the Lab Values section." The reader will have the complete guide; write as if they'll read it front to back.
 
 This is NOT a medical education document. Every sentence must serve one of these five litigation elements:
 1. EXPOSURE — proving the client took the drug (Rx records, pharmacy fills, duration, dose)
@@ -1334,75 +1343,28 @@ DRUG: ${drug}
 ${cond?'CONDITION: '+cond:'(From research)'}
 TYPE: ${litType.replace(/_/g,' ')}
 
-${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully. They reflect the legal team\'s priorities, case theory, and what their reviewers need most. Adjust emphasis, depth, and focus areas accordingly.\n':''})()}${priorOutput?'SECTIONS ALREADY WRITTEN (DO NOT REPEAT THIS CONTENT):\n<already_written>\n'+priorOutput.substring(0,30000)+'\n</already_written>\n\nThe above sections have already been written. You are writing the NEXT set of sections. Do NOT redefine terms, repeat facts, or re-explain concepts that appear in the already-written sections. Instead, cross-reference them: "As noted in the Injuries section above..." If a fact is already covered, skip it — the reader will have the full guide.\n\n':''}CITATIONS — REQUIRED:
+${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully. They reflect the legal team\'s priorities, case theory, and what their reviewers need most. Adjust emphasis, depth, and focus areas accordingly.\n':''})()}CITATIONS — REQUIRED:
 The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output.
 - When stating a fact from the research, include the source link: "FDA approved voxelotor in November 2019 [FDA](https://www.fda.gov/...)"
 - Use markdown link format: [Short Label](URL)
 - Cite clinical trial data, FDA actions, grading scales, diagnostic criteria, adverse event rates, and dosing information
 - If a fact has no source URL in the research notes, do NOT invent one — just state the fact without a link
-- Group multiple facts from the same source under one citation where natural
 
 FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key terms first use. Bullets for lists. Tables for lab values/dosing. --- between major sections.
 
 ${depthInstructions[outputDepth]}
 
-SECTION WEIGHTING — NOT ALL SECTIONS ARE EQUAL:
-- HEAVY (give these 2-3x the words): Injuries & Severity Grading, Confounders & Defense Arguments, Reviewer Extraction Checklist, Diagnostic Tests
-- MEDIUM: Lab Values, Mechanism of Harm, Dosing & Exposure, Disease vs. Drug Complications
-- LIGHT (keep brief — context only): Drug Overview, Disease Background, Pathophysiology, Types, Anatomy, Specialists, Other Medications, Triggers
-The injuries/severity section should be the largest section in the guide. Compress the light sections aggressively to give the heavy sections room.
-
 CRITICAL RULES:
-1. You MUST write ALL sections below. Skipping or truncating any section is a failure.
-2. HARD WORD LIMIT: ~${dc.wordsPerBatch} words total for this batch. Going significantly over means other batches get crowded out.
-3. If approaching your limit, COMPRESS remaining sections (shorter bullets, fewer details) rather than stopping.
-4. The last section must have a proper ending — never stop mid-sentence or mid-list.
+1. You MUST write ALL ${numSecs} sections below as one cohesive document.
+2. HARD WORD LIMIT: ~${dc.totalWords} words total. The last section must have a proper ending.
+3. Define terms on FIRST USE ONLY. Cross-reference between sections instead of repeating.
+4. If approaching your limit, COMPRESS remaining sections rather than stopping.
+5. The Injuries & Severity Grading section should be the longest section in the guide.
 
-SECTIONS TO WRITE NOW:
+SECTIONS TO WRITE (in this order):
 ${secInstr}
 
 Output ONLY Markdown. No preamble. No closing. Start with first # heading.`;
-}
-
-/* ═══════ EDITORIAL PASS ═══════ */
-async function editorialPass(key,drug,guide,research,sig){
-  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-  const researchText=Object.values(research).join('\n\n').substring(0,30000);
-  const sys=`You are a senior medical-legal editor performing a final editorial pass on a Litigation Review Guide. Your job is to make this read as ONE cohesive document, not a collection of separately-written sections.
-
-CURRENT GUIDE:
-<guide>
-${guide.substring(0,60000)}
-</guide>
-
-RESEARCH NOTES (for citation verification):
-<research>
-${researchText}
-</research>
-
-EDITORIAL TASKS:
-1. REMOVE REDUNDANCY: If the same fact, definition, or explanation appears in multiple sections, keep it in the most appropriate section and remove or replace with a cross-reference elsewhere (e.g., "See Injuries & Severity Grading section above").
-2. ADD CROSS-REFERENCES: Where one section relates to another, add brief cross-references so the reviewer can navigate (e.g., "The lab values that confirm this severity grade are detailed in the Lab Values section").
-3. SMOOTH TRANSITIONS: Each section should flow logically from the previous one. Add brief transition sentences where sections feel disconnected.
-4. TERM CONSISTENCY: Ensure medical terms are defined on FIRST use only. Remove redundant definitions. Use the same terminology throughout.
-5. CITATION CLEANUP: Ensure [Source](URL) citations are present for key factual claims. Remove duplicate citations. If a URL appears broken or clearly wrong, remove just the link but keep the fact.
-6. TIGHTEN PROSE: Remove filler language, redundant qualifiers, and anything that doesn't help the reviewer build the case. Every sentence must earn its place.
-
-RULES:
-- Output the COMPLETE revised guide in Markdown
-- Preserve ALL section headings (# headings) — do not merge or remove sections
-- Preserve ALL substantive content — only remove true redundancy
-- Keep the total length within ~${dc.totalWords} words
-- Maintain the litigation focus: exposure, injury, severity, causation, confounders
-- Start with the first # heading. No preamble.
-
-Output ONLY the revised Markdown.`;
-
-  const resp=await callApi(key,[{role:'user',content:'Perform the editorial pass now. Output the complete revised guide. Remove redundancy, add cross-references, smooth transitions, and tighten the prose. Preserve all citations. You MUST output the complete guide — do not truncate.'}],sys,{
-    stream:true,maxTok:dc.tokPerBatch*3,model:genModel,signal:sig,
-    onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
-  });
-  return resp;
 }
 
 /* ═══════ VERIFICATION ═══════ */
@@ -1590,7 +1552,7 @@ async function regenSec(secId){
   block.classList.add('regen');
   try{
     const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,[secId],allMD||null);
-    const resp=await callApi(keys[0],[{role:'user',content:'Rewrite this section completely. Do NOT repeat information from other sections. Include [Source](URL) citations. You MUST finish the section — do not stop mid-sentence. Output only Markdown.'}],sys,{stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerBatch,model:genModel});
+    const resp=await callApi(keys[0],[{role:'user',content:'Rewrite this section completely. Do NOT repeat information from other sections. Include [Source](URL) citations. You MUST finish the section — do not stop mid-sentence. Output only Markdown.'}],sys,{stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,model:genModel});
     const gc=block.querySelector('.gc');
     const newMD=await streamTo(resp,gc);
     secMD[secId]=newMD;
@@ -1627,8 +1589,7 @@ async function run(){
   const steps=[
     ...RP.map(p=>({l:'🔍 '+p.l,d:'Queued'})),
     ...(wantGap?[{l:'🔎 Gap Analysis + Follow-Up',d:'Queued'}]:[]),
-    ...activeGG.map(g=>({l:'✍ Write: '+g.l,d:'Queued'})),
-    {l:'✂ Editorial Pass',d:'Queued'},
+    {l:'✍ Writing Full Guide ('+secs.length+' sections)',d:'Queued'},
     ...(wantVerify?[{l:'✓ Verification Audit',d:'Queued'}]:[])
   ];
   initProg(steps);
@@ -1698,106 +1659,63 @@ async function run(){
     // Cooldown before generation phase
     await sleep(10000,ac.signal);
 
-    // ═══ PHASE 3: GENERATION (batched, with inter-batch delays) ═══
+    // ═══ PHASE 3: GENERATION (single call, all sections) ═══
     gBody.innerHTML='';
-    const genBase=RP.length+gapStepCount;
-    const genDelay=15000; // 15s between gen batches to avoid rate limits
-    const failedBatches=[];
-    window._failedBatches=failedBatches; // expose for retry
+    const genIdx=RP.length+gapStepCount;
+    const genKey=keys[0];
+    setP(genIdx,'run','Writing full guide with '+(genModel.includes('opus')?'Opus':'Sonnet')+'...');
 
-    for(let gi=0;gi<activeGG.length;gi++){
-      const grp=activeGG[gi];
-      const genKey=keys[gi%keys.length]; // rotate keys across gen batches
-      setP(genBase+gi,'run','Writing with '+(genModel.includes('opus')?'Opus':'Sonnet')+' (Key '+(gi%keys.length+1)+')...');
+    const genDiv=document.createElement('div');genDiv.className='sec-block';genDiv.id='sb-gen';
+    genDiv.innerHTML='<div class="gc"></div>';
+    gBody.appendChild(genDiv);
 
-      // Delay between gen batches (not before first)
-      if(gi>0){
-        setP(genBase+gi,'run','Cooling down before next batch ('+Math.round(genDelay/1000)+'s)...');
-        await sleep(genDelay,ac.signal);
-        setP(genBase+gi,'run','Writing with '+(genModel.includes('opus')?'Opus':'Sonnet')+' (Key '+(gi%keys.length+1)+')...');
+    let genSuccess=false;
+    for(let genAttempt=0;genAttempt<3&&!genSuccess;genAttempt++){
+      if(genAttempt>0){
+        const retryWait=20000*genAttempt;
+        setP(genIdx,'par','Generation failed — retry '+(genAttempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
+        await sleep(retryWait,ac.signal);
+        setP(genIdx,'run','Retrying generation (attempt '+(genAttempt+1)+')...');
+        genDiv.querySelector('.gc').innerHTML='';
       }
+      try{
+        const allSecIds=secs;
+        const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,allSecIds);
+        const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE litigation review guide now — all '+allSecIds.length+' sections as one cohesive document. Target ~'+dc.totalWords+' words. Define terms once, cross-reference between sections, include [Source](URL) citations. You MUST complete every section. Output only Markdown.'}],sys,{
+          stream:true,maxTok:dc.tokPerCall,model:genModel,signal:ac.signal,
+          onRetry:(msg)=>setP(genIdx,'par',msg)
+        });
 
-      const groupDiv=document.createElement('div');groupDiv.className='sec-block';groupDiv.id='sb-grp-'+grp.id;
-      groupDiv.innerHTML='<div class="gc"></div>';
-      gBody.appendChild(groupDiv);
-
-      let batchSuccess=false;
-      for(let batchAttempt=0;batchAttempt<3&&!batchSuccess;batchAttempt++){
-        if(batchAttempt>0){
-          const retryWait=20000*batchAttempt;
-          setP(genBase+gi,'par','Batch failed — retry '+(batchAttempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
-          await sleep(retryWait,ac.signal);
-          setP(genBase+gi,'run','Retrying batch '+(gi+1)+' (attempt '+(batchAttempt+1)+')...');
-          groupDiv.querySelector('.gc').innerHTML='';
-        }
-        try{
-          const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs,allMD||null);
-          const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-          const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Do NOT repeat information already covered in prior sections. Include [Source](URL) citations from the research notes. Output only Markdown.'}],sys,{
-            stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:ac.signal,
-            onRetry:(msg)=>setP(genBase+gi,'par',msg)
+        const gc=genDiv.querySelector('.gc');
+        allMD=await streamTo(resp,gc,()=>updWC());
+        if(allMD.trim().length<100){throw new Error('Generation returned empty or too short');}
+        splitBatchMD(allMD,allSecIds);
+        setP(genIdx,'done',countW(allMD).toLocaleString()+' words');
+        genSuccess=true;
+      }catch(e){
+        if(e.name==='AbortError')throw e;
+        if(genAttempt===2){
+          setP(genIdx,'err','Failed after 3 attempts: '+e.message);
+          const gc=genDiv.querySelector('.gc');
+          gc.innerHTML='<p style="color:var(--rd)">⚠ Generation failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Generation</button>';
+          logError(e,{
+            step:'generation',
+            stepLabel:'Guide Generation',
+            type:'generation',
+            keyIndex:genKey,
+            retryAttempts:3,
+            retryFn:"retryGeneration()",
           });
-
-          const gc=groupDiv.querySelector('.gc');
-          const grpMD=await streamTo(resp,gc,()=>updWC());
-          if(grpMD.trim().length<50){throw new Error('Generation returned empty or too short');}
-          splitBatchMD(grpMD,grp.secs);
-          allMD+='\n\n---\n\n'+grpMD;
-          setP(genBase+gi,'done','Complete');
-          batchSuccess=true;
-        }catch(e){
-          if(e.name==='AbortError')throw e;
-          if(batchAttempt===2){
-            setP(genBase+gi,'err','Failed after 3 attempts: '+e.message);
-            // Mark batch as failed but continue to next batch
-            const gc=groupDiv.querySelector('.gc');
-            gc.innerHTML='<p style="color:var(--rd)">⚠ Batch failed: '+e.message+'</p><button onclick="retryBatch(\''+grp.id+'\')" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry This Batch</button>';
-            failedBatches.push({grpId:grp.id,grp,genKey,gi});
-            logError(e,{
-              step:'gen_'+grp.id,
-              stepLabel:'Generation: '+grp.l,
-              type:'generation',
-              keyIndex:genKey,
-              retryAttempts:3,
-              retryFn:"retryBatch('"+grp.id+"')",
-              retryArgs:grp.id
-            });
-          }
         }
       }
     }
 
     updWC();buildTOC();
 
-    // ═══ PHASE 4: EDITORIAL PASS ═══
-    const editIdx=genBase+activeGG.length;
-    setP(editIdx,'run','Cooling before editorial pass...');
-    await sleep(10000,ac.signal);
-    setP(editIdx,'run','Removing redundancy, adding cross-references...');
-    try{
-      const editKey=keys[0];
-      const editResp=await editorialPass(editKey,drug,allMD,allRes,ac.signal);
-      const gBody=document.getElementById('gBody');
-      gBody.innerHTML='<div class="gc"></div>';
-      const gc=gBody.querySelector('.gc');
-      allMD=await streamTo(editResp,gc,()=>updWC());
-
-      // Re-split into individual secMD entries
-      const allSecIds=activeGG.flatMap(g=>g.secs);
-      splitBatchMD(allMD,allSecIds);
-
-      updWC();buildTOC();
-      setP(editIdx,'done','Cohesion pass complete — '+countW(allMD).toLocaleString()+' words');
-    }catch(e){
-      if(e.name==='AbortError')throw e;
-      setP(editIdx,'err','Editorial pass failed: '+e.message+' (guide still usable)');
-      logError(e,{step:'editorial',stepLabel:'Editorial Pass',type:'editorial',retryAttempts:1});
-      // Non-fatal — guide is still usable without the editorial pass
-    }
-
-    // ═══ PHASE 5: VERIFICATION (optional) ═══
+    // ═══ PHASE 4: VERIFICATION (optional) ═══
     if(wantVerify){
-      const vIdx=editIdx+1;
+      const vIdx=genIdx+1;
       setP(vIdx,'run','Cooling before verification...');
       await sleep(10000,ac.signal);
       setP(vIdx,'run','Cross-checking guide against research...');
@@ -1822,13 +1740,13 @@ async function run(){
 
     // Check for failures
     const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
-    const failedGenCount=failedBatches.length;
-    const totalFailed=failedResearch.length+failedGenCount;
+    const genFailed=!genSuccess;
+    const totalFailed=failedResearch.length+(genFailed?1:0);
 
     if(totalFailed>0){
       let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — ⚠ '+totalFailed+' failure'+(totalFailed>1?'s':'');
       if(failedResearch.length)failMsg+=' ('+failedResearch.length+' research)';
-      if(failedGenCount)failMsg+=' ('+failedGenCount+' generation)';
+      if(genFailed)failMsg+=' (generation)';
       document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>';
     }else{
       document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
@@ -1849,48 +1767,44 @@ async function run(){
 function stop(){if(ac)ac.abort()}
 
 /* ═══════ FAILURE RECOVERY ═══════ */
-async function retryBatch(grpId){
+async function retryGeneration(){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured.');
   const drug=document.getElementById('drugName').value.trim();
   const cond=document.getElementById('condition').value.trim();
   const litType=document.getElementById('litType').value;
   const inj=document.getElementById('injuries').value.trim();
   const extra=document.getElementById('extra').value.trim();
-  const followUp=''; // followUp from original run isn't persisted, but research is
 
-  const grp=GG.find(g=>g.id===grpId);
-  if(!grp)return alert('Batch not found: '+grpId);
+  const allSecIds=getSecOrder().filter(id=>{
+    // Use all sections that have SP entries
+    return SP[id];
+  });
+  if(!allSecIds.length)return alert('No sections to generate');
 
-  const groupDiv=document.getElementById('sb-grp-'+grpId);
-  if(!groupDiv)return alert('Batch container not found');
-  const gc=groupDiv.querySelector('.gc');
-  gc.innerHTML='<p style="color:var(--tx3)">Retrying batch...</p>';
+  const gBody=document.getElementById('gBody');
+  gBody.innerHTML='<div class="sec-block" id="sb-gen"><div class="gc"><p style="color:var(--tx3)">Retrying full guide generation...</p></div></div>';
 
   try{
-    const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs,allMD||null);
+    const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,allSecIds);
     const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-    const resp=await callApi(keys[0],[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Do NOT repeat information already covered. Include [Source](URL) citations. Output only Markdown.'}],sys,{
-      stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:null
+    const resp=await callApi(keys[0],[{role:'user',content:'Write the COMPLETE litigation review guide now — all '+allSecIds.length+' sections as one cohesive document. Target ~'+dc.totalWords+' words. Include [Source](URL) citations. Output only Markdown.'}],sys,{
+      stream:true,maxTok:dc.tokPerCall,model:genModel,signal:null
     });
 
-    const grpMD=await streamTo(resp,gc,()=>updWC());
-    if(grpMD.trim().length<50)throw new Error('Response too short');
-    splitBatchMD(grpMD,grp.secs);
-    allMD=Object.values(secMD).join('\n\n---\n\n');
+    const gc=gBody.querySelector('.gc');
+    allMD=await streamTo(resp,gc,()=>updWC());
+    if(allMD.trim().length<100)throw new Error('Response too short');
+    splitBatchMD(allMD,allSecIds);
     updWC();buildTOC();showRefineBar();
     splitOutputIntoSections();
 
-    // Remove from failed list
-    if(window._failedBatches){
-      const idx=window._failedBatches.findIndex(f=>f.grpId===grpId);
-      if(idx>=0)window._failedBatches.splice(idx,1);
-    }
     // Resolve matching errors
-    errorLog.filter(e=>e.step==='gen_'+grpId&&!e.resolved).forEach(e=>resolveError(e.id));
+    errorLog.filter(e=>e.step==='generation'&&!e.resolved).forEach(e=>resolveError(e.id));
     updateFailureSummary();
   }catch(e){
-    gc.innerHTML='<p style="color:var(--rd)">⚠ Retry failed: '+e.message+'</p><button onclick="retryBatch(\''+grpId+'\')" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Again</button>';
-    logError(e,{step:'gen_'+grpId,stepLabel:'Retry Generation: '+grp.l,type:'generation',retryAttempts:1,retryFn:"retryBatch('"+grpId+"')"});
+    const gc=gBody.querySelector('.gc');
+    if(gc)gc.innerHTML='<p style="color:var(--rd)">⚠ Retry failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Again</button>';
+    logError(e,{step:'generation',stepLabel:'Retry Guide Generation',type:'generation',retryAttempts:1,retryFn:"retryGeneration()"});
   }
 }
 
@@ -1936,18 +1850,17 @@ async function retryAllFailed(){
     await retryFailedResearch(passId);
     await new Promise(r=>setTimeout(r,5000)); // cooldown
   }
-  // Then retry failed generation batches
-  const batches=[...(window._failedBatches||[])];
-  for(const fb of batches){
-    await retryBatch(fb.grpId);
-    await new Promise(r=>setTimeout(r,5000)); // cooldown
+  // Then retry generation if it failed
+  const genFailed=errorLog.some(e=>e.step==='generation'&&!e.resolved);
+  if(genFailed){
+    await retryGeneration();
   }
 }
 
 function updateFailureSummary(){
   const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
-  const failedGenCount=(window._failedBatches||[]).length;
-  const totalFailed=failedResearch.length+failedGenCount;
+  const genFailed=errorLog.some(e=>e.step==='generation'&&!e.resolved);
+  const totalFailed=failedResearch.length+(genFailed?1:0);
   const pfoot=document.getElementById('pfoot');
   if(totalFailed===0){
     pfoot.textContent=pfoot.textContent.replace(/— ⚠.*/,'').trim()+' — all failures recovered ✓';
@@ -2094,7 +2007,7 @@ RULES:
 Output ONLY the revised Markdown. No preamble.`;
 
       const resp=await callApi(keys[0],[{role:'user',content:'Apply the refinement now. Output the complete revised guide. Target ~'+(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords+' words total. Preserve all citations. You MUST complete the entire guide — do not stop mid-section.'}],sys,{
-        stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerBatch*3,model:genModel,signal:null,
+        stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,model:genModel,signal:null,
         onRetry:(msg)=>{btn.textContent=msg}
       });
 
@@ -2153,7 +2066,7 @@ RULES:
 Output ONLY the revised section Markdown.`;
 
       const resp=await callApi(keys[0],[{role:'user',content:'Revise this section now. Preserve all citations. You MUST write a complete section with a proper ending. Output only Markdown.'}],sys,{
-        stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerBatch,model:genModel,signal:null,
+        stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,model:genModel,signal:null,
         onRetry:(msg)=>{btn.textContent=msg}
       });
 
@@ -2216,18 +2129,12 @@ function estimateCost(){
     gapCost=(40000/1e6)*3+(3000/1e6)*15+(20000/1e6)*3+(4000/1e6)*15+gapSearches*0.01;
   }
 
-  // Generation: 3 batches
-  const genBatches=Math.min(3,Math.ceil(numSecs/5));
+  // Generation: single call, all sections
   const genInRate=isOpus?15:3;
   const genOutRate=isOpus?75:15;
-  const genInputTok=genBatches*60000; // research context per batch
-  const genOutputTok=genBatches*4000;
+  const genInputTok=80000; // research context + section prompts
+  const genOutputTok=12000; // full guide output
   const genCost=(genInputTok/1e6)*genInRate+(genOutputTok/1e6)*genOutRate;
-
-  // Editorial pass: reads full guide + research, rewrites guide
-  const editInputTok=90000; // guide + research context
-  const editOutputTok=8000; // rewritten guide
-  const editCost=(editInputTok/1e6)*genInRate+(editOutputTok/1e6)*genOutRate;
 
   // Verification
   let verifyCost=0;
@@ -2235,14 +2142,14 @@ function estimateCost(){
     verifyCost=(50000/1e6)*3+(4000/1e6)*15;
   }
 
-  const total=researchCost+gapCost+genCost+editCost+verifyCost;
+  const total=researchCost+gapCost+genCost+verifyCost;
   const low=(total*0.6).toFixed(2);
   const high=(total*1.4).toFixed(2);
 
   const el=document.getElementById('costEstimate');
   el.style.display='block';
   el.innerHTML='Estimated cost: <strong style="color:var(--am)">$'+low+' – $'+high+'</strong>'+
-    ' ('+researchSearches+' searches, '+(isOpus?'Opus':'Sonnet')+' gen + editorial'+
+    ' ('+researchSearches+' searches, '+(isOpus?'Opus':'Sonnet')+' single-pass gen'+
     (wantGap?', gap analysis':'')+
     (wantVerify?', verification':'')+')';
 
