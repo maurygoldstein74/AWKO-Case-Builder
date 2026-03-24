@@ -60,13 +60,27 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .sec-acts{display:flex;gap:6px}
 .sec-acts button{background:none;border:none;color:var(--ac);font-size:10px;cursor:pointer;font-family:'Outfit',sans-serif}.sec-acts button:hover{text-decoration:underline}
-.sec-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.stog{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;cursor:pointer;font-size:10px;color:var(--tx3);transition:all .12s;user-select:none}
+.sec-grid{display:flex;flex-direction:column;gap:3px}
+.stog{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;cursor:default;font-size:10px;color:var(--tx3);transition:all .12s;user-select:none}
 .stog:hover{border-color:var(--bdh);color:var(--tx2)}
 .stog.on{background:var(--acbg);border-color:rgba(139,123,245,.3);color:var(--ac2)}
 .stog input{display:none}
-.stog .ck{width:12px;height:12px;border:1.5px solid var(--bd);border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;transition:all .12s}
+.stog .ck{width:12px;height:12px;border:1.5px solid var(--bd);border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;transition:all .12s;cursor:pointer}
 .stog.on .ck{background:var(--ac);border-color:var(--ac);color:#fff}
+.stog .drag-h{cursor:grab;color:var(--bd);font-size:11px;line-height:1;padding:2px;margin-right:-2px;flex-shrink:0;transition:color .12s}
+.stog:hover .drag-h{color:var(--tx3)}
+.stog .drag-h:active{cursor:grabbing}
+.stog .sec-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stog.drag-over{border-color:var(--ac);box-shadow:0 -2px 0 0 var(--ac)}
+.stog.dragging{opacity:.3}
+
+/* Output section drag */
+.sec-block{position:relative;margin-bottom:4px}
+.sec-block .out-drag-h{position:absolute;top:8px;left:-28px;cursor:grab;color:var(--bd);font-size:14px;padding:4px;opacity:0;transition:opacity .15s}
+.sec-block:hover .out-drag-h{opacity:1}
+.sec-block .out-drag-h:active{cursor:grabbing}
+.sec-block.drag-over-out{border-top:2px solid var(--ac);margin-top:-2px}
+.sec-block.dragging-out{opacity:.25}
 
 /* Model select */
 .model-row{display:flex;gap:8px}
@@ -133,7 +147,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .vp-body em{color:var(--gn)}
 
 /* Guide */
-.guide{max-width:880px}
+.guide{max-width:880px;padding-left:32px}
 .guide-head{border-bottom:2px solid var(--ac);padding-bottom:16px;margin-bottom:14px}
 .guide-head h1{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;line-height:1.3}
 .guide-head .meta{font-size:12px;color:var(--tx2);margin-top:4px}
@@ -145,7 +159,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .toc a{color:var(--tx2);text-decoration:none;font-size:12.5px;line-height:1.9;transition:color .12s}
 .toc a:hover{color:var(--ac2)}
 
-.sec-block{position:relative;margin-bottom:4px}
 .sec-block .regen-btn{position:absolute;top:2px;right:0;background:var(--sf2);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;font-size:9.5px;color:var(--tx3);cursor:pointer;font-family:'Outfit',sans-serif;opacity:0;transition:opacity .15s;z-index:2}
 .sec-block:hover .regen-btn{opacity:1}
 .sec-block .regen-btn:hover{border-color:var(--ac);color:var(--ac)}
@@ -198,7 +211,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .refine-hist-item .rh-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 @media(max-width:960px){.shell{grid-template-columns:1fr}.side{position:relative;max-height:none;border-right:none;border-bottom:1px solid var(--bd)}.out-wrap{padding:20px 16px 60px}.toc ol{columns:1}.refine-bar{padding:12px 16px 16px}}
-@media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.refine-bar,.err-panel{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
+@media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.out-drag-h,.refine-bar,.err-panel{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.guide{padding-left:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
 
 /* Error log panel */
 .err-panel{background:var(--sf);border:1px solid var(--rdbd);border-radius:8px;margin-bottom:20px;overflow:hidden}
@@ -319,8 +332,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
   <div class="hr"></div>
 
   <div class="sec-head">
-    <label style="margin:0">Sections</label>
-    <div class="sec-acts"><button onclick="togAll(true)">All</button><button onclick="togAll(false)">None</button></div>
+    <label style="margin:0">Sections <span class="tag" style="font-size:9px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx3);background:var(--sf3);padding:1px 5px;border-radius:3px">drag to reorder</span></label>
+    <div class="sec-acts"><button onclick="togAll(true)">All</button><button onclick="togAll(false)">None</button><button onclick="resetSecOrder()">Reset</button></div>
   </div>
   <div class="sec-grid" id="secGrid"></div>
 </div>
@@ -634,10 +647,207 @@ function selDepth(el,d){
 
 /* ═══════ SECTIONS ═══════ */
 function initSec(){
-  document.getElementById('secGrid').innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}"><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">✓</span>${s.l}</label>`).join('');
+  const grid=document.getElementById('secGrid');
+  grid.innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">✓</span><span class="sec-label">${s.l}</span></label>`).join('');
+  initSidebarDrag();
 }
 function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checked=v;c.parentElement.classList.toggle('on',v);c.parentElement.querySelector('.ck').textContent=v?'✓':''})}
 function getSecs(){return Array.from(document.querySelectorAll('.stog input:checked')).map(c=>c.parentElement.dataset.id)}
+function getSecOrder(){return Array.from(document.querySelectorAll('.stog')).map(el=>el.dataset.id)}
+function resetSecOrder(){
+  const grid=document.getElementById('secGrid');
+  const checked=new Set(getSecs());
+  grid.innerHTML=SEC.map(s=>{
+    const on=checked.has(s.id);
+    return `<label class="stog${on?' on':''}" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox"${on?' checked':''} onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">${on?'✓':''}</span><span class="sec-label">${s.l}</span></label>`;
+  }).join('');
+  initSidebarDrag();
+}
+
+/* ═══════ SIDEBAR DRAG & DROP ═══════ */
+let sidebarDragEl=null;
+function initSidebarDrag(){
+  const grid=document.getElementById('secGrid');
+  grid.querySelectorAll('.stog').forEach(el=>{
+    el.addEventListener('dragstart',e=>{
+      // Only allow drag from the handle
+      if(!e.target.classList.contains('stog')){
+        const stog=e.target.closest('.stog');
+        if(stog){sidebarDragEl=stog;stog.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',stog.dataset.id)}
+      }else{
+        sidebarDragEl=el;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',el.dataset.id);
+      }
+    });
+    el.addEventListener('dragend',()=>{
+      if(sidebarDragEl)sidebarDragEl.classList.remove('dragging');
+      grid.querySelectorAll('.stog').forEach(s=>s.classList.remove('drag-over'));
+      sidebarDragEl=null;
+    });
+    el.addEventListener('dragover',e=>{
+      e.preventDefault();e.dataTransfer.dropEffect='move';
+      grid.querySelectorAll('.stog').forEach(s=>s.classList.remove('drag-over'));
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.classList.remove('drag-over');
+      if(!sidebarDragEl||sidebarDragEl===el)return;
+      const items=[...grid.querySelectorAll('.stog')];
+      const fromIdx=items.indexOf(sidebarDragEl);
+      const toIdx=items.indexOf(el);
+      if(fromIdx<0||toIdx<0)return;
+      if(fromIdx<toIdx)el.after(sidebarDragEl);
+      else el.before(sidebarDragEl);
+    });
+  });
+}
+
+/* ═══════ OUTPUT SECTION REORDER ═══════ */
+let outDragEl=null;
+
+function splitOutputIntoSections(){
+  // After generation, split the combined output into individual draggable sec-blocks per H1
+  const gBody=document.getElementById('gBody');
+  const allContent=gBody.innerHTML;
+  // Parse current content to find H1 boundaries
+  const tmp=document.createElement('div');tmp.innerHTML=allContent;
+  const children=[...tmp.childNodes];
+
+  // Group elements by H1 headings
+  const sections=[];
+  let current=null;
+  children.forEach(node=>{
+    // Check if this node is or contains an H1
+    const isH1=(node.nodeType===1&&node.tagName==='H1');
+    // Also check inside gc divs and sec-blocks
+    const innerH1=(node.nodeType===1&&node.querySelector&&node.querySelector('h1'));
+    if(isH1){
+      if(current)sections.push(current);
+      current={h1Text:node.textContent.trim(),nodes:[node]};
+    }else if(innerH1&&!current){
+      // Existing sec-block with content — use as-is
+      sections.push({h1Text:innerH1.textContent.trim(),nodes:[node],isBlock:true});
+    }else if(current){
+      current.nodes.push(node);
+    }else{
+      // Content before any H1 — group as preamble
+      if(!sections.length||sections[sections.length-1].isPreamble){
+        if(!sections.length)sections.push({h1Text:'(preamble)',nodes:[],isPreamble:true});
+        sections[sections.length-1].nodes.push(node);
+      }
+    }
+  });
+  if(current)sections.push(current);
+
+  // Rebuild gBody with individual sec-blocks, ordered by sidebar
+  gBody.innerHTML='';
+  const sidebarOrder=getSecOrder();
+
+  // Sort sections by sidebar order (matched sections first in sidebar order, then unmatched)
+  const matched=[];
+  const unmatched=[];
+  sections.forEach((sec,i)=>{
+    const text=sec.h1Text.toLowerCase();
+    const match=SEC.find(s=>text.includes(s.l.toLowerCase().split(' ')[0]));
+    if(match){
+      sec._matchId=match.id;
+      sec._sidebarIdx=sidebarOrder.indexOf(match.id);
+      matched.push(sec);
+    }else{
+      unmatched.push(sec);
+    }
+  });
+  matched.sort((a,b)=>(a._sidebarIdx<0?999:a._sidebarIdx)-(b._sidebarIdx<0?999:b._sidebarIdx));
+  const ordered=[...matched,...unmatched];
+
+  ordered.forEach((sec,i)=>{
+    const block=document.createElement('div');
+    block.className='sec-block';
+    block.draggable=true;
+    block.dataset.secIdx=i;
+
+    if(sec._matchId)block.id='sb-'+sec._matchId;
+
+    // Add drag handle
+    const handle=document.createElement('div');
+    handle.className='out-drag-h';handle.textContent='⠿';handle.title='Drag to reorder';
+    block.appendChild(handle);
+
+    // Add regen button if matched
+    if(sec._matchId){
+      const rbtn=document.createElement('button');
+      rbtn.className='regen-btn';rbtn.textContent='↻ Regenerate';
+      rbtn.onclick=()=>regenSec(sec._matchId);
+      block.appendChild(rbtn);
+    }
+
+    // Add content
+    const gc=document.createElement('div');gc.className='gc';
+    sec.nodes.forEach(n=>gc.appendChild(n.cloneNode(true)));
+    block.appendChild(gc);
+
+    gBody.appendChild(block);
+  });
+
+  initOutputDrag();
+  rebuildMDFromOutput();
+}
+
+function initOutputDrag(){
+  const gBody=document.getElementById('gBody');
+  gBody.querySelectorAll('.sec-block').forEach(block=>{
+    block.addEventListener('dragstart',e=>{
+      outDragEl=block;block.classList.add('dragging-out');
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',block.dataset.secIdx||'');
+    });
+    block.addEventListener('dragend',()=>{
+      if(outDragEl)outDragEl.classList.remove('dragging-out');
+      gBody.querySelectorAll('.sec-block').forEach(b=>b.classList.remove('drag-over-out'));
+      outDragEl=null;
+    });
+    block.addEventListener('dragover',e=>{
+      e.preventDefault();e.dataTransfer.dropEffect='move';
+      gBody.querySelectorAll('.sec-block').forEach(b=>b.classList.remove('drag-over-out'));
+      block.classList.add('drag-over-out');
+    });
+    block.addEventListener('dragleave',()=>block.classList.remove('drag-over-out'));
+    block.addEventListener('drop',e=>{
+      e.preventDefault();block.classList.remove('drag-over-out');
+      if(!outDragEl||outDragEl===block)return;
+      const items=[...gBody.querySelectorAll('.sec-block')];
+      const fromIdx=items.indexOf(outDragEl);
+      const toIdx=items.indexOf(block);
+      if(fromIdx<0||toIdx<0)return;
+      if(fromIdx<toIdx)block.after(outDragEl);
+      else block.before(outDragEl);
+      // Rebuild allMD from new DOM order
+      rebuildMDFromOutput();
+      buildTOC();
+    });
+  });
+}
+
+function rebuildMDFromOutput(){
+  const gBody=document.getElementById('gBody');
+  const blocks=gBody.querySelectorAll('.sec-block');
+  const parts=[];
+  blocks.forEach(block=>{
+    const gc=block.querySelector('.gc');
+    if(!gc)return;
+    // Extract text content and try to reconstruct MD — or use stored secMD
+    const id=block.id?.replace('sb-','');
+    if(id&&secMD[id]){
+      parts.push(secMD[id]);
+    }else{
+      // Fallback: extract H1 text at minimum
+      const h1=gc.querySelector('h1');
+      if(h1)parts.push('# '+h1.textContent.trim());
+    }
+  });
+  allMD=parts.join('\n\n---\n\n');
+  updWC();
+}
 
 /* ═══════ API WITH RETRY (via Netlify proxy) ═══════ */
 const MAX_RETRIES=6;
@@ -861,7 +1071,16 @@ RULES:
 - Include SPECIFIC facts, dates, numbers, percentages, study names, exact figures.
 - When information conflicts, include both with sources.
 - Be thorough but focused. Prioritize litigation-relevant facts over general medical background.
-- 1,500-3,000 words of structured research notes.`;
+- 1,500-3,000 words of structured research notes.
+
+CITATION REQUIREMENT — CRITICAL:
+For EVERY factual claim, include the source URL inline using this format:
+  "The FDA approved voxelotor in November 2019 via accelerated approval [Source](https://www.fda.gov/...)"
+  "CTCAE Grade 3 is defined as severe, requiring hospitalization [Source](https://ctep.cancer.gov/...)"
+
+Use [Source](URL) format consistently. Include the actual URL from the search result — not a made-up URL. If a fact came from a search result, cite it. If you cannot find a URL for a claim, mark it as [Source: clinical knowledge] so the guide author knows it needs verification.
+
+Every claim about: FDA actions, clinical trial results, adverse event rates, grading scales, diagnostic criteria, dosing, drug interactions, or mechanism of action MUST have a source URL.`;
 }
 
 async function doResearch(keys,drug,cond,inj,extra,sig){
@@ -1051,7 +1270,7 @@ other_medications:`# Other Medications in Records\nGrouped by litigation relevan
 review_instructions:`# Reviewer Extraction Checklist — Getting the Client Paid\nEvery review should extract and document these five elements. A case is only as strong as the weakest element.\n\n## 1. EXPOSURE — Did the client take the drug?\nWithout exposure proof, there is no case.\n- [ ] Prescription records with prescriber name, date, drug name, dose, quantity\n- [ ] Pharmacy fill records / refill history — establishes duration\n- [ ] MAR (Medication Administration Records) for inpatient\n- [ ] Start date: ____  Stop date: ____  Total duration: ____\n- [ ] Dose taken vs. prescribed dose (over/underdosing?)\n- [ ] Any dose changes, interruptions, or early discontinuation — WHY?\n- [ ] Off-label use? (prescribed for unapproved indication/population = stronger case)\n\n## 2. INJURY — Does the client have the alleged injury?\nThe injury must be DIAGNOSED, not just symptomatic.\n- [ ] Physician diagnosis in assessment/plan (not just "rule out")\n- [ ] ICD-10 code on problem list or encounter diagnosis\n- [ ] Specialist confirmation (e.g., cardiologist diagnosed CHF, nephrologist confirmed AKI)\n- [ ] Diagnostic test results that meet formal criteria (see Injuries section above)\n- [ ] Document EVERY synonym — same injury may appear under different names across records\n\n## 3. SEVERITY GRADING — This is what determines the payout\nHigher severity = more damages = larger recovery. This is the most important extraction task.\n- [ ] Identify the correct grading scale for each injury (see Injuries section for specific scales)\n- [ ] Assign a grade based on chart findings: labs, symptoms, functional status, imaging\n- [ ] Document the HIGHEST grade reached at any point\n- [ ] Is the injury RESOLVED or PERMANENT/ONGOING? (permanent = ongoing damages)\n- [ ] Hospitalizations: dates, length of stay, ICU days (quantifies damages)\n- [ ] Surgeries/procedures required (quantifies damages)\n- [ ] ER visits related to the injury\n- [ ] Functional impact: work disability, activity limitations, quality of life changes\n- [ ] Death: if fatal, document cause of death and whether drug/injury is listed\n\n## 4. CAUSATION — Connecting the drug to the injury\n- [ ] Timeline: Drug start date → Injury onset date. Is timing consistent with known onset pattern?\n- [ ] Baseline labs BEFORE drug start vs. labs AFTER injury onset — did values change?\n- [ ] Dechallenge: Did injury improve/resolve when drug stopped? Date drug stopped: ____ Date improvement noted: ____\n- [ ] Rechallenge: Was drug restarted? Did injury recur? (strongest causation evidence)\n- [ ] Any physician note attributing the injury to the drug (e.g., "likely drug-induced," "discontinue due to")\n- [ ] Any adverse event report filed (MedWatch, hospital incident report)\n\n## 5. CONFOUNDERS — What the defense will use\n- [ ] Document ALL pre-existing conditions with diagnosis dates\n- [ ] For each: was it STABLE before drug start, or already progressing?\n- [ ] BMI at drug start date: ____ (defense will argue obesity caused it)\n- [ ] Alcohol use: MD-diagnosed? Y/N (self-reported doesn't count)\n- [ ] Smoking status at drug start\n- [ ] All concomitant medications (especially steroids, other drugs with similar injury risk)\n- [ ] Genetic/hereditary conditions\n- [ ] Any pre-existing condition that could independently explain the injury = case risk\n\n## CASE STRENGTH QUICK ASSESSMENT\n- ✅ STRONG: Clear exposure proof + confirmed diagnosis + high severity grade (3-5) + clean timeline + drug stopped and injury improved + few/no confounders\n- ⚠️ MODERATE: Exposure proven but gaps in severity documentation, some confounders present but manageable\n- 🚩 WEAK: Exposure gaps + low severity grade (1-2) + multiple pre-existing conditions that could explain injury + no dechallenge evidence + physician notes suggesting alternative cause`
 };
 
-function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
+function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds,priorOutput){
   const secInstr=secIds.map(id=>SP[id]||('# '+SEC.find(x=>x.id===id)?.l)).join('\n\n');
   const researchText=Object.values(research).join('\n\n---\n\n');
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
@@ -1115,7 +1334,15 @@ DRUG: ${drug}
 ${cond?'CONDITION: '+cond:'(From research)'}
 TYPE: ${litType.replace(/_/g,' ')}
 
-${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully. They reflect the legal team\'s priorities, case theory, and what their reviewers need most. Adjust emphasis, depth, and focus areas accordingly.\n':''})()}FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key terms first use. Bullets for lists. Tables for lab values/dosing. --- between major sections.
+${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully. They reflect the legal team\'s priorities, case theory, and what their reviewers need most. Adjust emphasis, depth, and focus areas accordingly.\n':''})()}${priorOutput?'SECTIONS ALREADY WRITTEN (DO NOT REPEAT THIS CONTENT):\n<already_written>\n'+priorOutput.substring(0,30000)+'\n</already_written>\n\nThe above sections have already been written. You are writing the NEXT set of sections. Do NOT redefine terms, repeat facts, or re-explain concepts that appear in the already-written sections. Instead, cross-reference them: "As noted in the Injuries section above..." If a fact is already covered, skip it — the reader will have the full guide.\n\n':''}CITATIONS — REQUIRED:
+The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output.
+- When stating a fact from the research, include the source link: "FDA approved voxelotor in November 2019 [FDA](https://www.fda.gov/...)"
+- Use markdown link format: [Short Label](URL)
+- Cite clinical trial data, FDA actions, grading scales, diagnostic criteria, adverse event rates, and dosing information
+- If a fact has no source URL in the research notes, do NOT invent one — just state the fact without a link
+- Group multiple facts from the same source under one citation where natural
+
+FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key terms first use. Bullets for lists. Tables for lab values/dosing. --- between major sections.
 
 ${depthInstructions[outputDepth]}
 
@@ -1135,6 +1362,47 @@ SECTIONS TO WRITE NOW:
 ${secInstr}
 
 Output ONLY Markdown. No preamble. No closing. Start with first # heading.`;
+}
+
+/* ═══════ EDITORIAL PASS ═══════ */
+async function editorialPass(key,drug,guide,research,sig){
+  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+  const researchText=Object.values(research).join('\n\n').substring(0,30000);
+  const sys=`You are a senior medical-legal editor performing a final editorial pass on a Litigation Review Guide. Your job is to make this read as ONE cohesive document, not a collection of separately-written sections.
+
+CURRENT GUIDE:
+<guide>
+${guide.substring(0,60000)}
+</guide>
+
+RESEARCH NOTES (for citation verification):
+<research>
+${researchText}
+</research>
+
+EDITORIAL TASKS:
+1. REMOVE REDUNDANCY: If the same fact, definition, or explanation appears in multiple sections, keep it in the most appropriate section and remove or replace with a cross-reference elsewhere (e.g., "See Injuries & Severity Grading section above").
+2. ADD CROSS-REFERENCES: Where one section relates to another, add brief cross-references so the reviewer can navigate (e.g., "The lab values that confirm this severity grade are detailed in the Lab Values section").
+3. SMOOTH TRANSITIONS: Each section should flow logically from the previous one. Add brief transition sentences where sections feel disconnected.
+4. TERM CONSISTENCY: Ensure medical terms are defined on FIRST use only. Remove redundant definitions. Use the same terminology throughout.
+5. CITATION CLEANUP: Ensure [Source](URL) citations are present for key factual claims. Remove duplicate citations. If a URL appears broken or clearly wrong, remove just the link but keep the fact.
+6. TIGHTEN PROSE: Remove filler language, redundant qualifiers, and anything that doesn't help the reviewer build the case. Every sentence must earn its place.
+
+RULES:
+- Output the COMPLETE revised guide in Markdown
+- Preserve ALL section headings (# headings) — do not merge or remove sections
+- Preserve ALL substantive content — only remove true redundancy
+- Keep the total length within ~${dc.totalWords} words
+- Maintain the litigation focus: exposure, injury, severity, causation, confounders
+- Start with the first # heading. No preamble.
+
+Output ONLY the revised Markdown.`;
+
+  const resp=await callApi(key,[{role:'user',content:'Perform the editorial pass now. Output the complete revised guide. Remove redundancy, add cross-references, smooth transitions, and tighten the prose. Preserve all citations. You MUST output the complete guide — do not truncate.'}],sys,{
+    stream:true,maxTok:dc.tokPerBatch*3,model:genModel,signal:sig,
+    onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
+  });
+  return resp;
 }
 
 /* ═══════ VERIFICATION ═══════ */
@@ -1238,6 +1506,7 @@ function md2html(md){
   h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
   h=h.replace(/(?<![*\\])\*([^*\n]+?)\*(?!\*)/g,'<em>$1</em>');
   h=h.replace(/__(.+?)__/g,'<u>$1</u>');
+  h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--cy);text-decoration:underline;text-underline-offset:2px">$1</a>');
   h=h.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
   h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
   h=h.replace(/^(\s*)-\s+(.+)$/gm,'<li>$2</li>');
@@ -1255,6 +1524,60 @@ function buildTOC(){
   document.getElementById('toc').style.display='block';
 }
 
+/* ═══════ SPLIT BATCH MD INTO INDIVIDUAL SECTIONS ═══════ */
+function splitBatchMD(grpMD,secIds){
+  // Split a batch markdown string by # headings and store each chunk individually in secMD
+  const lines=grpMD.split('\n');
+  const chunks=[];
+  let current=null;
+
+  for(const line of lines){
+    if(line.match(/^# /)){
+      if(current)chunks.push(current);
+      current={title:line.replace(/^# /,'').trim(),lines:[line]};
+    }else if(current){
+      current.lines.push(line);
+    }else{
+      // Content before any heading — attach to first chunk later
+      if(!chunks.length&&!current)current={title:'(preamble)',lines:[line]};
+    }
+  }
+  if(current)chunks.push(current);
+
+  // Match chunks to secIds by title similarity
+  const unmatched=[...secIds];
+  chunks.forEach(chunk=>{
+    const chunkTitle=chunk.title.toLowerCase();
+    let bestMatch=null,bestScore=0;
+    unmatched.forEach(sid=>{
+      const sec=SEC.find(s=>s.id===sid);
+      if(!sec)return;
+      const label=sec.l.toLowerCase();
+      // Score by keyword overlap
+      const labelWords=label.split(/[\s&/,]+/).filter(w=>w.length>2);
+      const score=labelWords.filter(w=>chunkTitle.includes(w)).length;
+      if(score>bestScore){bestScore=score;bestMatch=sid}
+    });
+    if(bestMatch&&bestScore>0){
+      secMD[bestMatch]=chunk.lines.join('\n').trim();
+      unmatched.splice(unmatched.indexOf(bestMatch),1);
+    }
+  });
+
+  // Any remaining unmatched chunks — store under remaining secIds in order
+  const leftoverChunks=chunks.filter(chunk=>{
+    return !Object.values(secMD).includes(chunk.lines.join('\n').trim());
+  });
+  leftoverChunks.forEach((chunk,i)=>{
+    if(unmatched[i])secMD[unmatched[i]]=chunk.lines.join('\n').trim();
+  });
+
+  // Fallback: if no chunks matched at all, store entire batch under all secIds
+  if(!chunks.length){
+    secIds.forEach(sid=>{secMD[sid]=grpMD});
+  }
+}
+
 /* ═══════ SECTION REGEN ═══════ */
 async function regenSec(secId){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured on server.');
@@ -1266,11 +1589,13 @@ async function regenSec(secId){
   const block=document.getElementById('sb-'+secId);if(!block)return;
   block.classList.add('regen');
   try{
-    const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,[secId]);
-    const resp=await callApi(keys[0],[{role:'user',content:'Rewrite this section completely. You MUST finish the section — do not stop mid-sentence. Output only Markdown.'}],sys,{stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerBatch,model:genModel});
+    const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,[secId],allMD||null);
+    const resp=await callApi(keys[0],[{role:'user',content:'Rewrite this section completely. Do NOT repeat information from other sections. Include [Source](URL) citations. You MUST finish the section — do not stop mid-sentence. Output only Markdown.'}],sys,{stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerBatch,model:genModel});
     const gc=block.querySelector('.gc');
     const newMD=await streamTo(resp,gc);
-    secMD[secId]=newMD;allMD=Object.values(secMD).join('\n\n---\n\n');updWC();buildTOC();
+    secMD[secId]=newMD;
+    rebuildMDFromOutput();
+    buildTOC();
   }catch(e){alert('Failed: '+e.message)}
   finally{block.classList.remove('regen')}
 }
@@ -1303,6 +1628,7 @@ async function run(){
     ...RP.map(p=>({l:'🔍 '+p.l,d:'Queued'})),
     ...(wantGap?[{l:'🔎 Gap Analysis + Follow-Up',d:'Queued'}]:[]),
     ...activeGG.map(g=>({l:'✍ Write: '+g.l,d:'Queued'})),
+    {l:'✂ Editorial Pass',d:'Queued'},
     ...(wantVerify?[{l:'✓ Verification Audit',d:'Queued'}]:[])
   ];
   initProg(steps);
@@ -1405,9 +1731,9 @@ async function run(){
           groupDiv.querySelector('.gc').innerHTML='';
         }
         try{
-          const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs);
+          const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs,allMD||null);
           const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-          const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Output only Markdown.'}],sys,{
+          const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Do NOT repeat information already covered in prior sections. Include [Source](URL) citations from the research notes. Output only Markdown.'}],sys,{
             stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:ac.signal,
             onRetry:(msg)=>setP(genBase+gi,'par',msg)
           });
@@ -1415,7 +1741,7 @@ async function run(){
           const gc=groupDiv.querySelector('.gc');
           const grpMD=await streamTo(resp,gc,()=>updWC());
           if(grpMD.trim().length<50){throw new Error('Generation returned empty or too short');}
-          grp.secs.forEach(sid=>{secMD[sid]=grpMD});
+          splitBatchMD(grpMD,grp.secs);
           allMD+='\n\n---\n\n'+grpMD;
           setP(genBase+gi,'done','Complete');
           batchSuccess=true;
@@ -1443,9 +1769,35 @@ async function run(){
 
     updWC();buildTOC();
 
-    // ═══ PHASE 4: VERIFICATION (optional) ═══
+    // ═══ PHASE 4: EDITORIAL PASS ═══
+    const editIdx=genBase+activeGG.length;
+    setP(editIdx,'run','Cooling before editorial pass...');
+    await sleep(10000,ac.signal);
+    setP(editIdx,'run','Removing redundancy, adding cross-references...');
+    try{
+      const editKey=keys[0];
+      const editResp=await editorialPass(editKey,drug,allMD,allRes,ac.signal);
+      const gBody=document.getElementById('gBody');
+      gBody.innerHTML='<div class="gc"></div>';
+      const gc=gBody.querySelector('.gc');
+      allMD=await streamTo(editResp,gc,()=>updWC());
+
+      // Re-split into individual secMD entries
+      const allSecIds=activeGG.flatMap(g=>g.secs);
+      splitBatchMD(allMD,allSecIds);
+
+      updWC();buildTOC();
+      setP(editIdx,'done','Cohesion pass complete — '+countW(allMD).toLocaleString()+' words');
+    }catch(e){
+      if(e.name==='AbortError')throw e;
+      setP(editIdx,'err','Editorial pass failed: '+e.message+' (guide still usable)');
+      logError(e,{step:'editorial',stepLabel:'Editorial Pass',type:'editorial',retryAttempts:1});
+      // Non-fatal — guide is still usable without the editorial pass
+    }
+
+    // ═══ PHASE 5: VERIFICATION (optional) ═══
     if(wantVerify){
-      const vIdx=genBase+activeGG.length;
+      const vIdx=editIdx+1;
       setP(vIdx,'run','Cooling before verification...');
       await sleep(10000,ac.signal);
       setP(vIdx,'run','Cross-checking guide against research...');
@@ -1463,23 +1815,8 @@ async function run(){
       }
     }
 
-    // Wrap sections with regen buttons
-    const h1s=gBody.querySelectorAll('h1');
-    h1s.forEach(h1=>{
-      const text=h1.textContent.trim().toLowerCase();
-      const match=SEC.find(s=>text.includes(s.l.toLowerCase().split(' ')[0]));
-      if(match){
-        // Find existing parent sec-block or wrap
-        const parent=h1.closest('.sec-block');
-        if(parent&&!parent.querySelector('.regen-btn')){
-          parent.id='sb-'+match.id;
-          const btn=document.createElement('button');
-          btn.className='regen-btn';btn.textContent='↻ Regenerate';
-          btn.onclick=()=>regenSec(match.id);
-          parent.prepend(btn);
-        }
-      }
-    });
+    // Split output into individual draggable section blocks
+    splitOutputIntoSections();
 
     const elapsed=((Date.now()-t0)/1000/60).toFixed(1);
 
@@ -1530,17 +1867,18 @@ async function retryBatch(grpId){
   gc.innerHTML='<p style="color:var(--tx3)">Retrying batch...</p>';
 
   try{
-    const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs);
+    const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs,allMD||null);
     const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-    const resp=await callApi(keys[0],[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Output only Markdown.'}],sys,{
+    const resp=await callApi(keys[0],[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Do NOT repeat information already covered. Include [Source](URL) citations. Output only Markdown.'}],sys,{
       stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:null
     });
 
     const grpMD=await streamTo(resp,gc,()=>updWC());
     if(grpMD.trim().length<50)throw new Error('Response too short');
-    grp.secs.forEach(sid=>{secMD[sid]=grpMD});
+    splitBatchMD(grpMD,grp.secs);
     allMD=Object.values(secMD).join('\n\n---\n\n');
     updWC();buildTOC();showRefineBar();
+    splitOutputIntoSections();
 
     // Remove from failed list
     if(window._failedBatches){
@@ -1617,7 +1955,7 @@ function updateFailureSummary(){
 }
 
 /* ═══════ EXPORTS ═══════ */
-function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=document.getElementById('gBody').innerHTML;tmp.querySelectorAll('.regen-btn').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
+function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=document.getElementById('gBody').innerHTML;tmp.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
 function printGuide(){window.print()}
 function dlPDF(){
   const drug=document.getElementById('drugName').value.trim()||'Guide';
@@ -1649,7 +1987,7 @@ function dlPDF(){
   container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:2px solid #1a2e6c;padding:5px 10px;margin:8px 0;background:#f4f5fa;font-size:11px'});
   container.querySelectorAll('hr').forEach(el=>{el.style.cssText='border:none;border-top:1px solid #ccc;margin:14px 0'});
   container.querySelectorAll('code').forEach(el=>{el.style.cssText='font-family:monospace;font-size:10px;background:#f0f0f0;padding:1px 3px;border-radius:2px'});
-  container.querySelectorAll('.regen-btn').forEach(el=>el.remove());
+  container.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());
 
   const opt={
     margin:[0.45,0.5,0.45,0.5],
@@ -1673,7 +2011,7 @@ function dlHTML(){
   // Clone gBody and strip UI artifacts
   const tmpDiv=document.createElement('div');
   tmpDiv.innerHTML=document.getElementById('gBody').innerHTML;
-  tmpDiv.querySelectorAll('.regen-btn').forEach(el=>el.remove());
+  tmpDiv.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());
   const c=tmpDiv.innerHTML;
   const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Litigation Review Guide — ${drug}</title>
 <style>body{font-family:Georgia,'Times New Roman',serif;max-width:860px;margin:48px auto;padding:0 32px;color:#1a1a2e;line-height:1.75;font-size:15px}h1{font-size:26px;font-weight:bold;border-bottom:2px solid #1a2e6c;padding-bottom:10px;margin:40px 0 16px;page-break-after:avoid}h2{font-size:21px;color:#1a2e6c;margin:32px 0 12px;page-break-after:avoid}h3{font-size:17px;margin:24px 0 10px;page-break-after:avoid}h4{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:#444;margin:18px 0 8px}p{margin-bottom:10px}ul,ol{margin:8px 0 14px 24px}li{margin-bottom:5px}strong{color:#1a1a2e}u{text-underline-offset:3px}blockquote{border-left:3px solid #1a2e6c;padding:10px 18px;margin:14px 0;background:#f4f5fa;font-size:14px}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;page-break-inside:avoid}th{background:#e6e8f0;padding:9px 12px;text-align:left;font-weight:600;border-bottom:2px solid #bbb}td{padding:8px 12px;border-bottom:1px solid #ddd}hr{border:none;border-top:1px solid #ccc;margin:32px 0}code{font-family:monospace;font-size:13px;background:#f0f0f0;padding:2px 5px;border-radius:3px}.guide-head{border-bottom:2px solid #1a2e6c;padding-bottom:16px;margin-bottom:32px}.guide-head h1{margin-top:0;font-size:28px}.meta{font-size:13px;color:#555}.sec-block{position:relative}.regen-btn{display:none}@media print{body{margin:24px;font-size:12pt}h1{font-size:18pt}h2{font-size:15pt}h3{font-size:13pt}table{font-size:10pt}}</style></head><body><div class="guide-head">${h}</div>${c}</body></html>`;
@@ -1747,6 +2085,7 @@ RULES:
 - Apply the instruction thoughtfully across the entire guide
 - Maintain the same Markdown format (# for major, ## for sub, etc.)
 - Keep all existing content UNLESS the instruction says to remove something
+- Preserve all [Source](URL) citations. Add new ones from research notes where relevant.
 - The TOTAL guide must stay under ~${(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords} words. If adding content, trim elsewhere to compensate.
 - Use bullet points, tables, and one-line descriptions — not paragraphs
 - Use research notes to add factual detail where the instruction calls for more depth
@@ -1754,7 +2093,7 @@ RULES:
 
 Output ONLY the revised Markdown. No preamble.`;
 
-      const resp=await callApi(keys[0],[{role:'user',content:'Apply the refinement now. Output the complete revised guide. Target ~'+(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords+' words total. You MUST complete the entire guide — do not stop mid-section.'}],sys,{
+      const resp=await callApi(keys[0],[{role:'user',content:'Apply the refinement now. Output the complete revised guide. Target ~'+(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords+' words total. Preserve all citations. You MUST complete the entire guide — do not stop mid-section.'}],sys,{
         stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerBatch*3,model:genModel,signal:null,
         onRetry:(msg)=>{btn.textContent=msg}
       });
@@ -1763,7 +2102,11 @@ Output ONLY the revised Markdown. No preamble.`;
       gBody.innerHTML='<div class="gc"></div>';
       const gc=gBody.querySelector('.gc');
       allMD=await streamTo(resp,gc,()=>updWC());
+      // Re-split into individual sections
+      const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
+      splitBatchMD(allMD,allSecIds);
       updWC();buildTOC();showRefineBar();
+      splitOutputIntoSections();
 
     }else{
       // Refine a specific section
@@ -1801,14 +2144,15 @@ RULES:
 - Apply the instruction to THIS SECTION ONLY
 - Maintain Markdown format — bullet points and tables over paragraphs
 - Keep existing content unless told to remove it
-- Stay concise — this section should fit proportionally within a 12-page total guide
+- Preserve all [Source](URL) citations. Add new ones from research notes where relevant.
+- Stay concise — this section should fit proportionally within the total guide
 - Use research notes to add factual detail
 - Output the COMPLETE revised section — not just changes
 - Start with the # heading
 
 Output ONLY the revised section Markdown.`;
 
-      const resp=await callApi(keys[0],[{role:'user',content:'Revise this section now. You MUST write a complete section with a proper ending. Output only Markdown.'}],sys,{
+      const resp=await callApi(keys[0],[{role:'user',content:'Revise this section now. Preserve all citations. You MUST write a complete section with a proper ending. Output only Markdown.'}],sys,{
         stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerBatch,model:genModel,signal:null,
         onRetry:(msg)=>{btn.textContent=msg}
       });
@@ -1827,7 +2171,11 @@ Output ONLY the revised section Markdown.`;
       // Re-render full guide
       const gBody=document.getElementById('gBody');
       gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+      // Re-split secMD
+      const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
+      splitBatchMD(allMD,allSecIds);
       updWC();buildTOC();showRefineBar();
+      splitOutputIntoSections();
     }
 
     input.value='';
@@ -1876,20 +2224,25 @@ function estimateCost(){
   const genOutputTok=genBatches*4000;
   const genCost=(genInputTok/1e6)*genInRate+(genOutputTok/1e6)*genOutRate;
 
+  // Editorial pass: reads full guide + research, rewrites guide
+  const editInputTok=90000; // guide + research context
+  const editOutputTok=8000; // rewritten guide
+  const editCost=(editInputTok/1e6)*genInRate+(editOutputTok/1e6)*genOutRate;
+
   // Verification
   let verifyCost=0;
   if(wantVerify){
     verifyCost=(50000/1e6)*3+(4000/1e6)*15;
   }
 
-  const total=researchCost+gapCost+genCost+verifyCost;
+  const total=researchCost+gapCost+genCost+editCost+verifyCost;
   const low=(total*0.6).toFixed(2);
   const high=(total*1.4).toFixed(2);
 
   const el=document.getElementById('costEstimate');
   el.style.display='block';
   el.innerHTML='Estimated cost: <strong style="color:var(--am)">$'+low+' – $'+high+'</strong>'+
-    ' ('+researchSearches+' searches, '+(isOpus?'Opus':'Sonnet')+' gen'+
+    ' ('+researchSearches+' searches, '+(isOpus?'Opus':'Sonnet')+' gen + editorial'+
     (wantGap?', gap analysis':'')+
     (wantVerify?', verification':'')+')';
 
