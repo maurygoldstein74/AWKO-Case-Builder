@@ -198,7 +198,32 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .refine-hist-item .rh-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 @media(max-width:960px){.shell{grid-template-columns:1fr}.side{position:relative;max-height:none;border-right:none;border-bottom:1px solid var(--bd)}.out-wrap{padding:20px 16px 60px}.toc ol{columns:1}.refine-bar{padding:12px 16px 16px}}
-@media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.refine-bar{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
+@media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.refine-bar,.err-panel{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
+
+/* Error log panel */
+.err-panel{background:var(--sf);border:1px solid var(--rdbd);border-radius:8px;margin-bottom:20px;overflow:hidden}
+.err-panel summary{padding:12px 16px;cursor:pointer;font-size:12px;font-weight:600;color:var(--rd);list-style:none;display:flex;align-items:center;gap:7px}
+.err-panel summary::before{content:'▸';transition:transform .15s}
+.err-panel[open] summary::before{transform:rotate(90deg)}
+.err-panel-body{padding:0 16px 14px;display:flex;flex-direction:column;gap:8px}
+.err-item{background:var(--sf2);border:1px solid var(--rdbd);border-radius:6px;overflow:hidden}
+.err-item-head{padding:10px 12px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.err-item-head .err-dot{width:10px;height:10px;border-radius:50%;background:var(--rd);flex-shrink:0}
+.err-item-head .err-dot.resolved{background:var(--gn)}
+.err-item-head .err-label{font-size:12px;font-weight:600;color:var(--rd);flex:1}
+.err-item-head .err-label.resolved{color:var(--gn);text-decoration:line-through}
+.err-item-head .err-time{font-size:10px;color:var(--tx3);font-family:'JetBrains Mono',monospace}
+.err-detail{padding:0 12px 10px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--tx3);line-height:1.5}
+.err-detail table{width:100%;font-size:10.5px;margin:4px 0}
+.err-detail td{padding:2px 6px;vertical-align:top;border-bottom:1px solid var(--bd)}
+.err-detail td:first-child{color:var(--tx2);font-weight:500;white-space:nowrap;width:100px}
+.err-detail pre{margin:6px 0;padding:8px;background:var(--bg);border-radius:4px;font-size:10px;overflow-x:auto;max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+.err-actions{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--bd)}
+.err-actions button{padding:5px 12px;border-radius:5px;font-family:'Outfit',sans-serif;font-size:11px;cursor:pointer;font-weight:600;border:1px solid}
+.err-actions .err-retry{background:var(--rdbg);color:var(--rd);border-color:var(--rdbd)}
+.err-actions .err-retry:hover{background:rgba(224,96,96,.12)}
+.err-actions .err-copy{background:var(--sf3);color:var(--tx2);border-color:var(--bd)}
+.err-actions .err-copy:hover{border-color:var(--bdh)}
 </style>
 </head>
 <body>
@@ -339,6 +364,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
   <details class="vp" id="vpanel" style="display:none">
     <summary>✓ Verification Audit</summary>
     <div class="vp-body" id="vpBody"></div>
+  </details>
+
+  <details class="err-panel" id="errPanel" style="display:none" open>
+    <summary>⚠ Error Log — <span id="errCount">0</span> failure(s)</summary>
+    <div class="err-panel-body" id="errBody"></div>
+    <div style="padding:8px 16px 12px;display:flex;gap:6px">
+      <button onclick="copyErrorLog()" style="padding:6px 14px;background:var(--sf3);border:1px solid var(--bd);border-radius:5px;color:var(--tx2);font-family:'Outfit',sans-serif;font-size:11px;cursor:pointer;font-weight:500">📋 Copy Full Error Log</button>
+      <button onclick="retryAllFailed()" style="padding:6px 14px;background:var(--rdbg);border:1px solid var(--rdbd);border-radius:5px;color:var(--rd);font-family:'Outfit',sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>
+    </div>
   </details>
 
   <div class="guide" id="guide">
@@ -610,6 +644,124 @@ const MAX_RETRIES=6;
 const BASE_DELAY=15000;
 let callLog=[];
 
+/* ═══════ ERROR LOG ═══════ */
+let errorLog=[];
+
+function logError(e,context={}){
+  const entry={
+    id:'err_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    timestamp:e.timestamp||new Date().toISOString(),
+    step:context.step||'unknown',
+    stepLabel:context.stepLabel||'Unknown Step',
+    type:context.type||'unknown', // 'research','generation','gap','verification'
+    message:e.message||String(e),
+    httpStatus:e.httpStatus||null,
+    responseBody:e.responseBody||null,
+    keyIndex:e.keyIndex||context.keyIndex||null,
+    model:e.model||context.model||genModel,
+    retryAttempts:e.retryAttempts||context.retryAttempts||0,
+    resolved:false,
+    retryFn:context.retryFn||null, // function name string for retry
+    retryArgs:context.retryArgs||null, // args for retry
+  };
+  errorLog.push(entry);
+  renderErrors();
+  return entry;
+}
+
+function renderErrors(){
+  const panel=document.getElementById('errPanel');
+  const body=document.getElementById('errBody');
+  const count=document.getElementById('errCount');
+  const unresolved=errorLog.filter(e=>!e.resolved);
+  if(!errorLog.length){panel.style.display='none';return}
+  panel.style.display='block';
+  count.textContent=unresolved.length+' unresolved / '+errorLog.length+' total';
+
+  body.innerHTML=errorLog.map(entry=>{
+    const resolved=entry.resolved;
+    const dotCls=resolved?'err-dot resolved':'err-dot';
+    const lblCls=resolved?'err-label resolved':'err-label';
+    const time=new Date(entry.timestamp).toLocaleTimeString();
+
+    let detail='<table>';
+    detail+='<tr><td>Step</td><td>'+esc(entry.stepLabel)+' ('+esc(entry.type)+')</td></tr>';
+    detail+='<tr><td>Error</td><td>'+esc(entry.message)+'</td></tr>';
+    if(entry.httpStatus)detail+='<tr><td>HTTP Status</td><td>'+entry.httpStatus+'</td></tr>';
+    if(entry.keyIndex)detail+='<tr><td>API Key</td><td>Key '+entry.keyIndex+'</td></tr>';
+    detail+='<tr><td>Model</td><td>'+esc(entry.model)+'</td></tr>';
+    detail+='<tr><td>Retries</td><td>'+entry.retryAttempts+' attempts before failure</td></tr>';
+    detail+='<tr><td>Time</td><td>'+esc(entry.timestamp)+'</td></tr>';
+    detail+='</table>';
+    if(entry.responseBody){
+      detail+='<div style="margin-top:4px;font-size:10px;color:var(--tx3)">Response body:</div><pre>'+esc(entry.responseBody)+'</pre>';
+    }
+
+    let actions='';
+    if(!resolved&&entry.retryFn){
+      actions=`<div class="err-actions"><button class="err-retry" onclick="${entry.retryFn}">↻ Retry</button><button class="err-copy" onclick="copySingleError('${entry.id}')">📋 Copy</button></div>`;
+    }else if(resolved){
+      actions='<div class="err-actions"><span style="font-size:11px;color:var(--gn);padding:5px 0">✓ Resolved</span></div>';
+    }
+
+    return `<div class="err-item" id="${entry.id}">
+      <div class="err-item-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="${dotCls}"></div>
+        <span class="${lblCls}">${esc(entry.stepLabel)}: ${esc(entry.message).substring(0,80)}</span>
+        <span class="err-time">${time}</span>
+      </div>
+      <div class="err-detail" style="display:none">${detail}</div>
+      ${actions}
+    </div>`;
+  }).join('');
+
+  // Toggle detail on head click
+  body.querySelectorAll('.err-item-head').forEach(head=>{
+    head.onclick=()=>{
+      const detail=head.nextElementSibling;
+      detail.style.display=detail.style.display==='none'?'block':'none';
+    };
+  });
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function resolveError(id){
+  const entry=errorLog.find(e=>e.id===id);
+  if(entry)entry.resolved=true;
+  renderErrors();
+}
+
+function copyErrorLog(){
+  const text=errorLog.map(e=>{
+    let s='═══ '+e.stepLabel+' ('+e.type+') ═══\n';
+    s+='Status: '+(e.resolved?'RESOLVED':'UNRESOLVED')+'\n';
+    s+='Time: '+e.timestamp+'\n';
+    s+='Error: '+e.message+'\n';
+    if(e.httpStatus)s+='HTTP: '+e.httpStatus+'\n';
+    if(e.keyIndex)s+='Key: '+e.keyIndex+'\n';
+    s+='Model: '+e.model+'\n';
+    s+='Retries: '+e.retryAttempts+'\n';
+    if(e.responseBody)s+='Response:\n'+e.responseBody+'\n';
+    return s;
+  }).join('\n');
+  navigator.clipboard.writeText(text).then(()=>alert('Error log copied to clipboard ('+errorLog.length+' entries).'));
+}
+
+function copySingleError(id){
+  const e=errorLog.find(x=>x.id===id);
+  if(!e)return;
+  let s='Step: '+e.stepLabel+' ('+e.type+')\n';
+  s+='Time: '+e.timestamp+'\n';
+  s+='Error: '+e.message+'\n';
+  if(e.httpStatus)s+='HTTP Status: '+e.httpStatus+'\n';
+  if(e.keyIndex)s+='API Key: Key '+e.keyIndex+'\n';
+  s+='Model: '+e.model+'\n';
+  s+='Retries: '+e.retryAttempts+' attempts\n';
+  if(e.responseBody)s+='Response Body:\n'+e.responseBody+'\n';
+  navigator.clipboard.writeText(s).then(()=>alert('Error details copied.'));
+}
+
 function sleep(ms,signal){
   return new Promise((res,rej)=>{
     const timer=setTimeout(res,ms);
@@ -625,6 +777,17 @@ async function callApi(keyIndex,msgs,sys,opts={}){
 
   const headers={'Content-Type':'application/json','x-key-index':String(keyIndex)};
 
+  function richError(msg,extra={}){
+    const err=new Error(msg);
+    err.keyIndex=keyIndex;
+    err.model=body.model;
+    err.httpStatus=extra.status||null;
+    err.responseBody=extra.body||null;
+    err.retryAttempts=extra.attempt||0;
+    err.timestamp=new Date().toISOString();
+    return err;
+  }
+
   for(let attempt=0;attempt<=MAX_RETRIES;attempt++){
     try{
       const r=await fetch('/api/anthropic',{
@@ -633,7 +796,7 @@ async function callApi(keyIndex,msgs,sys,opts={}){
 
       // Rate limited — retry with backoff
       if(r.status===429||r.status===529){
-        if(attempt===MAX_RETRIES)throw new Error('Rate limited after '+MAX_RETRIES+' retries');
+        if(attempt===MAX_RETRIES)throw richError('Rate limited after '+MAX_RETRIES+' retries (HTTP '+r.status+')',{status:r.status,attempt});
         const retryAfter=r.headers.get('retry-after');
         let wait=retryAfter?parseInt(retryAfter)*1000:BASE_DELAY*Math.pow(1.8,attempt);
         wait=Math.min(wait,120000);
@@ -644,24 +807,30 @@ async function callApi(keyIndex,msgs,sys,opts={}){
 
       // Server errors — retry
       if(r.status===502||r.status===503||r.status===500){
-        if(attempt===MAX_RETRIES)throw new Error('Server error after '+MAX_RETRIES+' retries');
+        if(attempt===MAX_RETRIES)throw richError('Server error after '+MAX_RETRIES+' retries (HTTP '+r.status+')',{status:r.status,attempt});
         const wait=BASE_DELAY*Math.pow(1.5,attempt);
         if(opts.onRetry)opts.onRetry('Server busy — retry in '+(wait/1000|0)+'s');
         await sleep(Math.min(wait,90000),opts.signal);
         continue;
       }
 
-      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||e.error||'API '+r.status)}
+      if(!r.ok){
+        const errBody=await r.text().catch(()=>'(no response body)');
+        let parsed={};try{parsed=JSON.parse(errBody)}catch(e){}
+        const msg=parsed.error?.message||parsed.error||'HTTP '+r.status;
+        throw richError(msg,{status:r.status,body:errBody.substring(0,2000),attempt});
+      }
       callLog.push({key:keyIndex,time:Date.now()});
       return r;
     }catch(e){
       if(e.name==='AbortError')throw e;
-      if(attempt===MAX_RETRIES)throw e;
+      if(e.keyIndex!==undefined)throw e; // already a rich error
+      if(attempt===MAX_RETRIES)throw richError(e.message,{attempt});
       if(e.message.includes('fetch')||e.message.includes('network')||e.message.includes('Failed')){
         await sleep(BASE_DELAY*Math.pow(1.5,attempt),opts.signal);
         continue;
       }
-      throw e;
+      throw richError(e.message,{attempt});
     }
   }
 }
@@ -749,20 +918,43 @@ async function doResearch(keys,drug,cond,inj,extra,sig){
 
       setP(pi,'par','Searching — Key '+(keyIdx+1)+(nKeys>1?' of '+nKeys:'')+'...');
       const t0=Date.now();
-      try{
-        const sys=buildResSys(drug,cond,inj,extra,pass);
-        const r=await callApi(key,[{role:'user',content:'Research now. Use web search for every topic. Be exhaustive. Output structured notes.'}],sys,{
-          tools:[{type:'web_search_20250305',name:'web_search',max_uses:parseInt(document.getElementById('searchBudget').value)||5}],maxTok:5000,signal:sig,
-          stream:true,
-          onRetry:(msg)=>setP(pi,'par',msg)
-        });
-        keyLastCall[keyIdx]=Date.now();
-        const txt=await streamToText(r);
-        results[pass.id]=txt.trim();
-        setP(pi,'done',((Date.now()-t0)/1000|0)+'s — '+results[pass.id].length.toLocaleString()+' chars');
-      }catch(e){
-        if(e.name==='AbortError')throw e;
-        setP(pi,'err',e.message);results[pass.id]='[Failed: '+e.message+']';
+      let passSuccess=false;
+      for(let passAttempt=0;passAttempt<3&&!passSuccess;passAttempt++){
+        if(passAttempt>0){
+          const retryWait=20000*passAttempt;
+          setP(pi,'par','Retry '+(passAttempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
+          await sleep(retryWait,sig);
+          setP(pi,'par','Retrying — Key '+(keyIdx+1)+'...');
+        }
+        try{
+          const sys=buildResSys(drug,cond,inj,extra,pass);
+          const r=await callApi(key,[{role:'user',content:'Research now. Use web search for every topic. Be exhaustive. Output structured notes.'}],sys,{
+            tools:[{type:'web_search_20250305',name:'web_search',max_uses:parseInt(document.getElementById('searchBudget').value)||5}],maxTok:5000,signal:sig,
+            stream:true,
+            onRetry:(msg)=>setP(pi,'par',msg)
+          });
+          keyLastCall[keyIdx]=Date.now();
+          const txt=await streamToText(r);
+          if(txt.trim().length<100){throw new Error('Response too short ('+txt.trim().length+' chars)');}
+          results[pass.id]=txt.trim();
+          setP(pi,'done',((Date.now()-t0)/1000|0)+'s — '+results[pass.id].length.toLocaleString()+' chars');
+          passSuccess=true;
+        }catch(e){
+          if(e.name==='AbortError')throw e;
+          if(passAttempt===2){
+            setP(pi,'err','Failed after 3 attempts: '+e.message);
+            results[pass.id]='[Failed: '+e.message+']';
+            logError(e,{
+              step:pass.id,
+              stepLabel:'Research: '+pass.l,
+              type:'research',
+              keyIndex:key,
+              retryAttempts:3,
+              retryFn:"retryFailedResearch('"+pass.id+"')",
+              retryArgs:pass.id
+            });
+          }
+        }
       }
       states[keyIdx]='used';updateKeyStatus(states);
     }
@@ -1119,6 +1311,8 @@ async function run(){
   document.getElementById('outWrap').style.display='block';
   document.getElementById('rpanel').style.display='none';
   document.getElementById('vpanel').style.display='none';
+  document.getElementById('errPanel').style.display='none';
+  errorLog=[];renderErrors();
 
   const gHead=document.getElementById('gHead');
   const gBody=document.getElementById('gBody');
@@ -1136,9 +1330,15 @@ async function run(){
     allRes=await doResearch(keys,drug,cond,inj,extra,ac.signal);
 
     const rpBody=document.getElementById('rpBody');
-    rpBody.innerHTML=RP.map((p,i)=>`<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}</div></details>`).join('');
+    rpBody.innerHTML=RP.map((p,i)=>{
+      const failed=allRes[p.id]?.startsWith('[Failed:');
+      return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
+    }).join('');
     document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
     document.getElementById('rpanel').style.display='block';
+    // Auto-open if any research failed
+    const anyResFailed=Object.values(allRes).some(v=>v.startsWith('[Failed:'));
+    if(anyResFailed)document.getElementById('rpanel').open=true;
 
     // Update header if auto-discovered
     if(!cond){
@@ -1165,6 +1365,7 @@ async function run(){
       }catch(e){
         if(e.name==='AbortError')throw e;
         setP(gapIdx,'err',e.message);
+        logError(e,{step:'gap_analysis',stepLabel:'Gap Analysis',type:'gap',retryAttempts:1});
       }
     }
 
@@ -1175,6 +1376,8 @@ async function run(){
     gBody.innerHTML='';
     const genBase=RP.length+gapStepCount;
     const genDelay=15000; // 15s between gen batches to avoid rate limits
+    const failedBatches=[];
+    window._failedBatches=failedBatches; // expose for retry
 
     for(let gi=0;gi<activeGG.length;gi++){
       const grp=activeGG[gi];
@@ -1192,18 +1395,50 @@ async function run(){
       groupDiv.innerHTML='<div class="gc"></div>';
       gBody.appendChild(groupDiv);
 
-      const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs);
-      const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-      const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Output only Markdown.'}],sys,{
-        stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:ac.signal,
-        onRetry:(msg)=>setP(genBase+gi,'par',msg)
-      });
+      let batchSuccess=false;
+      for(let batchAttempt=0;batchAttempt<3&&!batchSuccess;batchAttempt++){
+        if(batchAttempt>0){
+          const retryWait=20000*batchAttempt;
+          setP(genBase+gi,'par','Batch failed — retry '+(batchAttempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
+          await sleep(retryWait,ac.signal);
+          setP(genBase+gi,'run','Retrying batch '+(gi+1)+' (attempt '+(batchAttempt+1)+')...');
+          groupDiv.querySelector('.gc').innerHTML='';
+        }
+        try{
+          const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs);
+          const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+          const resp=await callApi(genKey,[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Output only Markdown.'}],sys,{
+            stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:ac.signal,
+            onRetry:(msg)=>setP(genBase+gi,'par',msg)
+          });
 
-      const gc=groupDiv.querySelector('.gc');
-      const grpMD=await streamTo(resp,gc,()=>updWC());
-      grp.secs.forEach(sid=>{secMD[sid]=grpMD});
-      allMD+='\n\n---\n\n'+grpMD;
-      setP(genBase+gi,'done','Complete');
+          const gc=groupDiv.querySelector('.gc');
+          const grpMD=await streamTo(resp,gc,()=>updWC());
+          if(grpMD.trim().length<50){throw new Error('Generation returned empty or too short');}
+          grp.secs.forEach(sid=>{secMD[sid]=grpMD});
+          allMD+='\n\n---\n\n'+grpMD;
+          setP(genBase+gi,'done','Complete');
+          batchSuccess=true;
+        }catch(e){
+          if(e.name==='AbortError')throw e;
+          if(batchAttempt===2){
+            setP(genBase+gi,'err','Failed after 3 attempts: '+e.message);
+            // Mark batch as failed but continue to next batch
+            const gc=groupDiv.querySelector('.gc');
+            gc.innerHTML='<p style="color:var(--rd)">⚠ Batch failed: '+e.message+'</p><button onclick="retryBatch(\''+grp.id+'\')" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry This Batch</button>';
+            failedBatches.push({grpId:grp.id,grp,genKey,gi});
+            logError(e,{
+              step:'gen_'+grp.id,
+              stepLabel:'Generation: '+grp.l,
+              type:'generation',
+              keyIndex:genKey,
+              retryAttempts:3,
+              retryFn:"retryBatch('"+grp.id+"')",
+              retryArgs:grp.id
+            });
+          }
+        }
+      }
     }
 
     updWC();buildTOC();
@@ -1224,6 +1459,7 @@ async function run(){
       }catch(e){
         if(e.name==='AbortError')throw e;
         setP(vIdx,'err',e.message);
+        logError(e,{step:'verification',stepLabel:'Verification Audit',type:'verification',retryAttempts:1});
       }
     }
 
@@ -1246,7 +1482,20 @@ async function run(){
     });
 
     const elapsed=((Date.now()-t0)/1000/60).toFixed(1);
-    document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
+
+    // Check for failures
+    const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
+    const failedGenCount=failedBatches.length;
+    const totalFailed=failedResearch.length+failedGenCount;
+
+    if(totalFailed>0){
+      let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — ⚠ '+totalFailed+' failure'+(totalFailed>1?'s':'');
+      if(failedResearch.length)failMsg+=' ('+failedResearch.length+' research)';
+      if(failedGenCount)failMsg+=' ('+failedGenCount+' generation)';
+      document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>';
+    }else{
+      document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
+    }
 
     // Show refinement bar and populate scope dropdown
     showRefineBar();
@@ -1261,6 +1510,111 @@ async function run(){
 }
 
 function stop(){if(ac)ac.abort()}
+
+/* ═══════ FAILURE RECOVERY ═══════ */
+async function retryBatch(grpId){
+  const keys=getKeys();if(!keys.length)return alert('No API keys configured.');
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const litType=document.getElementById('litType').value;
+  const inj=document.getElementById('injuries').value.trim();
+  const extra=document.getElementById('extra').value.trim();
+  const followUp=''; // followUp from original run isn't persisted, but research is
+
+  const grp=GG.find(g=>g.id===grpId);
+  if(!grp)return alert('Batch not found: '+grpId);
+
+  const groupDiv=document.getElementById('sb-grp-'+grpId);
+  if(!groupDiv)return alert('Batch container not found');
+  const gc=groupDiv.querySelector('.gc');
+  gc.innerHTML='<p style="color:var(--tx3)">Retrying batch...</p>';
+
+  try{
+    const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,grp.secs);
+    const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+    const resp=await callApi(keys[0],[{role:'user',content:'Write these sections now. HARD LIMIT: '+dc.wordsPerBatch+' words maximum for this batch ('+grp.secs.length+' sections × ~'+Math.round(dc.wordsPerBatch/grp.secs.length)+' words each). Complete ALL sections — compress aggressively if needed. Output only Markdown.'}],sys,{
+      stream:true,maxTok:dc.tokPerBatch,model:genModel,signal:null
+    });
+
+    const grpMD=await streamTo(resp,gc,()=>updWC());
+    if(grpMD.trim().length<50)throw new Error('Response too short');
+    grp.secs.forEach(sid=>{secMD[sid]=grpMD});
+    allMD=Object.values(secMD).join('\n\n---\n\n');
+    updWC();buildTOC();showRefineBar();
+
+    // Remove from failed list
+    if(window._failedBatches){
+      const idx=window._failedBatches.findIndex(f=>f.grpId===grpId);
+      if(idx>=0)window._failedBatches.splice(idx,1);
+    }
+    // Resolve matching errors
+    errorLog.filter(e=>e.step==='gen_'+grpId&&!e.resolved).forEach(e=>resolveError(e.id));
+    updateFailureSummary();
+  }catch(e){
+    gc.innerHTML='<p style="color:var(--rd)">⚠ Retry failed: '+e.message+'</p><button onclick="retryBatch(\''+grpId+'\')" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Again</button>';
+    logError(e,{step:'gen_'+grpId,stepLabel:'Retry Generation: '+grp.l,type:'generation',retryAttempts:1,retryFn:"retryBatch('"+grpId+"')"});
+  }
+}
+
+async function retryFailedResearch(passId){
+  const keys=getKeys();if(!keys.length)return alert('No API keys configured.');
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const inj=document.getElementById('injuries').value.trim();
+  const extra=document.getElementById('extra').value.trim();
+
+  const pass=RP.find(p=>p.id===passId);
+  if(!pass)return alert('Research pass not found');
+
+  try{
+    const sys=buildResSys(drug,cond,inj,extra,pass);
+    const r=await callApi(keys[0],[{role:'user',content:'Research now. Use web search for every topic. Be exhaustive. Output structured notes.'}],sys,{
+      tools:[{type:'web_search_20250305',name:'web_search',max_uses:parseInt(document.getElementById('searchBudget').value)||5}],maxTok:5000,signal:null,stream:true
+    });
+    const txt=await streamToText(r);
+    if(txt.trim().length<100)throw new Error('Response too short');
+    allRes[passId]=txt.trim();
+
+    // Update research panel
+    const rpBody=document.getElementById('rpBody');
+    rpBody.innerHTML=RP.map((p,i)=>{
+      const failed=allRes[p.id]?.startsWith('[Failed:');
+      return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
+    }).join('');
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    // Resolve matching errors
+    errorLog.filter(e=>e.step===passId&&!e.resolved).forEach(e=>resolveError(e.id));
+    updateFailureSummary();
+  }catch(e){
+    logError(e,{step:passId,stepLabel:'Retry Research: '+pass.l,type:'research',retryAttempts:1,retryFn:"retryFailedResearch('"+passId+"')"});
+    alert('Retry failed: '+e.message+'\nFull details logged to the Error Log panel.');
+  }
+}
+
+async function retryAllFailed(){
+  // Retry failed research passes first
+  const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
+  for(const passId of failedResearch){
+    await retryFailedResearch(passId);
+    await new Promise(r=>setTimeout(r,5000)); // cooldown
+  }
+  // Then retry failed generation batches
+  const batches=[...(window._failedBatches||[])];
+  for(const fb of batches){
+    await retryBatch(fb.grpId);
+    await new Promise(r=>setTimeout(r,5000)); // cooldown
+  }
+}
+
+function updateFailureSummary(){
+  const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
+  const failedGenCount=(window._failedBatches||[]).length;
+  const totalFailed=failedResearch.length+failedGenCount;
+  const pfoot=document.getElementById('pfoot');
+  if(totalFailed===0){
+    pfoot.textContent=pfoot.textContent.replace(/— ⚠.*/,'').trim()+' — all failures recovered ✓';
+  }
+}
 
 /* ═══════ EXPORTS ═══════ */
 function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=document.getElementById('gBody').innerHTML;tmp.querySelectorAll('.regen-btn').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
