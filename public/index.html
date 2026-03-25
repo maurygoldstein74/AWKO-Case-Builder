@@ -2404,7 +2404,6 @@ function dlPDF(){
   const btn=document.querySelector('.toolbar button[onclick="dlPDF()"]');
   btn.textContent='Generating PDF...';btn.disabled=true;
 
-  // Build a clean print container
   const container=document.createElement('div');
   container.innerHTML=`
     <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px;max-width:7in;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word">
@@ -2414,7 +2413,6 @@ function dlPDF(){
       ${document.getElementById('gBody').innerHTML}
     </div>`;
 
-  // Style for print
   container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;overflow-wrap:break-word'});
   container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;overflow-wrap:break-word'});
   container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;overflow-wrap:break-word'});
@@ -2435,54 +2433,16 @@ function dlPDF(){
     else el.remove();
   });
 
-  // Collect link URLs and measure positions for clickable PDF annotations
-  const linkMap=[];
-  container.querySelectorAll('a[href]').forEach((a,i)=>{
-    const href=a.getAttribute('href');
-    if(href&&href.startsWith('http')){
-      a.setAttribute('data-link-id',i);
-      linkMap.push({id:i,href});
-    }
-  });
-
-  // Mount with visibility:hidden to measure link positions (html2pdf needs it visible later)
-  container.style.cssText='position:fixed;left:0;top:0;width:816px;visibility:hidden;z-index:-9999';
-  document.body.appendChild(container);
-  const inner=container.firstElementChild;
-  const cTop=inner.getBoundingClientRect().top;
-  linkMap.forEach(lk=>{
-    const el=container.querySelector('[data-link-id="'+lk.id+'"]');
-    if(el){const r=el.getBoundingClientRect();lk.x=r.left-inner.getBoundingClientRect().left;lk.y=r.top-cTop;lk.w=r.width;lk.h=r.height}
-  });
-  document.body.removeChild(container);
-  container.style.cssText='';
-
-  const mTop=0.75,mLeft=0.65;
-  const contentWIn=8.5-2*mLeft;
-  const px2in=contentWIn/816;
-  const pageHPx=(11-2*mTop)/px2in;
-
   const opt={
-    margin:[mTop,mLeft,mTop,mLeft],
+    margin:[0.75,0.65,0.75,0.65],
     filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
-    image:{type:'jpeg',quality:0.98},
+    image:{type:'jpeg',quality:0.95},
     html2canvas:{scale:2,useCORS:true,letterRendering:true,width:816},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
     pagebreak:{mode:['avoid-all','css','legacy']}
   };
 
-  html2pdf().set(opt).from(container).toPdf().get('pdf').then(pdf=>{
-    linkMap.forEach(lk=>{
-      if(lk.x===undefined)return;
-      const pg=Math.floor(lk.y/pageHPx);
-      const yOnPg=lk.y-pg*pageHPx;
-      const pgNum=pg+1;
-      if(pgNum>0&&pgNum<=pdf.getNumberOfPages()){
-        pdf.setPage(pgNum);
-        pdf.link(mLeft+lk.x*px2in,mTop+yOnPg*px2in,lk.w*px2in,lk.h*px2in,{url:lk.href});
-      }
-    });
-  }).save().then(()=>{
+  html2pdf().set(opt).from(container).save().then(()=>{
     btn.textContent='📕 .pdf';btn.disabled=false;
   }).catch(e=>{
     alert('PDF generation failed: '+e.message);
