@@ -1544,15 +1544,50 @@ function splitBatchMD(grpMD,secIds){
 async function regenSec(secId){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured on server.');
   const drug=document.getElementById('drugName').value.trim();
-  const cond=document.getElementById('condition').value.trim();
-  const litType=document.getElementById('litType').value;
-  const inj=document.getElementById('injuries').value.trim();
-  const extra=document.getElementById('extra').value.trim();
   const block=document.getElementById('sb-'+secId);if(!block)return;
   block.classList.add('regen');
+
+  // Get the existing section content and other section headings for cross-reference
+  const existingSec=secMD[secId]||'';
+  const secDef=SEC.find(s=>s.id===secId);
+  const secPrompt=SP[secId]||('# '+(secDef?.l||secId));
+
+  // Build lightweight context: just other section headings so it can cross-reference
+  const otherSections=Object.entries(secMD).filter(([k])=>k!==secId&&secMD[k]).map(([k,v])=>{
+    const lines=v.split('\n');
+    const heading=lines.find(l=>l.startsWith('# '))||('# '+k);
+    return heading;
+  }).join('\n');
+
+  // Only include research if the section has no existing content (first gen, not regen)
+  const needsResearch=!existingSec||existingSec.length<100;
+  const researchText=needsResearch?Object.values(allRes).join('\n\n---\n\n').substring(0,40000):'';
+
+  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+  const sys=`You are a senior medical-legal consultant rewriting ONE section of a Litigation Review Guide. Write for nurse reviewers and paralegals building cases.
+
+DRUG: ${drug}
+${researchText?'RESEARCH NOTES:\n<research>\n'+researchText+'\n</research>\n':''}
+${existingSec?'CURRENT SECTION (rewrite this):\n<current>\n'+existingSec+'\n</current>\n':''}
+OTHER SECTIONS IN THIS GUIDE (for cross-reference — do NOT repeat their content):
+${otherSections||'(none yet)'}
+
+SECTION TO WRITE:
+${secPrompt}
+
+RULES:
+- Write ONLY this one section. Start with the # heading.
+- Do NOT redefine terms already covered in other sections — cross-reference instead.
+- Include [Source](URL) citations where facts are cited.
+- Target ~${Math.round(dc.totalWords/SEC.length)} words for this section.
+- Every sentence must serve: exposure, injury, severity, causation, or confounder defense.
+
+Output ONLY the section Markdown.`;
+
   try{
-    const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,[secId],allMD||null);
-    const resp=await callApi(keys[0],[{role:'user',content:'Rewrite this section completely. Do NOT repeat information from other sections. Include [Source](URL) citations. You MUST finish the section — do not stop mid-sentence. Output only Markdown.'}],sys,{stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,model:genModel});
+    const resp=await callApi(keys[0],[{role:'user',content:'Rewrite this section completely. Cross-reference other sections, include citations. Output only Markdown.'}],sys,{
+      stream:true,maxTok:Math.min(dc.tokPerCall,8000),model:genModel
+    });
     const gc=block.querySelector('.gc');
     const newMD=await streamTo(resp,gc);
     secMD[secId]=newMD;
@@ -1878,35 +1913,39 @@ function dlPDF(){
   // Build a clean print container
   const container=document.createElement('div');
   container.innerHTML=`
-    <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px">
+    <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px;max-width:7in;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word">
       <div style="border-bottom:1.5px solid #1a2e6c;padding-bottom:10px;margin-bottom:18px">
         ${document.getElementById('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:20px;font-weight:bold;margin:0 0 4px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:10px;color:#555"')}
       </div>
       ${document.getElementById('gBody').innerHTML}
     </div>`;
 
-  // Style the clone for print — tight formatting to reduce page count
-  container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;page-break-after:avoid'});
-  container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;page-break-after:avoid'});
-  container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;page-break-after:avoid'});
+  // Style the clone for print — tight formatting, prevent overflow
+  container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;page-break-after:avoid;overflow-wrap:break-word'});
+  container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;page-break-after:avoid;overflow-wrap:break-word'});
+  container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;page-break-after:avoid;overflow-wrap:break-word'});
   container.querySelectorAll('h4').forEach(el=>{el.style.cssText='font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#444;margin:10px 0 4px'});
-  container.querySelectorAll('p').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:4px;line-height:1.55'});
-  container.querySelectorAll('li').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:2px;line-height:1.5'});
-  container.querySelectorAll('ul,ol').forEach(el=>{el.style.cssText='margin:3px 0 8px 16px;font-size:11px'});
+  container.querySelectorAll('p').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:4px;line-height:1.55;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('li').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:2px;line-height:1.5;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('ul,ol').forEach(el=>{el.style.cssText='margin:3px 0 8px 16px;font-size:11px;padding-left:0'});
   container.querySelectorAll('strong,b').forEach(el=>{el.style.cssText='font-weight:600;color:#1a1a2e'});
-  container.querySelectorAll('table').forEach(el=>{el.style.cssText='width:100%;border-collapse:collapse;margin:8px 0;font-size:10.5px;page-break-inside:avoid'});
-  container.querySelectorAll('th').forEach(el=>{el.style.cssText='background:#e6e8f0;padding:4px 7px;text-align:left;font-weight:600;border-bottom:1.5px solid #bbb;font-size:10.5px'});
-  container.querySelectorAll('td').forEach(el=>{el.style.cssText='padding:3px 7px;border-bottom:1px solid #ddd;font-size:10.5px'});
-  container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:2px solid #1a2e6c;padding:5px 10px;margin:8px 0;background:#f4f5fa;font-size:11px'});
+  container.querySelectorAll('table').forEach(el=>{el.style.cssText='width:100%;border-collapse:collapse;margin:8px 0;font-size:10px;page-break-inside:avoid;table-layout:fixed'});
+  container.querySelectorAll('th').forEach(el=>{el.style.cssText='background:#e6e8f0;padding:4px 6px;text-align:left;font-weight:600;border-bottom:1.5px solid #bbb;font-size:10px;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('td').forEach(el=>{el.style.cssText='padding:3px 6px;border-bottom:1px solid #ddd;font-size:10px;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:2px solid #1a2e6c;padding:5px 10px;margin:8px 0;background:#f4f5fa;font-size:11px;overflow-wrap:break-word'});
   container.querySelectorAll('hr').forEach(el=>{el.style.cssText='border:none;border-top:1px solid #ccc;margin:14px 0'});
-  container.querySelectorAll('code').forEach(el=>{el.style.cssText='font-family:monospace;font-size:10px;background:#f0f0f0;padding:1px 3px;border-radius:2px'});
-  container.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());
+  container.querySelectorAll('code').forEach(el=>{el.style.cssText='font-family:monospace;font-size:10px;background:#f0f0f0;padding:1px 3px;border-radius:2px;word-break:break-all'});
+  container.querySelectorAll('a').forEach(el=>{el.style.cssText='color:#1a2e6c;text-decoration:underline;word-break:break-all;font-size:10px'});
+  container.querySelectorAll('.regen-btn,.out-drag-h,.sec-block').forEach(el=>{
+    if(el.classList.contains('sec-block')){el.style.cssText='position:relative;margin-bottom:4px;overflow:hidden'}
+    else el.remove();
+  });
 
   const opt={
-    margin:[0.45,0.5,0.45,0.5],
+    margin:[0.5,0.65,0.5,0.65],
     filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
     image:{type:'jpeg',quality:0.95},
-    html2canvas:{scale:2,useCORS:true,letterRendering:true},
+    html2canvas:{scale:2,useCORS:true,letterRendering:true,width:816},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
     pagebreak:{mode:['avoid-all','css','legacy']}
   };
@@ -1973,23 +2012,19 @@ async function refine(){
 
   const drug=document.getElementById('drugName').value.trim();
   const cond=document.getElementById('condition').value.trim();
-  const researchText=Object.values(allRes).join('\n\n---\n\n');
+
+  // Detect if instruction needs research context (asking for new facts/data/detail)
+  const needsResearch=/\b(add|include|expand|more detail|missing|flesh out|elaborate|research|data|cite|source|evidence|study|trial|FDA)\b/i.test(instruction);
+  const researchText=needsResearch?Object.values(allRes).join('\n\n---\n\n').substring(0,25000):'';
 
   try{
     if(scope==='full'){
-      // Refine entire guide
-      const sys=`You are a senior medical-legal consultant revising a Litigation Review Guide. This guide exists to help reviewers BUILD CASES THAT GET CLIENTS PAID. Every section must serve one of five elements: exposure proof, injury identification, severity grading, causation evidence, or confounder defense.
+      // Refine entire guide — send guide + instruction, research only if needed
+      const sys=`You are a senior medical-legal consultant revising a Litigation Review Guide. This guide exists to help reviewers BUILD CASES THAT GET CLIENTS PAID.
 
-You have the original research notes and the current guide. Apply the user's refinement instruction to improve the ENTIRE guide.
-
-RESEARCH NOTES (for fact-checking and adding detail):
-<research>
-${researchText.substring(0,50000)}
-</research>
-
-CURRENT GUIDE:
+${researchText?'RESEARCH NOTES (use ONLY if the instruction asks for new facts/data):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT GUIDE:
 <guide>
-${allMD.substring(0,50000)}
+${allMD.substring(0,60000)}
 </guide>
 
 REFINEMENT INSTRUCTION: ${instruction}
@@ -2001,7 +2036,6 @@ RULES:
 - Preserve all [Source](URL) citations. Add new ones from research notes where relevant.
 - The TOTAL guide must stay under ~${(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords} words. If adding content, trim elsewhere to compensate.
 - Use bullet points, tables, and one-line descriptions — not paragraphs
-- Use research notes to add factual detail where the instruction calls for more depth
 - Output the COMPLETE revised guide in Markdown — not just the changed parts
 
 Output ONLY the revised Markdown. No preamble.`;
@@ -2039,14 +2073,9 @@ Output ONLY the revised Markdown. No preamble.`;
       if(startLine<0)startLine=0;
       const secMDText=allLines.slice(startLine,endLine).join('\n');
 
-      const sys=`You are a senior medical-legal consultant revising ONE SECTION of a Litigation Review Guide. This guide exists to help reviewers build cases — every sentence must serve exposure proof, injury identification, severity grading, causation evidence, or confounder defense.
+      const sys=`You are a senior medical-legal consultant revising ONE SECTION of a Litigation Review Guide.
 
-RESEARCH NOTES:
-<research>
-${researchText.substring(0,40000)}
-</research>
-
-CURRENT SECTION:
+${researchText?'RESEARCH NOTES (use ONLY if the instruction asks for new facts/data):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT SECTION:
 <section>
 ${secMDText}
 </section>
@@ -2057,16 +2086,15 @@ RULES:
 - Apply the instruction to THIS SECTION ONLY
 - Maintain Markdown format — bullet points and tables over paragraphs
 - Keep existing content unless told to remove it
-- Preserve all [Source](URL) citations. Add new ones from research notes where relevant.
+- Preserve all [Source](URL) citations. Add new ones if instruction asks for more data.
 - Stay concise — this section should fit proportionally within the total guide
-- Use research notes to add factual detail
 - Output the COMPLETE revised section — not just changes
 - Start with the # heading
 
 Output ONLY the revised section Markdown.`;
 
       const resp=await callApi(keys[0],[{role:'user',content:'Revise this section now. Preserve all citations. You MUST write a complete section with a proper ending. Output only Markdown.'}],sys,{
-        stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,model:genModel,signal:null,
+        stream:true,maxTok:Math.min((DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,8000),model:genModel,signal:null,
         onRetry:(msg)=>{btn.textContent=msg}
       });
 
