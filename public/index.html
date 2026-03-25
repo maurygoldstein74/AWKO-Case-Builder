@@ -211,6 +211,34 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .refine-hist-item .rh-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 @media(max-width:960px){.shell{grid-template-columns:1fr}.side{position:relative;max-height:none;border-right:none;border-bottom:1px solid var(--bd)}.out-wrap{padding:20px 16px 60px}.toc ol{columns:1}.refine-bar{padding:12px 16px 16px}}
+
+/* Saved guides */
+.saves{margin-top:8px}
+.saves-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.saves-head label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--tx2)}
+.saves-list{display:flex;flex-direction:column;gap:3px;max-height:140px;overflow-y:auto}
+.save-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;font-size:10px;color:var(--tx2);cursor:pointer;transition:all .12s}
+.save-item:hover{border-color:var(--bdh);color:var(--tx)}
+.save-item.active{border-color:var(--ac);background:var(--acbg);color:var(--ac2)}
+.save-item .si-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.save-item .si-date{font-size:9px;color:var(--tx3);font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.save-item .si-del{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:12px;padding:0 2px;flex-shrink:0;line-height:1}
+.save-item .si-del:hover{color:var(--rd)}
+
+/* Dashboard cards */
+.dash-card{display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--sf);border:1px solid var(--bd);border-radius:9px;cursor:pointer;transition:all .15s;text-align:left}
+.dash-card:hover{border-color:var(--ac);transform:translateY(-1px);box-shadow:0 4px 20px rgba(139,123,245,.08)}
+.dash-card .dc-icon{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,var(--ac),var(--am));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.dash-card .dc-info{flex:1;min-width:0}
+.dash-card .dc-name{font-size:14px;font-weight:600;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-card .dc-meta{font-size:11px;color:var(--tx3);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap}
+.dash-card .dc-meta span{display:flex;align-items:center;gap:3px}
+.dash-card .dc-actions{display:flex;gap:6px;flex-shrink:0}
+.dash-card .dc-del{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:4px;border-radius:4px;transition:all .12s}
+.dash-card .dc-del:hover{color:var(--rd);background:var(--rdbg)}
+.btn-update{width:100%;padding:11px;background:var(--ambg);color:var(--am);border:1px solid var(--ambd);border-radius:9px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.2px;margin-top:6px}
+.btn-update:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 16px rgba(224,168,72,.15)}
+.btn-update:disabled{opacity:.4;cursor:not-allowed}
 @media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.out-drag-h,.refine-bar,.err-panel{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.guide{padding-left:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
 
 /* Error log panel */
@@ -245,6 +273,14 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 <div class="side-scroll">
   <div class="brand"><div class="brand-mark">§</div><h1>Review Guide Builder</h1></div>
   <div class="brand-sub">Pharmaceutical, Medical Device &amp; Product Litigation</div>
+
+  <div class="saves" id="savesPanel">
+    <div class="saves-head">
+      <label>Saved Guides</label>
+    </div>
+    <div class="saves-list" id="savesList"></div>
+  </div>
+  <div class="hr"></div>
 
   <div id="keyPanel" style="margin-bottom:16px">
     <div id="keyTestResults" style="display:flex;flex-direction:column;gap:4px"></div>
@@ -303,9 +339,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 
   <div class="fg">
     <div style="display:flex;gap:12px">
-      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2);cursor:pointer;text-transform:none;letter-spacing:0;margin:0">
-        <input type="checkbox" id="doGapAnalysis" checked style="display:inline;width:auto"> Gap analysis
-      </label>
+      <span style="font-size:11px;color:var(--gn);display:flex;align-items:center;gap:4px">✓ Gap analysis (always on)</span>
       <span style="font-size:11px;color:var(--gn);display:flex;align-items:center;gap:4px">✓ Verification audit (always on)</span>
     </div>
     <div id="costEstimate" style="margin-top:8px;padding:8px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;font-size:11px;color:var(--tx3);display:none"></div>
@@ -322,6 +356,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 
 <div class="side-foot">
   <button class="btn-go" id="btnGo" onclick="run()">Generate Review Guide</button>
+  <button class="btn-update" id="btnUpdate" style="display:none" onclick="checkForUpdates()">⟳ Check for Updates</button>
   <button class="btn-stop" id="btnStop" style="display:none" onclick="stop()">Stop</button>
   <div class="prog" id="prog" style="display:none"></div>
   <div class="pfoot" id="pfoot"></div>
@@ -333,7 +368,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
   <div class="ei">§</div>
   <h2>Litigation Review Guide Builder</h2>
   <p>Enter a product name — drug, device, or consumer product. The tool researches injuries, severity grading, causation evidence, and confounder defenses — everything your reviewers need to build the case.</p>
-  <div class="feats">
+
+  <div id="savedDashboard" style="display:none;width:100%;max-width:640px;margin-top:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--tx2);font-weight:600">Your Guides</h3>
+    </div>
+    <div id="dashCards" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <div id="featsBlock" class="feats" style="margin-top:24px">
     <div class="feat"><strong>4 Targeted Research Passes</strong><span>Exposure proof, injuries & severity grading, mechanism & clinical data, confounders & defenses — with source citations.</span></div>
     <div class="feat"><strong>7 Consolidated Sections</strong><span>No overlap, no redundancy. Each section serves a specific element of the case. One cohesive document.</span></div>
     <div class="feat"><strong>Built-In Verification</strong><span>Every guide runs through a mandatory second-pass audit. Hallucinations, missing data, and severity grading gaps get flagged.</span></div>
@@ -343,6 +386,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 
 <div id="outWrap" class="out-wrap" style="display:none">
   <div class="toolbar" id="toolbar">
+    <button onclick="saveGuide()" style="background:var(--gnbg);border-color:rgba(86,196,144,.3);color:var(--gn);font-weight:600">✓ Save Guide</button>
     <button onclick="copyHTML()">📋 Copy</button>
     <button onclick="printGuide()">🖨 Print</button>
     <button onclick="dlPDF()">📕 .pdf</button>
@@ -354,6 +398,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
   <details class="rp" id="rpanel" style="display:none">
     <summary>📚 Research Notes — <span id="rcount"></span></summary>
     <div class="rp-body" id="rpBody"></div>
+  </details>
+
+  <details class="rp" id="updatePanel" style="display:none" open>
+    <summary style="color:var(--am)">⟳ Update Findings — <span id="updateDate"></span></summary>
+    <div class="rp-body">
+      <div id="updateBody" class="rp-pass-body" style="max-height:400px"></div>
+      <div id="updateActions" style="padding:10px 0 4px;display:flex;gap:8px">
+        <button onclick="applyUpdates()" style="padding:8px 16px;background:linear-gradient(135deg,var(--ac),#7b6be5);color:#fff;border:none;border-radius:6px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer">Apply Updates to Guide</button>
+        <button onclick="dismissUpdates()" style="padding:8px 16px;background:var(--sf2);color:var(--tx3);border:1px solid var(--bd);border-radius:6px;font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer">Dismiss</button>
+      </div>
+    </div>
   </details>
 
   <details class="vp" id="vpanel" style="display:none">
@@ -1914,10 +1969,9 @@ async function run(){
   btn.disabled=true;btn.textContent='Working...';stopBtn.style.display='block';
 
   const activeGG=GG.map(g=>({...g,secs:g.secs.filter(s=>secs.includes(s))})).filter(g=>g.secs.length);
-  const wantGap=document.getElementById('doGapAnalysis').checked;
   const steps=[
     ...RP.map(p=>({l:'🔍 '+p.l,d:'Queued'})),
-    ...(wantGap?[{l:'🔎 Gap Analysis + Follow-Up',d:'Queued'}]:[]),
+    {l:'🔎 Gap Analysis + Follow-Up',d:'Queued'},
     {l:'✍ Writing Full Guide ('+secs.length+' sections)',d:'Queued'},
     {l:'✓ Verification Audit',d:'Queued'}
   ];
@@ -1963,12 +2017,11 @@ async function run(){
       if(m){const f=m[1].trim().replace(/[.,]$/,'');document.getElementById('gMeta').innerHTML=f+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
     }
 
-    // ═══ PHASE 2: GAP ANALYSIS (optional) ═══
-    let gapStepCount=0;
+    // ═══ PHASE 2: GAP ANALYSIS (always on) ═══
+    let gapStepCount=1;
     let followUp='';
-    if(wantGap){
+    {
       const gapIdx=RP.length;
-      gapStepCount=1;
       setP(gapIdx,'run','Analyzing research gaps...');
       try{
         const gapResult=await gapAnalysis(keys[keys.length>1?1:0],drug,allRes,ac.signal);
@@ -2083,6 +2136,12 @@ async function run(){
 
     // Show refinement bar and populate scope dropdown
     showRefineBar();
+
+    // Auto-save and show update button
+    if(allMD&&countW(allMD)>100){
+      saveGuide();
+      document.getElementById('btnUpdate').style.display='block';
+    }
 
   }catch(err){
     if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Stopped';if(allMD)showRefineBar()}
@@ -2433,41 +2492,34 @@ document.addEventListener('DOMContentLoaded',()=>{
 /* ═══════ COST ESTIMATION ═══════ */
 function estimateCost(){
   const searches=getBudget().searches;
-  const wantGap=document.getElementById('doGapAnalysis').checked;
   const isOpus=genModel.includes('opus');
   const numSecs=getSecs().length;
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
 
   // Research: 4 passes × N searches
-  // Each search adds ~3k input tokens (search results context)
-  // Sonnet: $3/MTok in, $15/MTok out. Search tool: ~$0.01/search
   const researchSearches=4*searches;
-  const researchInputTok=4*(8000+searches*3000); // base + search results
+  const researchInputTok=4*(8000+searches*3000);
   const researchOutputTok=4*4000;
   const researchCost=(researchInputTok/1e6)*3+(researchOutputTok/1e6)*15+researchSearches*0.01;
 
-  // Gap analysis: 1 analysis + 1 follow-up with searches
-  let gapCost=0;
-  if(wantGap){
-    const gapSearches=Math.min(searches,8);
-    gapCost=(40000/1e6)*3+(3000/1e6)*15+(20000/1e6)*3+(4000/1e6)*15+gapSearches*0.01;
-  }
+  // Gap analysis: always on
+  const gapSearches=Math.min(searches,8);
+  const gapCost=(40000/1e6)*3+(3000/1e6)*15+(20000/1e6)*3+(4000/1e6)*15+gapSearches*0.01;
 
-  // Generation: single call — scale output tokens to depth
+  // Generation: single call
   const genInRate=isOpus?15:3;
   const genOutRate=isOpus?75:15;
-  const genInputTok=researchInputTok+20000; // research context + section prompts
-  const genOutputTok=Math.round(dc.tokPerCall*0.8); // actual output ~80% of max
+  const genInputTok=researchInputTok+20000;
+  const genOutputTok=Math.round(dc.tokPerCall*0.8);
   const genCost=(genInputTok/1e6)*genInRate+(genOutputTok/1e6)*genOutRate;
 
-  // Verification: always on (uses Sonnet regardless of gen model)
+  // Verification: always on
   const verifyCost=(50000/1e6)*3+(4000/1e6)*15;
 
   const total=researchCost+gapCost+genCost+verifyCost;
   const low=(total*0.7).toFixed(2);
   const high=(total*1.3).toFixed(2);
 
-  // Also calculate the other model's cost for comparison
   const altGenInRate=isOpus?3:15;
   const altGenOutRate=isOpus?15:75;
   const altGenCost=(genInputTok/1e6)*altGenInRate+(genOutputTok/1e6)*altGenOutRate;
@@ -2479,21 +2531,397 @@ function estimateCost(){
   el.style.display='block';
   el.innerHTML='<strong style="color:var(--am)">'+(isOpus?'Opus':'Sonnet')+': $'+low+' – $'+high+'</strong>'+
     ' <span style="color:var(--tx3)">('+(isOpus?'Sonnet':'Opus')+': $'+altLow+'–$'+altHigh+')</span>'+
-    '<br><span style="font-size:10px;color:var(--tx3)">'+researchSearches+' searches, '+dc.label+
-    (wantGap?', gap analysis':'')+', verification</span>';
+    '<br><span style="font-size:10px;color:var(--tx3)">'+researchSearches+' searches, gap analysis, '+dc.label+', verification</span>';
 
   return{low:parseFloat(low),high:parseFloat(high)};
 }
 
 function wireUpCostEstimate(){
-  const el=document.getElementById('doGapAnalysis');
-  if(el)el.addEventListener('change',estimateCost);
   setTimeout(estimateCost,500);
+}
+
+/* ═══════ SAVE / LOAD / UPDATE ═══════ */
+let loadedGuideId=null; // Track which saved guide is currently loaded
+
+function getSaveKey(){return 'litguide_saves'}
+function getSaves(){
+  try{return JSON.parse(localStorage.getItem(getSaveKey()))||[]}catch(e){return[]}
+}
+function putSaves(saves){localStorage.setItem(getSaveKey(),JSON.stringify(saves))}
+
+function saveGuide(){
+  const drug=document.getElementById('drugName').value.trim();
+  if(!drug||!allMD)return alert('Nothing to save — generate a guide first.');
+
+  const id=loadedGuideId||('guide_'+Date.now());
+  const saves=getSaves();
+  const existing=saves.findIndex(s=>s.id===id);
+
+  const entry={
+    id,
+    name:drug,
+    litType:document.getElementById('litType').value,
+    cond:document.getElementById('condition').value.trim(),
+    injuries:document.getElementById('injuries').value.trim(),
+    extra:document.getElementById('extra').value.trim(),
+    customInstr:document.getElementById('customInstr').value.trim(),
+    outputDepth,
+    genModel,
+    allRes:{...allRes},
+    allMD,
+    secMD:{...secMD},
+    secOrder:getSecOrder(),
+    savedAt:new Date().toISOString(),
+    createdAt:existing>=0?saves[existing].createdAt:new Date().toISOString(),
+    wordCount:countW(allMD),
+    updateCount:existing>=0?(saves[existing].updateCount||0)+1:0
+  };
+
+  if(existing>=0)saves[existing]=entry;
+  else saves.unshift(entry);
+
+  // Keep max 20 saves
+  if(saves.length>20)saves.length=20;
+
+  putSaves(saves);
+  loadedGuideId=id;
+  renderSaves();
+
+  // Brief confirmation
+  const btn=document.querySelector('.toolbar button[onclick="saveGuide()"]');
+  if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';setTimeout(()=>{btn.textContent=orig},1500)}
+}
+
+function loadGuide(id){
+  const saves=getSaves();
+  const entry=saves.find(s=>s.id===id);
+  if(!entry)return alert('Saved guide not found.');
+
+  // Populate form fields
+  document.getElementById('drugName').value=entry.name;
+  document.getElementById('litType').value=entry.litType||'pharmaceutical';
+  SEC=getSEC();initSec(); // Refresh sections for litType
+  document.getElementById('condition').value=entry.cond||'';
+  document.getElementById('injuries').value=entry.injuries||'';
+  document.getElementById('extra').value=entry.extra||'';
+  document.getElementById('customInstr').value=entry.customInstr||'';
+
+  // Restore depth
+  if(entry.outputDepth){
+    outputDepth=entry.outputDepth;
+    document.querySelectorAll('#depthRow .model-opt').forEach(e=>{
+      e.classList.toggle('sel',e.dataset.d===outputDepth);
+    });
+  }
+
+  // Restore model
+  if(entry.genModel){
+    genModel=entry.genModel;
+    document.querySelectorAll('#modelRow .model-opt').forEach(e=>{
+      const isOpus=e.textContent.includes('Opus');
+      const shouldSel=genModel.includes('opus')?isOpus:!isOpus;
+      e.classList.toggle('sel',shouldSel);
+    });
+  }
+
+  // Restore state
+  allRes=entry.allRes||{};
+  allMD=entry.allMD||'';
+  secMD=entry.secMD||{};
+  loadedGuideId=id;
+
+  // Render the guide
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('outWrap').style.display='block';
+
+  const gHead=document.getElementById('gHead');
+  gHead.innerHTML='<h1>Litigation Review Guide: '+entry.name+'</h1><div class="meta" id="gMeta">'+(entry.cond||'(auto-discovered)')+' — '+(entry.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Last saved '+new Date(entry.savedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+(entry.updateCount?' (updated '+entry.updateCount+'×)':'')+'</div>';
+
+  const gBody=document.getElementById('gBody');
+  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+
+  // Restore research panel
+  if(Object.keys(allRes).length){
+    const rpBody=document.getElementById('rpBody');
+    rpBody.innerHTML=RP.map((p,i)=>{
+      const data=allRes[p.id];
+      if(!data)return '';
+      const failed=data.startsWith('[Failed:');
+      return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${data}</div></details>`;
+    }).filter(Boolean).join('');
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    document.getElementById('rpanel').style.display='block';
+  }
+
+  updWC();buildTOC();
+  splitOutputIntoSections();
+  showRefineBar();
+  renderSaves();
+  estimateCost();
+
+  // Show update button
+  document.getElementById('btnUpdate').style.display='block';
+
+  document.getElementById('pfoot').textContent='Loaded saved guide — '+countW(allMD).toLocaleString()+' words'+(entry.updateCount?' ('+entry.updateCount+' updates)':'');
+}
+
+function deleteGuide(id,e){
+  e.stopPropagation();
+  if(!confirm('Delete this saved guide?'))return;
+  const saves=getSaves().filter(s=>s.id!==id);
+  putSaves(saves);
+  if(loadedGuideId===id){loadedGuideId=null;document.getElementById('btnUpdate').style.display='none'}
+  renderSaves();
+}
+
+function renderSaves(){
+  const saves=getSaves();
+  const panel=document.getElementById('savesPanel');
+  const list=document.getElementById('savesList');
+  const dashboard=document.getElementById('savedDashboard');
+  const dashCards=document.getElementById('dashCards');
+  const featsBlock=document.getElementById('featsBlock');
+
+  if(!saves.length){
+    panel.style.display='none';
+    if(dashboard)dashboard.style.display='none';
+    if(featsBlock)featsBlock.style.display='';
+    return;
+  }
+
+  // Sidebar list (compact)
+  panel.style.display='block';
+  list.innerHTML=saves.map(s=>{
+    const date=new Date(s.savedAt);
+    const dateStr=(date.getMonth()+1)+'/'+date.getDate()+'/'+date.getFullYear();
+    const active=s.id===loadedGuideId?'active':'';
+    return `<div class="save-item ${active}" onclick="loadGuide('${s.id}')">
+      <span class="si-name">${s.name}</span>
+      <span class="si-date">${dateStr}${s.updateCount?' · '+s.updateCount+'u':''}</span>
+      <button class="si-del" onclick="deleteGuide('${s.id}',event)" title="Delete">×</button>
+    </div>`;
+  }).join('');
+
+  // Dashboard cards (main panel — only visible when empty state is showing)
+  if(dashboard&&dashCards){
+    dashboard.style.display='block';
+    if(featsBlock)featsBlock.style.display='none';
+    dashCards.innerHTML=saves.map(s=>{
+      const date=new Date(s.savedAt);
+      const dateStr=date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const litLabel=(s.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      const initial=(s.name||'?')[0].toUpperCase();
+      const words=s.wordCount?s.wordCount.toLocaleString()+' words':'';
+      const updates=s.updateCount?s.updateCount+' update'+(s.updateCount>1?'s':''):'';
+      return `<div class="dash-card" onclick="loadGuide('${s.id}')">
+        <div class="dc-icon">${initial}</div>
+        <div class="dc-info">
+          <div class="dc-name">${s.name}</div>
+          <div class="dc-meta">
+            <span>${litLabel}</span>
+            ${words?'<span>'+words+'</span>':''}
+            <span>${dateStr}</span>
+            ${updates?'<span>'+updates+'</span>':''}
+          </div>
+        </div>
+        <div class="dc-actions">
+          <button class="dc-del" onclick="event.stopPropagation();deleteGuide('${s.id}',event)" title="Delete">×</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+/* ═══════ UPDATE RESEARCH (2-step) ═══════ */
+let _lastUpdateFindings='';
+
+async function checkForUpdates(){
+  const keys=getKeys();
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const litType=document.getElementById('litType').value;
+
+  if(!keys.length)return alert('No API keys configured.');
+  if(!drug)return alert('Enter a product name.');
+  if(!allMD)return alert('No existing guide to update. Generate one first.');
+
+  if(!confirm('Check for new developments (FDA actions, litigation updates, new studies).\n\nThis runs one search — estimated cost ~$0.30.\n\nProceed?'))return;
+
+  const btn=document.getElementById('btnUpdate');
+  btn.disabled=true;btn.textContent='Checking...';
+
+  const t=T();
+  const steps=[{l:'🔍 Checking for new developments',d:'Running...'}];
+  initProg(steps);
+  document.getElementById('btnStop').style.display='block';
+
+  ac=new AbortController();
+
+  try{
+    setP(0,'run','Searching for recent developments...');
+
+    // Build a concise summary of what we already know — just key facts, not full research
+    const knownFacts=Object.values(allRes).join('\n').substring(0,15000);
+    const savedEntry=getSaves().find(s=>s.id===loadedGuideId);
+    const lastDate=savedEntry?new Date(savedEntry.savedAt).toISOString().split('T')[0]:'unknown';
+
+    const sys=`You are a medical-legal research specialist. Check for NEW developments since ${lastDate} for this litigation.
+
+${t.product.toUpperCase()}: ${drug}
+TYPE: ${litType.replace(/_/g,' ')}
+${cond?'CONDITION: '+cond:''}
+
+WHAT WE ALREADY KNOW (abbreviated):
+<existing>
+${knownFacts}
+</existing>
+
+Search for ONLY things that are NEW or CHANGED since ${lastDate}:
+1. NEW regulatory actions — FDA safety communications, recalls, warnings, label changes (search "${drug} FDA 2025 2026")
+2. NEW litigation developments — settlements, verdicts, bellwethers, MDL rulings, case counts (search "${drug} settlement verdict 2025 2026")
+3. NEW studies or safety data — published since last update (search "${drug} study 2025 2026")
+4. NEW adverse event signals
+5. Changes to treatment guidelines
+
+FORMAT YOUR RESPONSE AS:
+For each finding:
+**[CATEGORY]** — Brief description of what's new and WHY IT MATTERS FOR THE LITIGATION
+[Source](URL)
+
+At the end, add:
+## AFFECTED SECTIONS
+List which guide sections need updating based on these findings (e.g., "Product & Exposure — new FDA warning", "Injuries & Severity — new adverse event data").
+
+If NOTHING new is found, respond with: "NO NEW DEVELOPMENTS — Guide is current as of ${lastDate}."`;
+
+    const resp=await callApi(keys[0],[{role:'user',content:'Search for new developments only. Be specific about what changed and why it matters. Include source URLs.'}],sys,{
+      tools:[{type:'web_search_20250305',name:'web_search',max_uses:Math.min(getBudget().searches,5)}],
+      maxTok:4000,signal:ac.signal,stream:true,
+      onRetry:(msg)=>setP(0,'par',msg)
+    });
+    const findings=await streamToText(resp);
+    _lastUpdateFindings=findings;
+
+    // Check if anything new was found
+    const noUpdates=findings.includes('NO NEW DEVELOPMENTS');
+
+    if(noUpdates){
+      setP(0,'done','No new developments found — guide is current');
+      document.getElementById('pfoot').textContent='Update check complete — no changes needed';
+      document.getElementById('updatePanel').style.display='none';
+    }else{
+      setP(0,'done','New developments found');
+      // Show findings in update panel
+      const updatePanel=document.getElementById('updatePanel');
+      updatePanel.style.display='block';
+      updatePanel.open=true;
+      document.getElementById('updateDate').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      document.getElementById('updateBody').innerHTML=md2html(findings);
+      document.getElementById('updateActions').style.display='flex';
+
+      // Store in research
+      allRes._update_findings=findings;
+      allRes._update_date=new Date().toISOString();
+
+      document.getElementById('pfoot').innerHTML='New developments found — <strong style="color:var(--am)">review findings above</strong> and apply if relevant';
+    }
+
+  }catch(err){
+    if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Check stopped'}
+    else{document.getElementById('pfoot').textContent='Check failed: '+err.message;logError(err,{step:'update_check',stepLabel:'Update Check',type:'update'})}
+  }finally{
+    btn.disabled=false;btn.textContent='⟳ Check for Updates';
+    document.getElementById('btnStop').style.display='none';
+    ac=null;
+  }
+}
+
+async function applyUpdates(){
+  const keys=getKeys();
+  if(!keys.length)return alert('No API keys configured.');
+
+  const findings=_lastUpdateFindings||allRes._update_findings;
+  if(!findings)return alert('No update findings to apply. Run "Check for Updates" first.');
+
+  if(!confirm('Apply findings to the guide.\n\nThis will update only affected sections — not rewrite the entire guide.\n\nEstimated cost: ~$1-3\n\nProceed?'))return;
+
+  const actionsDiv=document.getElementById('updateActions');
+  actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px;font-weight:500">Applying updates...</span>';
+
+  const drug=document.getElementById('drugName').value.trim();
+  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+  const t=T();
+
+  try{
+    const sys=`You are a senior medical-legal consultant updating a Litigation Review Guide with new findings.
+
+CURRENT GUIDE:
+<guide>
+${allMD.substring(0,50000)}
+</guide>
+
+NEW FINDINGS TO INCORPORATE:
+<findings>
+${findings}
+</findings>
+
+TASK:
+- Output the COMPLETE guide with updates incorporated
+- Only change sections affected by the new findings — preserve everything else exactly as-is
+- Mark every new or changed item with **[UPDATED]** so reviewers can spot what changed
+- Preserve all existing [Source](URL) citations
+- Add new citations from the findings
+- Do NOT rewrite sections that aren't affected
+- Keep total length within ~${dc.totalWords} words
+
+Output only Markdown. Start with the first # heading.`;
+
+    const resp=await callApi(keys[0],[{role:'user',content:'Apply the updates now. Mark changed content with [UPDATED]. Only modify affected sections. Output the complete guide.'}],sys,{
+      stream:true,maxTok:dc.tokPerCall,model:genModel,signal:null,
+      onRetry:(msg)=>{actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px">'+msg+'</span>'}
+    });
+
+    const gBody=document.getElementById('gBody');
+    gBody.innerHTML='<div class="gc"></div>';
+    const gc=gBody.querySelector('.gc');
+    allMD=await streamTo(resp,gc,()=>updWC());
+
+    // Re-split
+    const allSecIds=getSecOrder().length?getSecOrder():SEC_IDS;
+    splitBatchMD(allMD,allSecIds);
+    updWC();buildTOC();
+    splitOutputIntoSections();
+    showRefineBar();
+
+    // Update header
+    const meta=document.getElementById('gMeta');
+    const litType=document.getElementById('litType').value;
+    const cond=document.getElementById('condition').value.trim();
+    if(meta)meta.innerHTML=(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Updated '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+    // Mark update as applied
+    actionsDiv.innerHTML='<span style="color:var(--gn);font-size:12px;font-weight:500">✓ Updates applied</span>';
+    document.getElementById('pfoot').textContent='Updates applied — '+countW(allMD).toLocaleString()+' words';
+
+    // Auto-save
+    saveGuide();
+
+  }catch(e){
+    actionsDiv.innerHTML='<span style="color:var(--rd);font-size:12px">Failed: '+e.message+'</span> <button onclick="applyUpdates()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer">Retry</button>';
+    logError(e,{step:'apply_updates',stepLabel:'Apply Updates',type:'update'});
+  }
+}
+
+function dismissUpdates(){
+  document.getElementById('updatePanel').style.display='none';
+  _lastUpdateFindings='';
+  document.getElementById('pfoot').textContent='Update findings dismissed';
 }
 
 initSec();
 checkServerKeys();
 wireUpCostEstimate();
+renderSaves();
 </script>
 </body>
 </html>
