@@ -452,7 +452,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 </div>
 
 <script>
-
 /* ═══════════ CONSTANTS ═══════════ */
 
 /* ═══════ LITIGATION TYPE TERMINOLOGY ═══════ */
@@ -531,7 +530,7 @@ const LIT_TERMS={
   }
 };
 
-function T(){return LIT_TERMS[$('litType').value]||LIT_TERMS.pharmaceutical}
+function T(){return LIT_TERMS[document.getElementById('litType').value]||LIT_TERMS.pharmaceutical}
 
 const SEC_IDS=[
   'product_exposure','injuries_severity','causation_mechanism',
@@ -647,8 +646,8 @@ let serverKeyCount=0;
 let keyTestResults={}; // {1:'pass', 2:'fail', 3:'pass'}
 
 async function checkServerKeys(){
-  const panel=$('keyTestResults');
-  const testBtn=$('keyTestBtn');
+  const panel=document.getElementById('keyTestResults');
+  const testBtn=document.getElementById('keyTestBtn');
   try{
     const r=await fetch('/api/anthropic');
     const data=await r.json();
@@ -675,14 +674,14 @@ async function checkServerKeys(){
 }
 
 async function testAllKeys(){
-  const btn=$('keyTestBtn');
+  const btn=document.getElementById('keyTestBtn');
   btn.disabled=true;btn.textContent='Testing...';
   keyTestResults={};
 
   for(let i=1;i<=serverKeyCount;i++){
-    const row=$('kt-'+i);
+    const row=document.getElementById('kt-'+i);
     const dot=row.querySelector('.kt-dot');
-    const detail=$('ktd-'+i);
+    const detail=document.getElementById('ktd-'+i);
     row.className='kt-row';
     dot.className='kt-dot testing';
     detail.textContent='Testing...';
@@ -756,7 +755,7 @@ function getKeys(){
 function updateKeyStatus(states){
   // Update the dot indicators on the test rows during generation
   states.forEach((s,idx)=>{
-    const row=$('kt-'+(idx+1));
+    const row=document.getElementById('kt-'+(idx+1));
     if(!row)return;
     const dot=row.querySelector('.kt-dot');
     if(s==='active'){dot.className='kt-dot testing'}
@@ -791,7 +790,7 @@ function selDepth(el,d){
 
 /* ═══════ SECTIONS ═══════ */
 function initSec(){
-  const grid=$('secGrid');
+  const grid=document.getElementById('secGrid');
   grid.innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">✓</span><span class="sec-label">${s.l}</span></label>`).join('');
   initSidebarDrag();
 }
@@ -799,7 +798,7 @@ function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checke
 function getSecs(){return Array.from(document.querySelectorAll('.stog input:checked')).map(c=>c.parentElement.dataset.id)}
 function getSecOrder(){return Array.from(document.querySelectorAll('.stog')).map(el=>el.dataset.id)}
 function resetSecOrder(){
-  const grid=$('secGrid');
+  const grid=document.getElementById('secGrid');
   const checked=new Set(getSecs());
   grid.innerHTML=SEC.map(s=>{
     const on=checked.has(s.id);
@@ -811,7 +810,7 @@ function resetSecOrder(){
 /* ═══════ SIDEBAR DRAG & DROP ═══════ */
 let sidebarDragEl=null;
 function initSidebarDrag(){
-  const grid=$('secGrid');
+  const grid=document.getElementById('secGrid');
   grid.querySelectorAll('.stog').forEach(el=>{
     el.addEventListener('dragstart',e=>{
       // Only allow drag from the handle
@@ -851,7 +850,7 @@ let outDragEl=null;
 
 function splitOutputIntoSections(){
   // After generation, split the combined output into individual draggable sec-blocks per H1
-  const gBody=$('gBody');
+  const gBody=document.getElementById('gBody');
   const allContent=gBody.innerHTML;
   // Parse current content to find H1 boundaries
   const tmp=document.createElement('div');tmp.innerHTML=allContent;
@@ -938,7 +937,7 @@ function splitOutputIntoSections(){
 }
 
 function initOutputDrag(){
-  const gBody=$('gBody');
+  const gBody=document.getElementById('gBody');
   gBody.querySelectorAll('.sec-block').forEach(block=>{
     block.addEventListener('dragstart',e=>{
       outDragEl=block;block.classList.add('dragging-out');
@@ -973,7 +972,7 @@ function initOutputDrag(){
 }
 
 function rebuildMDFromOutput(){
-  const gBody=$('gBody');
+  const gBody=document.getElementById('gBody');
   const blocks=gBody.querySelectorAll('.sec-block');
   const parts=[];
   blocks.forEach(block=>{
@@ -1024,9 +1023,9 @@ function logError(e,context={}){
 }
 
 function renderErrors(){
-  const panel=$('errPanel');
-  const body=$('errBody');
-  const count=$('errCount');
+  const panel=document.getElementById('errPanel');
+  const body=document.getElementById('errBody');
+  const count=document.getElementById('errCount');
   const unresolved=errorLog.filter(e=>!e.resolved);
   if(!errorLog.length){panel.style.display='none';return}
   panel.style.display='block';
@@ -1184,17 +1183,17 @@ async function callApi(keyIndex,msgs,sys,opts={}){
 
 /* ═══════ PROGRESS ═══════ */
 function initProg(steps){
-  const el=$('prog');el.style.display='flex';
+  const el=document.getElementById('prog');el.style.display='flex';
   el.innerHTML=steps.map((s,i)=>`<div class="ps" id="ps${i}"><div class="pi">${i<10?i+1:'✓'}</div><div class="pinfo"><div class="pl">${s.l}</div><div class="pd" id="pd${i}">${s.d||'Queued'}</div></div></div>`).join('');
 }
-function setP(i,cls,d){const el=$('ps'+i);if(!el)return;el.className='ps '+cls;if(d)$('pd'+i).textContent=d}
+function setP(i,cls,d){const el=document.getElementById('ps'+i);if(!el)return;el.className='ps '+cls;if(d)document.getElementById('pd'+i).textContent=d}
 
 /* ═══════ RESEARCH (parallel with key rotation) ═══════ */
 function buildResSys(drug,cond,inj,extra,pass){
   const searchBudget=getBudget().searches;
-  const ci=$('customInstr').value.trim();
+  const ci=document.getElementById('customInstr').value.trim();
   const t=T();
-  return `You are a medical-legal research specialist gathering facts to build a litigation review guide. This is a ${t.product_lc} case (${$('litType').value.replace(/_/g,' ')}). Your research must focus on what gets clients paid: EXPOSURE proof, INJURY identification, SEVERITY grading scales, CAUSATION evidence, and CONFOUNDER documentation. Use web search to gather specific facts on the topics below. You have a budget of ${searchBudget} searches for this pass — make each one count. Use precise, targeted queries rather than broad ones.
+  return `You are a medical-legal research specialist gathering facts to build a litigation review guide. This is a ${t.product_lc} case (${document.getElementById('litType').value.replace(/_/g,' ')}). Your research must focus on what gets clients paid: EXPOSURE proof, INJURY identification, SEVERITY grading scales, CAUSATION evidence, and CONFOUNDER documentation. Use web search to gather specific facts on the topics below. You have a budget of ${searchBudget} searches for this pass — make each one count. Use precise, targeted queries rather than broad ones.
 
 ${t.product.toUpperCase()}: ${drug}
 ${cond?'CONDITION: '+cond:'CONDITION: Discover from research.'}
@@ -1418,17 +1417,18 @@ TABLE or dated bullet format:
 - This timeline proves the manufacturer had KNOWLEDGE of risk`,
 
 injuries_severity:`# Injuries & Severity Grading
-PURPOSE: This section directly determines case value. Higher severity = more damages = higher payout.
+PURPOSE: This section directly determines case value. Higher severity grade = more damages = higher payout.
 
-For EACH alleged injury/complication, use this structure:
+For EACH alleged injury, use this structure:
 
-**INJURY/COMPLICATION NAME** (ICD-10: codes)
+**INJURY NAME** (ICD-10: codes)
 *Also documented as:* every synonym, alternate chart term, nursing shorthand, coding abbreviation the reviewer might see
 
-**Diagnostic Criteria — How to Confirm:**
-- Name the formal criteria set if one exists
-- Lab/imaging findings that CONFIRM (specific thresholds and findings, not just "abnormal")
-- Where to look in the chart: physician assessments, specialist consults, operative reports, imaging reports, discharge summaries
+**Diagnostic Criteria — How to Confirm This Injury Exists:**
+- Name the formal criteria set (e.g., KDIGO for AKI, Framingham for CHF, Berlin for ARDS)
+- Lab values that CONFIRM: specific thresholds, not just "elevated"
+- Imaging/test findings that CONFIRM: specific findings
+- Where to look in the chart: physician assessments, specialist consults, discharge summaries, problem list
 - What makes a CONFIRMED diagnosis vs. "rule out" or "possible" — only confirmed counts
 
 **Severity Grading — THIS IS WHAT DETERMINES DAMAGES:**
@@ -1483,8 +1483,8 @@ PURPOSE: Arm the reviewer with the scientific argument connecting ${t.product_lc
 ${isDevice?`**For device cases, causation follows a different pattern than drug cases:**
 - IMAGING TIMELINE: Pre-implant X-ray (normal bone) → post-implant X-ray (device in place) → follow-up imaging showing failure (subsidence, migration, lucency, fragmentation, bone erosion)
 - OPERATIVE FINDINGS: What the revision surgeon saw and documented — device condition, tissue damage, bone loss
-- TIME TO FAILURE: How long from implantation to first symptoms? To imaging confirmation of failure? To revision surgery?
-- DEVICE CONDITION: Was the device intact or fragmented? Did it migrate? Was there a manufacturing defect visible?
+- TIME TO FAILURE: How long from implantation to first symptoms? To imaging confirmation? To revision surgery?
+- DEVICE CONDITION: Was the device intact or fragmented? Did it migrate? Manufacturing defect visible?
 - COMPARISON TO EXPECTED PERFORMANCE: Manufacturer claimed X% success rate — actual failure contradicts this
 - PHYSICIAN ATTRIBUTION: Surgeon's assessment that the device failed, not that the underlying condition worsened
 - ADVERSE EVENT REPORTS: Was an MDR filed? Was the device returned to the manufacturer?`
@@ -1655,12 +1655,13 @@ ${isDevice?`**Device-specific defense ammunition to flag:**
 - [ ] BMI at implant date: ____ (mechanical load on joint)
 - [ ] Diabetes: ____ (affects healing and bone integration)
 - [ ] Smoking status: ____ (affects healing)
-- [ ] Peripheral vascular disease: ____ (affects healing)
-- [ ] Inflammatory conditions (RA, gout): ____
 - [ ] Post-op infection documented? ____ (defense will argue infection, not device failure)
 - [ ] Trauma to the area post-implant? ____
-- [ ] Informed consent: What failure risks were disclosed? ____ (defense will argue accepted risk)
-- [ ] Any surgeon note suggesting cause OTHER than device failure: ____ (flag this immediately)`
+- [ ] Informed consent: What failure risks were disclosed? ____
+- [ ] Any surgeon note suggesting cause OTHER than device failure: ____ (flag this immediately)
+
+**Low defense risk:** Experienced surgeon followed technique guide, patient compliant, no pre-op bone issues, no infection, device clearly failed on imaging
+**High defense risk:** Surgeon inexperience/technique deviation, patient non-compliance, poor bone quality, infection documented, surgeon blames something other than device`
 :`**Pre-existing conditions that could explain the injury:**
 For each: Condition ____ | Diagnosed BEFORE or AFTER exposure? ____ | Stable or progressing pre-exposure? ____
 - If diagnosed BEFORE exposure AND progressing = defense will use this aggressively
@@ -1673,12 +1674,9 @@ For each: Condition ____ | Diagnosed BEFORE or AFTER exposure? ____ | Stable or 
 - [ ] Smoking status: ____
 - [ ] Other products/medications that could cause the same injury: ____
 - [ ] Family/genetic history relevant to the injury: ____
-- [ ] Any physician note suggesting an alternative cause for the injury: ____ (flag this immediately)`}
+- [ ] Any physician note suggesting an alternative cause for the injury: ____ (flag this immediately)
 
-${isDevice
-?`**Low defense risk:** Experienced surgeon followed technique guide, patient compliant, no pre-op bone issues, no infection, device clearly failed on imaging
-**High defense risk:** Surgeon inexperience/technique deviation, patient non-compliance, poor bone quality, infection documented, surgeon blames something other than device`
-:`**Low defense risk:** Few/no confounders, pre-existing conditions stable, no competing causes documented
+**Low defense risk:** Few/no confounders, pre-existing conditions stable, no competing causes documented
 **High defense risk:** Multiple uncontrolled comorbidities, physician note attributing injury to something else, same injury documented before exposure`}
 
 ---
@@ -1795,7 +1793,7 @@ ${t.product.toUpperCase()}: ${drug}
 ${cond?'CONDITION: '+cond:'(From research)'}
 TYPE: ${litType.replace(/_/g,' ')}
 
-${(()=>{const ci=$('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED:
+${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED:
 The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output.
 - Use markdown link format: [Short Label](URL)
 - If a fact has no source URL in the research notes, do NOT invent one
@@ -1887,7 +1885,7 @@ async function streamToText(resp){
 async function streamTo(resp,el,onChunk){
   const reader=resp.body.getReader(),dec=new TextDecoder();
   let buf='',md='',last=0;
-  const mainPanel=$('mainPanel');
+  const mainPanel=document.getElementById('mainPanel');
   while(true){
     const{done,value}=await reader.read();if(done)break;
     buf+=dec.decode(value,{stream:true});
@@ -1927,13 +1925,13 @@ function md2html(md){
 }
 
 function countW(md){return md.split(/\s+/).filter(w=>w.length>0&&!/^[#*\-|>]$/.test(w)).length}
-function updWC(){$('wc').textContent=countW(allMD).toLocaleString()+' words'}
+function updWC(){document.getElementById('wc').textContent=countW(allMD).toLocaleString()+' words'}
 function buildTOC(){
-  const h1s=$('gBody').querySelectorAll('h1');
-  if(!h1s.length){$('toc').style.display='none';return}
-  const list=$('tocList');list.innerHTML='';
+  const h1s=document.getElementById('gBody').querySelectorAll('h1');
+  if(!h1s.length){document.getElementById('toc').style.display='none';return}
+  const list=document.getElementById('tocList');list.innerHTML='';
   h1s.forEach((h,i)=>{h.id='s'+i;const li=document.createElement('li');const a=document.createElement('a');a.href='#s'+i;a.textContent=h.textContent;li.appendChild(a);list.appendChild(li)});
-  $('toc').style.display='block';
+  document.getElementById('toc').style.display='block';
 }
 
 /* ═══════ SPLIT BATCH MD INTO INDIVIDUAL SECTIONS ═══════ */
@@ -1993,8 +1991,8 @@ function splitBatchMD(grpMD,secIds){
 /* ═══════ SECTION REGEN ═══════ */
 async function regenSec(secId){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured on server.');
-  const drug=$('drugName').value.trim();
-  const block=$('sb-'+secId);if(!block)return;
+  const drug=document.getElementById('drugName').value.trim();
+  const block=document.getElementById('sb-'+secId);if(!block)return;
   block.classList.add('regen');
 
   // Get the existing section content and other section headings for cross-reference
@@ -2047,216 +2045,265 @@ Output ONLY the section Markdown.`;
   finally{block.classList.remove('regen')}
 }
 
-/* ═══════ MAIN PIPELINE ═══════ */
-function initRunUI(drug,cond,litType){
-  $('emptyState').style.display='none';
-  $('outWrap').style.display='block';
-  ['rpanel','vpanel','errPanel','updatePanel'].forEach(id=>{const el=$(id);if(el)el.style.display='none'});
-  errorLog=[];renderErrors();
-
-  $('gHead').innerHTML='<h1>Litigation Review Guide: '+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
-  const b=getBudget();
-  $('gBody').innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+RP.length+' research passes ('+b.parallel+' parallel, '+b.stagger+'s stagger, '+b.searches+' searches/pass). This takes 3–8 minutes...</p></div>';
-  $('toc').style.display='none';
-  $('wc').textContent='';
-}
-
-function renderResearchPanel(){
-  const rpBody=$('rpBody');
-  rpBody.innerHTML=RP.map((p,i)=>{
-    const data=allRes[p.id];
-    const failed=data?.startsWith('[Failed:');
-    return '<details class="rp-pass"><summary>Pass '+(i+1)+': '+p.l+(failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':'')+'</summary><div class="rp-pass-body">'+(data||'(empty)')+(failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')">↻ Retry</button>':'')+'</div></details>';
-  }).join('');
-  $('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
-  $('rpanel').style.display='block';
-  if(Object.values(allRes).some(v=>v.startsWith('[Failed:')))$('rpanel').open=true;
-}
-
-function autoDiscoverCondition(litType){
-  const all=Object.values(allRes).join(' ');
-  const m=all.match(/(?:treats?|indicated for|approved for|used (?:for|to treat)|treatment of)\s+([A-Z][^.;\n]{5,80})/i);
-  if(m){
-    const f=m[1].trim().replace(/[.,]$/,'');
-    const meta=$('gMeta');
-    if(meta)meta.innerHTML=f+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  }
-}
-
-async function ensureChecklist(genKey,genIdx){
-  if(!allMD||allMD.includes('# Reviewer Extraction Checklist')||allMD.includes('# Reviewer Checklist'))return;
-  setP(genIdx,'par','Checklist was cut off — generating separately...');
-  await sleep(5000,ac.signal);
-
-  const sys='You are a senior medical-legal consultant. The guide below was generated but the Reviewer Extraction Checklist was cut off. Write ONLY this section now.\n\nGUIDE CONTEXT:\n<guide>\n'+allMD.substring(0,30000)+'\n</guide>\n\nSECTION TO WRITE:\n'+getSP().reviewer_checklist+'\n\nWrite the COMPLETE checklist. Include all 5 elements plus Case Valuation Quick Read. This is the most important section.\nOutput ONLY this section\'s Markdown.';
-
-  const resp=await callApi(genKey,[{role:'user',content:'Write the complete Reviewer Extraction Checklist now. Output only Markdown.'}],sys,{
-    stream:true,maxTok:4000,model:genModel,signal:ac.signal
-  });
-  const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
-  const md=await streamTo(resp,tmpEl);
-  document.body.removeChild(tmpEl);
-
-  if(md&&md.trim().length>200){
-    allMD+='\n\n---\n\n'+md;
-    secMD.reviewer_checklist=md;
-    const gc=$('gBody').querySelector('.gc');
-    if(gc)gc.innerHTML=md2html(allMD);
-    updWC();buildTOC();
-    setP(genIdx,'done',countW(allMD).toLocaleString()+' words (checklist recovered)');
-  }
-}
-
+/* ═══════ MAIN ═══════ */
 async function run(){
   const keys=getKeys();
-  const f=getFormData();
-  if(!keys.length)return alert('No API keys configured.');
-  if(!f.drug)return alert('Enter a product name.');
-  if(!f.secs.length)return alert('Select at least one section.');
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const litType=document.getElementById('litType').value;
+  const inj=document.getElementById('injuries').value.trim();
+  const extra=document.getElementById('extra').value.trim();
+  const secs=getSecs();
 
+  if(!keys.length)return alert('No API keys configured on the server. Add ANTHROPIC_KEY_1 to your Netlify environment variables.');
+  if(!drug)return alert('Enter a drug or device name.');
+  if(!secs.length)return alert('Select at least one section.');
+
+  // Cost confirmation
   const est=estimateCost();
-  if(!confirm('Estimated cost: $'+est.low+' – $'+est.high+'\nProceed?'))return;
+  if(!confirm('Estimated cost: $'+est.low+' – $'+est.high+'\n\nProceed with generation?'))return;
 
-  const btn=$('btnGo'),stopBtn=$('btnStop');
+  const btn=document.getElementById('btnGo'),stopBtn=document.getElementById('btnStop');
   btn.disabled=true;btn.textContent='Working...';stopBtn.style.display='block';
 
+  const activeGG=GG.map(g=>({...g,secs:g.secs.filter(s=>secs.includes(s))})).filter(g=>g.secs.length);
   const steps=[
     ...RP.map(p=>({l:'🔍 '+p.l,d:'Queued'})),
     {l:'🔎 Gap Analysis + Follow-Up',d:'Queued'},
-    {l:'✍ Writing Full Guide ('+f.secs.length+' sections)',d:'Queued'},
+    {l:'✍ Writing Full Guide ('+secs.length+' sections)',d:'Queued'},
     {l:'✓ Verification Audit',d:'Queued'}
   ];
   initProg(steps);
-  initRunUI(f.drug,f.cond,f.litType);
+
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('outWrap').style.display='block';
+  document.getElementById('rpanel').style.display='none';
+  document.getElementById('vpanel').style.display='none';
+  document.getElementById('errPanel').style.display='none';
+  errorLog=[];renderErrors();
+
+  const gHead=document.getElementById('gHead');
+  const gBody=document.getElementById('gBody');
+  gHead.innerHTML='<h1>Litigation Review Guide: '+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
+  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+RP.length+' research passes across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(getBudget().parallel)+' parallel, '+(getBudget().stagger)+'s stagger). Auto-retries on rate limits with exponential backoff. This takes 3–8 minutes...</p></div>';
+  document.getElementById('toc').style.display='none';
+  document.getElementById('wc').textContent='';
 
   allMD='';secMD={};allRes={};
   ac=new AbortController();
   const t0=Date.now();
-  const gBody=$('gBody');
 
   try{
-    // ═══ PHASE 1: RESEARCH ═══
-    allRes=await doResearch(keys,f.drug,f.cond,f.inj,f.extra,ac.signal);
-    renderResearchPanel();
-    if(!f.cond)autoDiscoverCondition(f.litType);
+    // ═══ PHASE 1: PARALLEL RESEARCH ═══
+    allRes=await doResearch(keys,drug,cond,inj,extra,ac.signal);
 
-    // ═══ PHASE 2: GAP ANALYSIS ═══
-    let followUp='';
-    const gapIdx=RP.length;
-    setP(gapIdx,'run','Analyzing research gaps...');
-    try{
-      const gapResult=await gapAnalysis(keys[keys.length>1?1:0],f.drug,allRes,ac.signal);
-      followUp=gapResult.followUp;
-      if(followUp){
-        $('rpBody').innerHTML+='<details class="rp-pass"><summary>Follow-Up Research (Gap Fills)</summary><div class="rp-pass-body">'+followUp+'</div></details>';
-        $('rcount').textContent=(Object.values(allRes).join('').length+followUp.length).toLocaleString()+' chars';
-      }
-      setP(gapIdx,'done','Found '+(gapResult.gaps.match(/GAP:/gi)||[]).length+' gaps');
-    }catch(e){
-      if(e.name==='AbortError')throw e;
-      setP(gapIdx,'err',e.message);
-      logError(e,{step:'gap_analysis',stepLabel:'Gap Analysis',type:'gap'});
+    const rpBody=document.getElementById('rpBody');
+    rpBody.innerHTML=RP.map((p,i)=>{
+      const failed=allRes[p.id]?.startsWith('[Failed:');
+      return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
+    }).join('');
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    document.getElementById('rpanel').style.display='block';
+    // Auto-open if any research failed
+    const anyResFailed=Object.values(allRes).some(v=>v.startsWith('[Failed:'));
+    if(anyResFailed)document.getElementById('rpanel').open=true;
+
+    // Update header if auto-discovered
+    if(!cond){
+      const all=Object.values(allRes).join(' ');
+      const m=all.match(/(?:treats?|indicated for|approved for|used (?:for|to treat)|treatment of)\s+([A-Z][^.;\n]{5,80})/i);
+      if(m){const f=m[1].trim().replace(/[.,]$/,'');document.getElementById('gMeta').innerHTML=f+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
     }
 
+    // ═══ PHASE 2: GAP ANALYSIS (always on) ═══
+    let gapStepCount=1;
+    let followUp='';
+    {
+      const gapIdx=RP.length;
+      setP(gapIdx,'run','Analyzing research gaps...');
+      try{
+        const gapResult=await gapAnalysis(keys[keys.length>1?1:0],drug,allRes,ac.signal);
+        followUp=gapResult.followUp;
+        if(followUp){
+          rpBody.innerHTML+='<details class="rp-pass"><summary>Follow-Up Research (Gap Fills)</summary><div class="rp-pass-body">'+followUp+'</div></details>';
+          document.getElementById('rcount').textContent=(Object.values(allRes).join('').length+followUp.length).toLocaleString()+' chars';
+        }
+        setP(gapIdx,'done','Found '+(gapResult.gaps.match(/GAP:/gi)||[]).length+' gaps, ran follow-up searches');
+      }catch(e){
+        if(e.name==='AbortError')throw e;
+        setP(gapIdx,'err',e.message);
+        logError(e,{step:'gap_analysis',stepLabel:'Gap Analysis',type:'gap',retryAttempts:1});
+      }
+    }
+
+    // Cooldown before generation phase
     await sleep(10000,ac.signal);
 
-    // ═══ PHASE 3: GENERATION ═══
+    // ═══ PHASE 3: GENERATION (single call, all sections) ═══
     gBody.innerHTML='';
-    const genIdx=RP.length+1;
+    const genIdx=RP.length+gapStepCount;
     const genKey=keys[0];
-    const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-    setP(genIdx,'run','Writing with '+(genModel.includes('opus')?'Opus':'Sonnet')+'...');
+    setP(genIdx,'run','Writing full guide with '+(genModel.includes('opus')?'Opus':'Sonnet')+'...');
 
     const genDiv=document.createElement('div');genDiv.className='sec-block';genDiv.id='sb-gen';
     genDiv.innerHTML='<div class="gc"></div>';
     gBody.appendChild(genDiv);
 
     let genSuccess=false;
-    for(let attempt=0;attempt<3&&!genSuccess;attempt++){
-      if(attempt>0){
-        setP(genIdx,'par','Retry '+(attempt+1)+'/3...');
-        await sleep(20000*attempt,ac.signal);
-        setP(genIdx,'run','Retrying generation...');
+    for(let genAttempt=0;genAttempt<3&&!genSuccess;genAttempt++){
+      if(genAttempt>0){
+        const retryWait=20000*genAttempt;
+        setP(genIdx,'par','Generation failed — retry '+(genAttempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
+        await sleep(retryWait,ac.signal);
+        setP(genIdx,'run','Retrying generation (attempt '+(genAttempt+1)+')...');
         genDiv.querySelector('.gc').innerHTML='';
       }
       try{
-        const sys=buildGenSys(f.drug,f.cond,f.litType,allRes,followUp,f.inj,f.extra,f.secs);
-        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE guide — all '+f.secs.length+' sections. Target ~'+dc.totalWords+' words. The Reviewer Extraction Checklist is the MOST IMPORTANT section — write it in full. If running long, compress earlier sections. Include [Source](URL) citations. Output only Markdown.'}],sys,{
+        const allSecIds=secs;
+        const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,allSecIds);
+        const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE litigation review guide — all '+allSecIds.length+' sections. Target ~'+dc.totalWords+' words. The Reviewer Extraction Checklist is the MOST IMPORTANT section — write it in full. If running long, compress the earlier sections (especially Product & Exposure and Medical Context) to leave room. You MUST finish the checklist. Include [Source](URL) citations. Output only Markdown.'}],sys,{
           stream:true,maxTok:dc.tokPerCall,model:genModel,signal:ac.signal,
-          onRetry:msg=>setP(genIdx,'par',msg)
+          onRetry:(msg)=>setP(genIdx,'par',msg)
         });
-        allMD=await streamTo(resp,genDiv.querySelector('.gc'),()=>updWC());
-        if(allMD.trim().length<100)throw new Error('Generation returned empty');
-        splitBatchMD(allMD,f.secs);
+
+        const gc=genDiv.querySelector('.gc');
+        allMD=await streamTo(resp,gc,()=>updWC());
+        if(allMD.trim().length<100){throw new Error('Generation returned empty or too short');}
+        splitBatchMD(allMD,allSecIds);
         setP(genIdx,'done',countW(allMD).toLocaleString()+' words');
         genSuccess=true;
       }catch(e){
         if(e.name==='AbortError')throw e;
-        if(attempt===2){
-          setP(genIdx,'err','Failed: '+e.message);
-          genDiv.querySelector('.gc').innerHTML='<p style="color:var(--rd)">⚠ '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry</button>';
-          logError(e,{step:'generation',stepLabel:'Generation',type:'generation',retryFn:"retryGeneration()"});
+        if(genAttempt===2){
+          setP(genIdx,'err','Failed after 3 attempts: '+e.message);
+          const gc=genDiv.querySelector('.gc');
+          gc.innerHTML='<p style="color:var(--rd)">⚠ Generation failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Generation</button>';
+          logError(e,{
+            step:'generation',
+            stepLabel:'Guide Generation',
+            type:'generation',
+            keyIndex:genKey,
+            retryAttempts:3,
+            retryFn:"retryGeneration()",
+          });
         }
       }
     }
 
     updWC();buildTOC();
 
-    // ═══ COMPLETION CHECK ═══
-    if(genSuccess){
-      try{await ensureChecklist(genKey,genIdx)}
-      catch(e){if(e.name!=='AbortError')logError(e,{step:'checklist_recovery',stepLabel:'Checklist Recovery',type:'generation'})}
+    // ═══ COMPLETION CHECK: Ensure Reviewer Checklist was written ═══
+    if(genSuccess&&allMD&&!allMD.includes('# Reviewer Extraction Checklist')&&!allMD.includes('# Reviewer Checklist')){
+      setP(genIdx,'par','Checklist was cut off — generating separately...');
+      try{
+        await sleep(5000,ac.signal);
+        const t=T();
+        const checklistSys=`You are a senior medical-legal consultant. The litigation review guide below was generated but the Reviewer Extraction Checklist section was cut off. Write ONLY the Reviewer Extraction Checklist section now.
+
+GUIDE CONTEXT (what was already written):
+<guide>
+${allMD.substring(0,30000)}
+</guide>
+
+SECTION TO WRITE:
+${getSP().reviewer_checklist}
+
+Write the COMPLETE checklist section. Start with # Reviewer Extraction Checklist. Include all 5 elements (Exposure Gate, Injury & Severity, Causation, Defense Risks, Damages) plus the Case Valuation Quick Read. This is the most important section in the guide — do not abbreviate it.
+
+Output ONLY this section's Markdown.`;
+        const checkResp=await callApi(genKey,[{role:'user',content:'Write the complete Reviewer Extraction Checklist section now. Do not skip any subsections. Output only Markdown.'}],checklistSys,{
+          stream:true,maxTok:4000,model:genModel,signal:ac.signal
+        });
+        const checkDiv=document.createElement('div');checkDiv.style.display='none';
+        document.body.appendChild(checkDiv);
+        const checklistMD=await streamTo(checkResp,checkDiv);
+        document.body.removeChild(checkDiv);
+
+        if(checklistMD&&checklistMD.trim().length>200){
+          allMD+='\n\n---\n\n'+checklistMD;
+          secMD['reviewer_checklist']=checklistMD;
+          // Re-render
+          const gc=genDiv.querySelector('.gc');
+          gc.innerHTML=md2html(allMD);
+          updWC();buildTOC();
+          setP(genIdx,'done',countW(allMD).toLocaleString()+' words (checklist recovered)');
+        }
+      }catch(e){
+        if(e.name!=='AbortError'){
+          setP(genIdx,'par','Checklist recovery failed — use Refine to add it');
+          logError(e,{step:'checklist_recovery',stepLabel:'Checklist Recovery',type:'generation'});
+        }
+      }
     }
 
-    // ═══ PHASE 4: VERIFICATION ═══
-    const vIdx=genIdx+1;
-    setP(vIdx,'run','Verifying...');
-    await sleep(10000,ac.signal);
-    try{
-      const vKey=keys[keys.length>1?keys.length-1:0];
-      const audit=await verify(vKey,f.drug,allRes,allMD,ac.signal);
-      $('vpBody').innerHTML=md2html(audit);
-      $('vpanel').style.display='block';
-      setP(vIdx,'done',(audit.match(/^- /gm)||[]).length+' items flagged');
-    }catch(e){
-      if(e.name==='AbortError')throw e;
-      setP(vIdx,'err',e.message);
-      logError(e,{step:'verification',stepLabel:'Verification',type:'verification'});
+    // ═══ PHASE 4: VERIFICATION (mandatory) ═══
+    {
+      const vIdx=genIdx+1;
+      setP(vIdx,'run','Cooling before verification...');
+      await sleep(10000,ac.signal);
+      setP(vIdx,'run','Cross-checking guide against research...');
+      try{
+        const vKey=keys[(keys.length>1)?keys.length-1:0];
+        const audit=await verify(vKey,drug,allRes,allMD,ac.signal);
+        document.getElementById('vpBody').innerHTML=md2html(audit);
+        document.getElementById('vpanel').style.display='block';
+        const issues=(audit.match(/^- /gm)||[]).length;
+        setP(vIdx,'done',issues+' items flagged');
+      }catch(e){
+        if(e.name==='AbortError')throw e;
+        setP(vIdx,'err',e.message);
+        logError(e,{step:'verification',stepLabel:'Verification Audit',type:'verification',retryAttempts:1});
+      }
     }
 
-    // ═══ FINALIZE ═══
+    // Split output into individual draggable section blocks
     splitOutputIntoSections();
-    const elapsed=((Date.now()-t0)/1000/60).toFixed(1);
-    const failCount=Object.values(allRes).filter(v=>v.startsWith('[Failed:')).length+(genSuccess?0:1);
 
-    if(failCount>0){
-      $('pfoot').innerHTML='Done in '+elapsed+'m — '+countW(allMD).toLocaleString()+' words — ⚠ '+failCount+' failure(s) <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-size:10px;cursor:pointer;font-weight:600">↻ Retry</button>';
+    const elapsed=((Date.now()-t0)/1000/60).toFixed(1);
+
+    // Check for failures
+    const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
+    const genFailed=!genSuccess;
+    const totalFailed=failedResearch.length+(genFailed?1:0);
+
+    if(totalFailed>0){
+      let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — ⚠ '+totalFailed+' failure'+(totalFailed>1?'s':'');
+      if(failedResearch.length)failMsg+=' ('+failedResearch.length+' research)';
+      if(genFailed)failMsg+=' (generation)';
+      document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>';
     }else{
-      $('pfoot').textContent='Done in '+elapsed+'m — '+countW(allMD).toLocaleString()+' words';
+      document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
     }
+
+    // Show refinement bar and populate scope dropdown
     showRefineBar();
-    if(allMD&&countW(allMD)>100){saveGuide();$('btnUpdate').style.display='block'}
+
+    // Auto-save and show update button
+    if(allMD&&countW(allMD)>100){
+      saveGuide();
+      document.getElementById('btnUpdate').style.display='block';
+    }
 
   }catch(err){
-    if(err.name==='AbortError'){$('pfoot').textContent='Stopped';if(allMD)showRefineBar()}
-    else{$('pfoot').textContent='Error: '+err.message;if(!allMD)gBody.innerHTML='<div class="gc"><p style="color:var(--rd)">'+err.message+'</p></div>';else showRefineBar()}
+    if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Stopped';if(allMD)showRefineBar()}
+    else{document.getElementById('pfoot').textContent='Error: '+err.message;if(!allMD)gBody.innerHTML='<div class="gc"><p style="color:var(--rd)">'+err.message+'</p></div>';else showRefineBar()}
   }finally{
     btn.disabled=false;btn.textContent='Generate Review Guide';stopBtn.style.display='none';ac=null;
-    togAll(false);
+    togAll(false); // Deselect all sections after run
   }
 }
 
 function stop(){if(ac)ac.abort()}
 
-
 /* ═══════ FAILURE RECOVERY ═══════ */
 async function retryGeneration(){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured.');
-  const drug=$('drugName').value.trim();
-  const cond=$('condition').value.trim();
-  const litType=$('litType').value;
-  const inj=$('injuries').value.trim();
-  const extra=$('extra').value.trim();
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const litType=document.getElementById('litType').value;
+  const inj=document.getElementById('injuries').value.trim();
+  const extra=document.getElementById('extra').value.trim();
 
   const allSecIds=getSecOrder().filter(id=>{
     // Use all sections that have SP entries
@@ -2264,7 +2311,7 @@ async function retryGeneration(){
   });
   if(!allSecIds.length)return alert('No sections to generate');
 
-  const gBody=$('gBody');
+  const gBody=document.getElementById('gBody');
   gBody.innerHTML='<div class="sec-block" id="sb-gen"><div class="gc"><p style="color:var(--tx3)">Retrying full guide generation...</p></div></div>';
 
   try{
@@ -2293,10 +2340,10 @@ async function retryGeneration(){
 
 async function retryFailedResearch(passId){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured.');
-  const drug=$('drugName').value.trim();
-  const cond=$('condition').value.trim();
-  const inj=$('injuries').value.trim();
-  const extra=$('extra').value.trim();
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const inj=document.getElementById('injuries').value.trim();
+  const extra=document.getElementById('extra').value.trim();
 
   const pass=RP.find(p=>p.id===passId);
   if(!pass)return alert('Research pass not found');
@@ -2311,12 +2358,12 @@ async function retryFailedResearch(passId){
     allRes[passId]=txt.trim();
 
     // Update research panel
-    const rpBody=$('rpBody');
+    const rpBody=document.getElementById('rpBody');
     rpBody.innerHTML=RP.map((p,i)=>{
       const failed=allRes[p.id]?.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
     }).join('');
-    $('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
     // Resolve matching errors
     errorLog.filter(e=>e.step===passId&&!e.resolved).forEach(e=>resolveError(e.id));
     updateFailureSummary();
@@ -2344,17 +2391,17 @@ function updateFailureSummary(){
   const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
   const genFailed=errorLog.some(e=>e.step==='generation'&&!e.resolved);
   const totalFailed=failedResearch.length+(genFailed?1:0);
-  const pfoot=$('pfoot');
+  const pfoot=document.getElementById('pfoot');
   if(totalFailed===0){
     pfoot.textContent=pfoot.textContent.replace(/— ⚠.*/,'').trim()+' — all failures recovered ✓';
   }
 }
 
 /* ═══════ EXPORTS ═══════ */
-function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=$('gBody').innerHTML;tmp.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
+function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=document.getElementById('gBody').innerHTML;tmp.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
 function printGuide(){window.print()}
 function dlPDF(){
-  const drug=$('drugName').value.trim()||'Guide';
+  const drug=document.getElementById('drugName').value.trim()||'Guide';
   const btn=document.querySelector('.toolbar button[onclick="dlPDF()"]');
   btn.textContent='Generating PDF...';btn.disabled=true;
 
@@ -2363,9 +2410,9 @@ function dlPDF(){
   container.innerHTML=`
     <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px;max-width:7in;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word">
       <div style="border-bottom:1.5px solid #1a2e6c;padding-bottom:10px;margin-bottom:18px">
-        ${$('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:20px;font-weight:bold;margin:0 0 4px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:10px;color:#555"')}
+        ${document.getElementById('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:20px;font-weight:bold;margin:0 0 4px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:10px;color:#555"')}
       </div>
-      ${$('gBody').innerHTML}
+      ${document.getElementById('gBody').innerHTML}
     </div>`;
 
   // Style the clone for print
@@ -2389,94 +2436,66 @@ function dlPDF(){
     else el.remove();
   });
 
-  // ═══ MANUAL PAGE-BREAK SIMULATION ═══
-  // Mount offscreen to measure real element positions
+  // ═══ MOUNT OFFSCREEN TO MEASURE ELEMENT POSITIONS ═══
   container.style.cssText='position:absolute;left:-9999px;top:0;width:816px';
   document.body.appendChild(container);
 
-  // Page dimensions in pixels at scale=2: letter = 11in, margins = 0.75in top + 0.75in bottom
-  // At 96dpi base: usable height = (11 - 1.5) * 96 = 912px per page
-  // But html2canvas scale=2 renders at 2x, and html2pdf slices based on the unscaled container
-  const marginTopPx=0.75*96; // 72px
-  const marginBottomPx=0.75*96; // 72px
-  const pageHeightPx=11*96; // 1056px total page
-  const usableHeightPx=pageHeightPx-marginTopPx-marginBottomPx; // 912px usable
-
-  // Walk all block-level elements and check if they straddle a page boundary
   const inner=container.firstElementChild;
-  const blocks=inner.querySelectorAll('h1,h2,h3,h4,p,li,tr,table,blockquote,hr,ul,ol');
+  const usableH=(11-1.5)*96; // 912px usable per page (letter minus 0.75in margins)
+  const blocks=inner.querySelectorAll('h1,h2,h3,h4,p,li,tr,table,blockquote,hr');
   const containerTop=inner.getBoundingClientRect().top;
-
-  // Track cumulative spacer height added (shifts everything below)
   let spacerTotal=0;
 
+  // Walk elements — inject spacers to prevent page-boundary text clipping
   blocks.forEach(el=>{
     const rect=el.getBoundingClientRect();
     const elTop=rect.top-containerTop+spacerTotal;
     const elBottom=rect.bottom-containerTop+spacerTotal;
-    const elHeight=rect.height;
+    const elH=rect.height;
+    const pageIdx=Math.floor(elTop/usableH);
+    const pageEnd=(pageIdx+1)*usableH;
 
-    // Which page does the top of this element fall on?
-    const pageIndex=Math.floor(elTop/usableHeightPx);
-    // Where does this page end?
-    const pageEnd=(pageIndex+1)*usableHeightPx;
-
-    // If the element crosses the page boundary
     if(elBottom>pageEnd&&elTop<pageEnd){
-      // How much of the element is on the current page?
-      const onCurrentPage=pageEnd-elTop;
-
-      // If less than 20px of the element is on the next page, or the element is small enough to
-      // push to the next page (under 400px tall), inject a spacer before it
-      if(elHeight<400||onCurrentPage<elHeight*0.3){
-        const spacerHeight=pageEnd-elTop;
-        const spacer=document.createElement('div');
-        spacer.style.cssText='height:'+spacerHeight+'px;page-break-after:always';
-        spacer.className='pdf-spacer';
-        el.parentNode.insertBefore(spacer,el);
-        spacerTotal+=spacerHeight;
+      if(elH<400||((pageEnd-elTop)<elH*0.3)){
+        const gap=pageEnd-elTop;
+        const sp=document.createElement('div');
+        sp.style.height=gap+'px';sp.className='pdf-spacer';
+        el.parentNode.insertBefore(sp,el);
+        spacerTotal+=gap;
       }
     }
-
-    // Special case: headings should never be the last thing on a page with no content after them
+    // Keep headings from being orphaned at page bottom
     if(/^H[1-4]$/.test(el.tagName)){
-      const headBottom=elBottom;
-      const headPageIndex=Math.floor(headBottom/usableHeightPx);
-      const headPageEnd=(headPageIndex+1)*usableHeightPx;
-      // If heading is within 60px of the page bottom, push it to next page
-      if(headPageEnd-headBottom<60){
-        const spacerHeight=headPageEnd-elTop+spacerTotal;
-        // Only if we haven't already added a spacer here
-        if(!el.previousElementSibling||!el.previousElementSibling.classList.contains('pdf-spacer')){
-          const spacer=document.createElement('div');
-          spacer.style.cssText='height:'+(headPageEnd-(rect.top-containerTop+spacerTotal))+'px';
-          spacer.className='pdf-spacer';
-          el.parentNode.insertBefore(spacer,el);
-          spacerTotal+=(headPageEnd-(rect.top-containerTop+spacerTotal));
-        }
+      const hBot=rect.bottom-containerTop+spacerTotal;
+      const hPage=Math.floor(hBot/usableH);
+      const hEnd=(hPage+1)*usableH;
+      if(hEnd-hBot<60&&(!el.previousElementSibling||!el.previousElementSibling.classList.contains('pdf-spacer'))){
+        const gap=hEnd-(rect.top-containerTop+spacerTotal);
+        const sp=document.createElement('div');
+        sp.style.height=gap+'px';sp.className='pdf-spacer';
+        el.parentNode.insertBefore(sp,el);
+        spacerTotal+=gap;
       }
     }
   });
 
-  // ═══ CAPTURE LINK POSITIONS (before render, after spacers) ═══
-  const cTop=inner.getBoundingClientRect().top;
+  // ═══ CAPTURE LINK POSITIONS FOR CLICKABLE PDF ═══
   const linkData=[];
   inner.querySelectorAll('a[href]').forEach(a=>{
     const href=a.getAttribute('href');
     if(!href||!href.startsWith('http'))return;
-    const rect=a.getBoundingClientRect();
-    linkData.push({
-      href,
-      // Position in px relative to container top
-      x:rect.left-inner.getBoundingClientRect().left,
-      y:rect.top-cTop,
-      w:rect.width,
-      h:rect.height
-    });
+    const r=a.getBoundingClientRect();
+    linkData.push({href,x:r.left-inner.getBoundingClientRect().left,y:r.top-containerTop,w:r.width,h:r.height});
   });
 
+  // ═══ RENDER PDF WITH LINK ANNOTATIONS ═══
+  const mTop=0.75,mLeft=0.65;
+  const contentWIn=8.5-2*mLeft; // 7.2in
+  const px2in=contentWIn/816;
+  const pageHPx=(11-2*mTop)/px2in; // usable height in container px
+
   const opt={
-    margin:[0.75,0.65,0.75,0.65],
+    margin:[mTop,mLeft,mTop,mLeft],
     filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
     image:{type:'jpeg',quality:0.98},
     html2canvas:{scale:2,useCORS:true,letterRendering:true,width:816},
@@ -2484,33 +2503,17 @@ function dlPDF(){
     pagebreak:{mode:['css'],before:'.pdf-spacer'}
   };
 
-  // Margins in inches
-  const mTop=0.75, mLeft=0.65;
-  // Container width in px → maps to (8.5 - 2*0.65) = 7.2 inches
-  const contentWidthIn=8.5-2*mLeft;
-  const pxToIn=contentWidthIn/816;
-  const pageContentHeightIn=11-2*mTop; // 9.5 inches of content per page
-  const pageContentHeightPx=pageContentHeightIn/pxToIn;
-
   html2pdf().set(opt).from(container).toPdf().get('pdf').then(pdf=>{
-    // Add clickable link annotations over the rendered pages
+    // Overlay invisible clickable link rectangles
     linkData.forEach(lk=>{
-      // Which page does this link fall on?
-      const pageIdx=Math.floor(lk.y/pageContentHeightPx);
-      // Y position within that page (in px from top of content area)
-      const yOnPage=lk.y-pageIdx*pageContentHeightPx;
-
-      // Convert to PDF inches
-      const xIn=mLeft+lk.x*pxToIn;
-      const yIn=mTop+yOnPage*pxToIn;
-      const wIn=lk.w*pxToIn;
-      const hIn=lk.h*pxToIn;
-
-      // jsPDF pages are 1-indexed
-      const pageNum=pageIdx+1;
-      if(pageNum>0&&pageNum<=pdf.getNumberOfPages()){
-        pdf.setPage(pageNum);
-        pdf.link(xIn,yIn,wIn,hIn,{url:lk.href});
+      const pg=Math.floor(lk.y/pageHPx);
+      const yOnPg=lk.y-pg*pageHPx;
+      const xIn=mLeft+lk.x*px2in;
+      const yIn=mTop+yOnPg*px2in;
+      const pgNum=pg+1;
+      if(pgNum>0&&pgNum<=pdf.getNumberOfPages()){
+        pdf.setPage(pgNum);
+        pdf.link(xIn,yIn,lk.w*px2in,lk.h*px2in,{url:lk.href});
       }
     });
   }).save().then(()=>{
@@ -2523,11 +2526,11 @@ function dlPDF(){
   });
 }
 function dlHTML(){
-  const drug=$('drugName').value.trim()||'Guide';
-  const h=$('gHead').innerHTML;
+  const drug=document.getElementById('drugName').value.trim()||'Guide';
+  const h=document.getElementById('gHead').innerHTML;
   // Clone gBody and strip UI artifacts
   const tmpDiv=document.createElement('div');
-  tmpDiv.innerHTML=$('gBody').innerHTML;
+  tmpDiv.innerHTML=document.getElementById('gBody').innerHTML;
   tmpDiv.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());
   const c=tmpDiv.innerHTML;
   const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Litigation Review Guide — ${drug}</title>
@@ -2535,7 +2538,7 @@ function dlHTML(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.html';a.click();
 }
 function dlMD(){
-  const drug=$('drugName').value.trim()||'Guide';
+  const drug=document.getElementById('drugName').value.trim()||'Guide';
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([allMD],{type:'text/markdown'}));a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.md';a.click();
 }
 
@@ -2543,12 +2546,12 @@ function dlMD(){
 let refineHist=[];
 
 function showRefineBar(){
-  const bar=$('refineBar');
+  const bar=document.getElementById('refineBar');
   bar.classList.add('show');
   // Populate scope dropdown with detected sections
-  const sel=$('refineScope');
+  const sel=document.getElementById('refineScope');
   sel.innerHTML='<option value="full">Entire Guide</option>';
-  const h1s=$('gBody').querySelectorAll('h1');
+  const h1s=document.getElementById('gBody').querySelectorAll('h1');
   h1s.forEach((h,i)=>{
     const text=h.textContent.trim();
     const opt=document.createElement('option');
@@ -2561,22 +2564,22 @@ function showRefineBar(){
 async function refine(){
   const keys=getKeys();
   if(!keys.length)return alert('No API keys configured on server.');
-  const input=$('refineInput');
+  const input=document.getElementById('refineInput');
   const instruction=input.value.trim();
   if(!instruction)return;
 
-  const scope=$('refineScope').value;
-  const btn=$('refineBtn');
+  const scope=document.getElementById('refineScope').value;
+  const btn=document.getElementById('refineBtn');
   btn.disabled=true;btn.textContent='Refining...';
 
   // Log to history
   const scopeLabel=scope==='full'?'Entire Guide':document.querySelector('#refineScope option:checked').textContent;
   refineHist.push({scope:scopeLabel,text:instruction});
-  const histEl=$('refineHistory');
+  const histEl=document.getElementById('refineHistory');
   histEl.innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
 
-  const drug=$('drugName').value.trim();
-  const cond=$('condition').value.trim();
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
 
   // Detect if instruction needs research context (asking for new facts/data/detail)
   const needsResearch=/\b(add|include|expand|more detail|missing|flesh out|elaborate|research|data|cite|source|evidence|study|trial|FDA)\b/i.test(instruction);
@@ -2610,7 +2613,7 @@ Output ONLY the revised Markdown. No preamble.`;
         onRetry:(msg)=>{btn.textContent=msg}
       });
 
-      const gBody=$('gBody');
+      const gBody=document.getElementById('gBody');
       gBody.innerHTML='<div class="gc"></div>';
       const gc=gBody.querySelector('.gc');
       allMD=await streamTo(resp,gc,()=>updWC());
@@ -2623,7 +2626,7 @@ Output ONLY the revised Markdown. No preamble.`;
     }else{
       // Refine a specific section
       const secIdx=parseInt(scope.replace('sec-',''));
-      const h1s=$('gBody').querySelectorAll('h1');
+      const h1s=document.getElementById('gBody').querySelectorAll('h1');
       const targetH1=h1s[secIdx];
       if(!targetH1)throw new Error('Section not found');
 
@@ -2675,7 +2678,7 @@ Output ONLY the revised section Markdown.`;
       allMD=before+(before?'\n':'')+newSecMD+(after?'\n':'')+after;
 
       // Re-render full guide
-      const gBody=$('gBody');
+      const gBody=document.getElementById('gBody');
       gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
       // Re-split secMD
       const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
@@ -2694,7 +2697,7 @@ Output ONLY the revised section Markdown.`;
 
 // Allow Enter to send (Shift+Enter for newline)
 document.addEventListener('DOMContentLoaded',()=>{
-  const el=$('refineInput');
+  const el=document.getElementById('refineInput');
   if(el)el.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();refine()}
   });
@@ -2738,7 +2741,7 @@ function estimateCost(){
   const altLow=(altTotal*0.7).toFixed(2);
   const altHigh=(altTotal*1.3).toFixed(2);
 
-  const el=$('costEstimate');
+  const el=document.getElementById('costEstimate');
   el.style.display='block';
   el.innerHTML='<strong style="color:var(--am)">'+(isOpus?'Opus':'Sonnet')+': $'+low+' – $'+high+'</strong>'+
     ' <span style="color:var(--tx3)">('+(isOpus?'Sonnet':'Opus')+': $'+altLow+'–$'+altHigh+')</span>'+
@@ -2761,7 +2764,7 @@ function getSaves(){
 function putSaves(saves){localStorage.setItem(getSaveKey(),JSON.stringify(saves))}
 
 function saveGuide(){
-  const drug=$('drugName').value.trim();
+  const drug=document.getElementById('drugName').value.trim();
   if(!drug||!allMD)return alert('Nothing to save — generate a guide first.');
 
   const id=loadedGuideId||('guide_'+Date.now());
@@ -2771,11 +2774,11 @@ function saveGuide(){
   const entry={
     id,
     name:drug,
-    litType:$('litType').value,
-    cond:$('condition').value.trim(),
-    injuries:$('injuries').value.trim(),
-    extra:$('extra').value.trim(),
-    customInstr:$('customInstr').value.trim(),
+    litType:document.getElementById('litType').value,
+    cond:document.getElementById('condition').value.trim(),
+    injuries:document.getElementById('injuries').value.trim(),
+    extra:document.getElementById('extra').value.trim(),
+    customInstr:document.getElementById('customInstr').value.trim(),
     outputDepth,
     genModel,
     allRes:{...allRes},
@@ -2809,13 +2812,13 @@ function loadGuide(id){
   if(!entry)return alert('Saved guide not found.');
 
   // Populate form fields
-  $('drugName').value=entry.name;
-  $('litType').value=entry.litType||'pharmaceutical';
+  document.getElementById('drugName').value=entry.name;
+  document.getElementById('litType').value=entry.litType||'pharmaceutical';
   SEC=getSEC();initSec(); // Refresh sections for litType
-  $('condition').value=entry.cond||'';
-  $('injuries').value=entry.injuries||'';
-  $('extra').value=entry.extra||'';
-  $('customInstr').value=entry.customInstr||'';
+  document.getElementById('condition').value=entry.cond||'';
+  document.getElementById('injuries').value=entry.injuries||'';
+  document.getElementById('extra').value=entry.extra||'';
+  document.getElementById('customInstr').value=entry.customInstr||'';
 
   // Restore depth
   if(entry.outputDepth){
@@ -2842,26 +2845,26 @@ function loadGuide(id){
   loadedGuideId=id;
 
   // Render the guide
-  $('emptyState').style.display='none';
-  $('outWrap').style.display='block';
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('outWrap').style.display='block';
 
-  const gHead=$('gHead');
+  const gHead=document.getElementById('gHead');
   gHead.innerHTML='<h1>Litigation Review Guide: '+entry.name+'</h1><div class="meta" id="gMeta">'+(entry.cond||'(auto-discovered)')+' — '+(entry.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Last saved '+new Date(entry.savedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+(entry.updateCount?' (updated '+entry.updateCount+'×)':'')+'</div>';
 
-  const gBody=$('gBody');
+  const gBody=document.getElementById('gBody');
   gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
 
   // Restore research panel
   if(Object.keys(allRes).length){
-    const rpBody=$('rpBody');
+    const rpBody=document.getElementById('rpBody');
     rpBody.innerHTML=RP.map((p,i)=>{
       const data=allRes[p.id];
       if(!data)return '';
       const failed=data.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${data}</div></details>`;
     }).filter(Boolean).join('');
-    $('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
-    $('rpanel').style.display='block';
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    document.getElementById('rpanel').style.display='block';
   }
 
   updWC();buildTOC();
@@ -2871,9 +2874,9 @@ function loadGuide(id){
   estimateCost();
 
   // Show update button
-  $('btnUpdate').style.display='block';
+  document.getElementById('btnUpdate').style.display='block';
 
-  $('pfoot').textContent='Loaded saved guide — '+countW(allMD).toLocaleString()+' words'+(entry.updateCount?' ('+entry.updateCount+' updates)':'');
+  document.getElementById('pfoot').textContent='Loaded saved guide — '+countW(allMD).toLocaleString()+' words'+(entry.updateCount?' ('+entry.updateCount+' updates)':'');
 }
 
 function deleteGuide(id,e){
@@ -2881,17 +2884,17 @@ function deleteGuide(id,e){
   if(!confirm('Delete this saved guide?'))return;
   const saves=getSaves().filter(s=>s.id!==id);
   putSaves(saves);
-  if(loadedGuideId===id){loadedGuideId=null;$('btnUpdate').style.display='none'}
+  if(loadedGuideId===id){loadedGuideId=null;document.getElementById('btnUpdate').style.display='none'}
   renderSaves();
 }
 
 function renderSaves(){
   const saves=getSaves();
-  const panel=$('savesPanel');
-  const list=$('savesList');
-  const dashboard=$('savedDashboard');
-  const dashCards=$('dashCards');
-  const featsBlock=$('featsBlock');
+  const panel=document.getElementById('savesPanel');
+  const list=document.getElementById('savesList');
+  const dashboard=document.getElementById('savedDashboard');
+  const dashCards=document.getElementById('dashCards');
+  const featsBlock=document.getElementById('featsBlock');
 
   if(!saves.length){
     panel.style.display='none';
@@ -2948,9 +2951,9 @@ let _lastUpdateFindings='';
 
 async function checkForUpdates(){
   const keys=getKeys();
-  const drug=$('drugName').value.trim();
-  const cond=$('condition').value.trim();
-  const litType=$('litType').value;
+  const drug=document.getElementById('drugName').value.trim();
+  const cond=document.getElementById('condition').value.trim();
+  const litType=document.getElementById('litType').value;
 
   if(!keys.length)return alert('No API keys configured.');
   if(!drug)return alert('Enter a product name.');
@@ -2958,13 +2961,13 @@ async function checkForUpdates(){
 
   if(!confirm('Check for new developments (FDA actions, litigation updates, new studies).\n\nThis runs one search — estimated cost ~$0.30.\n\nProceed?'))return;
 
-  const btn=$('btnUpdate');
+  const btn=document.getElementById('btnUpdate');
   btn.disabled=true;btn.textContent='Checking...';
 
   const t=T();
   const steps=[{l:'🔍 Checking for new developments',d:'Running...'}];
   initProg(steps);
-  $('btnStop').style.display='block';
+  document.getElementById('btnStop').style.display='block';
 
   ac=new AbortController();
 
@@ -3018,31 +3021,31 @@ If NOTHING new is found, respond with: "NO NEW DEVELOPMENTS — Guide is current
 
     if(noUpdates){
       setP(0,'done','No new developments found — guide is current');
-      $('pfoot').textContent='Update check complete — no changes needed';
-      $('updatePanel').style.display='none';
+      document.getElementById('pfoot').textContent='Update check complete — no changes needed';
+      document.getElementById('updatePanel').style.display='none';
     }else{
       setP(0,'done','New developments found');
       // Show findings in update panel
-      const updatePanel=$('updatePanel');
+      const updatePanel=document.getElementById('updatePanel');
       updatePanel.style.display='block';
       updatePanel.open=true;
-      $('updateDate').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-      $('updateBody').innerHTML=md2html(findings);
-      $('updateActions').style.display='flex';
+      document.getElementById('updateDate').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      document.getElementById('updateBody').innerHTML=md2html(findings);
+      document.getElementById('updateActions').style.display='flex';
 
       // Store in research
       allRes._update_findings=findings;
       allRes._update_date=new Date().toISOString();
 
-      $('pfoot').innerHTML='New developments found — <strong style="color:var(--am)">review findings above</strong> and apply if relevant';
+      document.getElementById('pfoot').innerHTML='New developments found — <strong style="color:var(--am)">review findings above</strong> and apply if relevant';
     }
 
   }catch(err){
-    if(err.name==='AbortError'){$('pfoot').textContent='Check stopped'}
-    else{$('pfoot').textContent='Check failed: '+err.message;logError(err,{step:'update_check',stepLabel:'Update Check',type:'update'})}
+    if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Check stopped'}
+    else{document.getElementById('pfoot').textContent='Check failed: '+err.message;logError(err,{step:'update_check',stepLabel:'Update Check',type:'update'})}
   }finally{
     btn.disabled=false;btn.textContent='⟳ Check for Updates';
-    $('btnStop').style.display='none';
+    document.getElementById('btnStop').style.display='none';
     ac=null;
   }
 }
@@ -3056,10 +3059,10 @@ async function applyUpdates(){
 
   if(!confirm('Apply findings to the guide.\n\nThis will update only affected sections — not rewrite the entire guide.\n\nEstimated cost: ~$1-3\n\nProceed?'))return;
 
-  const actionsDiv=$('updateActions');
+  const actionsDiv=document.getElementById('updateActions');
   actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px;font-weight:500">Applying updates...</span>';
 
-  const drug=$('drugName').value.trim();
+  const drug=document.getElementById('drugName').value.trim();
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
   const t=T();
 
@@ -3092,7 +3095,7 @@ Output only Markdown. Start with the first # heading.`;
       onRetry:(msg)=>{actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px">'+msg+'</span>'}
     });
 
-    const gBody=$('gBody');
+    const gBody=document.getElementById('gBody');
     gBody.innerHTML='<div class="gc"></div>';
     const gc=gBody.querySelector('.gc');
     allMD=await streamTo(resp,gc,()=>updWC());
@@ -3105,14 +3108,14 @@ Output only Markdown. Start with the first # heading.`;
     showRefineBar();
 
     // Update header
-    const meta=$('gMeta');
-    const litType=$('litType').value;
-    const cond=$('condition').value.trim();
+    const meta=document.getElementById('gMeta');
+    const litType=document.getElementById('litType').value;
+    const cond=document.getElementById('condition').value.trim();
     if(meta)meta.innerHTML=(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Updated '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
     // Mark update as applied
     actionsDiv.innerHTML='<span style="color:var(--gn);font-size:12px;font-weight:500">✓ Updates applied</span>';
-    $('pfoot').textContent='Updates applied — '+countW(allMD).toLocaleString()+' words';
+    document.getElementById('pfoot').textContent='Updates applied — '+countW(allMD).toLocaleString()+' words';
 
     // Auto-save
     saveGuide();
@@ -3124,16 +3127,15 @@ Output only Markdown. Start with the first # heading.`;
 }
 
 function dismissUpdates(){
-  $('updatePanel').style.display='none';
+  document.getElementById('updatePanel').style.display='none';
   _lastUpdateFindings='';
-  $('pfoot').textContent='Update findings dismissed';
+  document.getElementById('pfoot').textContent='Update findings dismissed';
 }
 
 initSec();
 checkServerKeys();
 wireUpCostEstimate();
 renderSaves();
-
 </script>
 </body>
 </html>
