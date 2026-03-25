@@ -298,33 +298,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       <div class="model-opt" onclick="selDepth(this,'thorough')" data-d="thorough"><strong>Thorough</strong>~10k words</div>
       <div class="model-opt" onclick="selDepth(this,'exhaustive')" data-d="exhaustive"><strong>Exhaustive</strong>~15k+ words</div>
     </div>
-    <div class="note">Controls total guide length. Brief for quick reference cards. Standard for most cases. Thorough/Exhaustive for complex litigations.</div>
+    <div class="note">Controls guide length and research depth. Budget controls auto-adjust. Brief $1-3 / Standard $2-5 / Thorough $4-8 / Exhaustive $6-13 (Sonnet).</div>
   </div>
 
   <div class="fg">
-    <label>Budget Controls</label>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div>
-        <div style="font-size:10px;color:var(--tx3);margin-bottom:3px">Searches / pass</div>
-        <input type="number" id="searchBudget" value="5" min="2" max="20" style="text-align:center">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--tx3);margin-bottom:3px">Stagger (sec)</div>
-        <input type="number" id="staggerDelay" value="15" min="0" max="120" style="text-align:center">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--tx3);margin-bottom:3px">Max parallel</div>
-        <input type="number" id="maxConc" value="2" min="1" max="10" style="text-align:center">
-      </div>
-    </div>
-    <div style="display:flex;gap:12px;margin-top:8px">
+    <div style="display:flex;gap:12px">
       <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tx2);cursor:pointer;text-transform:none;letter-spacing:0;margin:0">
-        <input type="checkbox" id="doGapAnalysis" style="display:inline;width:auto"> Gap analysis
+        <input type="checkbox" id="doGapAnalysis" checked style="display:inline;width:auto"> Gap analysis
       </label>
       <span style="font-size:11px;color:var(--gn);display:flex;align-items:center;gap:4px">✓ Verification audit (always on)</span>
     </div>
     <div id="costEstimate" style="margin-top:8px;padding:8px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;font-size:11px;color:var(--tx3);display:none"></div>
-    <div class="note">5 searches/pass × 4 passes ≈ $2-5 total. 10 ≈ $5-12. Gap analysis adds ~$1-3. Verification always included.</div>
   </div>
 
   <div class="hr"></div>
@@ -699,6 +683,15 @@ function selModel(el,m){
   el.classList.add('sel');
   estimateCost();
 }
+
+const DEPTH_BUDGETS={
+  brief:    {searches:3,  stagger:20, parallel:2},
+  standard: {searches:5,  stagger:15, parallel:2},
+  thorough: {searches:8,  stagger:12, parallel:3},
+  exhaustive:{searches:12, stagger:10, parallel:3}
+};
+
+function getBudget(){return DEPTH_BUDGETS[outputDepth]||DEPTH_BUDGETS.standard}
 
 function selDepth(el,d){
   outputDepth=d;
@@ -1116,7 +1109,7 @@ function setP(i,cls,d){const el=document.getElementById('ps'+i);if(!el)return;el
 
 /* ═══════ RESEARCH (parallel with key rotation) ═══════ */
 function buildResSys(drug,cond,inj,extra,pass){
-  const searchBudget=parseInt(document.getElementById('searchBudget').value)||5;
+  const searchBudget=getBudget().searches;
   const ci=document.getElementById('customInstr').value.trim();
   const t=T();
   return `You are a medical-legal research specialist gathering facts to build a litigation review guide. This is a ${t.product_lc} case (${document.getElementById('litType').value.replace(/_/g,' ')}). Your research must focus on what gets clients paid: EXPOSURE proof, INJURY identification, SEVERITY grading scales, CAUSATION evidence, and CONFOUNDER documentation. Use web search to gather specific facts on the topics below. You have a budget of ${searchBudget} searches for this pass — make each one count. Use precise, targeted queries rather than broad ones.
@@ -1152,8 +1145,8 @@ async function doResearch(keys,drug,cond,inj,extra,sig){
   const states=keys.map(()=>'ready');
   updateKeyStatus(states);
 
-  const stagger=parseInt(document.getElementById('staggerDelay').value)||15;
-  const maxConc=parseInt(document.getElementById('maxConc').value)||nKeys;
+  const stagger=getBudget().stagger;
+  const maxConc=getBudget().parallel;
   const concurrency=Math.min(maxConc,nKeys,RP.length);
 
   // Key-level rate tracking: ensure each key waits between calls
@@ -1211,7 +1204,7 @@ async function doResearch(keys,drug,cond,inj,extra,sig){
         try{
           const sys=buildResSys(drug,cond,inj,extra,pass);
           const r=await callApi(key,[{role:'user',content:'Research now. Use web search for every topic. Be exhaustive. Output structured notes.'}],sys,{
-            tools:[{type:'web_search_20250305',name:'web_search',max_uses:parseInt(document.getElementById('searchBudget').value)||5}],maxTok:5000,signal:sig,
+            tools:[{type:'web_search_20250305',name:'web_search',max_uses:getBudget().searches}],maxTok:5000,signal:sig,
             stream:true,
             onRetry:(msg)=>setP(pi,'par',msg)
           });
@@ -1302,7 +1295,7 @@ ${searchList}
 For each search, write the key findings. Include all specific data points found.`;
 
   const r2=await callApi(key,[{role:'user',content:'Run all searches now and compile findings.'}],sys2,{
-    tools:[{type:'web_search_20250305',name:'web_search',max_uses:parseInt(document.getElementById('searchBudget').value)||5}],maxTok:5000,signal:sig,stream:true,
+    tools:[{type:'web_search_20250305',name:'web_search',max_uses:getBudget().searches}],maxTok:5000,signal:sig,stream:true,
     onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
   });
   const followUp=await streamToText(r2);
@@ -1461,123 +1454,112 @@ For each alleged injury, what treatment was needed? Each item quantifies damages
 Bullet list: **Specialist Title** — what they manage, what notes from them matter for the case (one line each)`,
 
 reviewer_checklist:`# Reviewer Extraction Checklist
-PURPOSE: This is the mission-critical section. Every case depends on these five elements. A weakness in ANY element reduces case value. The reviewer must extract and document ALL of the following from the medical records.
+PURPOSE: Extract ONLY what the attorneys need to value the case, build the demand, and anticipate the defense. Do not summarize the medical history — extract the litigation-relevant data points.
 
 ---
 
-## ELEMENT 1: EXPOSURE — Prove the client ${t.exposure_verb} the ${t.product_lc}
-**Without exposure proof, there is no case. This must be documented first.**
+## 1. EXPOSURE GATE — Is there a case?
+This is pass/fail. Without documented exposure, stop here.
 
-- [ ] ${t.product} identification: exact name, manufacturer, model/lot number if applicable
-- [ ] ${t.exposure_records}
-- [ ] Start date of exposure: ____
-- [ ] End date / discontinuation date: ____
-- [ ] Total duration of exposure: ____
-- [ ] ${t.dosing_desc}
-- [ ] Any changes, interruptions, or early discontinuation — document the reason WHY
-- [ ] Who ${t.admin} it — name, specialty, facility
-- [ ] ${t.off_label}? If yes, document — this strengthens the case
-- [ ] Was product appropriate for this client's specific condition/subtype?
+- ${t.product} name, manufacturer: ____
+- First exposure date: ____ Last exposure date: ____ Total duration: ____
+- ${t.dosing_desc}: ____
+- Source records proving exposure: ${t.exposure_records}
+- ${t.off_label}? ____ (if yes, note it — strengthens the case)
 
-**EXPOSURE RED FLAGS (strengthen case):** Long duration of exposure, high dose/frequency, continued use after warning signs appeared, ${t.off_label}
-**EXPOSURE WEAKNESSES (hurt case):** Sporadic/inconsistent use, very short exposure period, no records confirming use, client non-compliance
+**STOP if:** No records documenting exposure. No case without this.
 
 ---
 
-## ELEMENT 2: INJURY — Confirm the client has the alleged injury
-**The injury must be DIAGNOSED by a physician, not just symptomatic. "Rule out" does not count.**
+## 2. INJURY & SEVERITY — What is the case worth?
+Severity grade is the single biggest driver of case value. Get this right.
 
-- [ ] Physician diagnosis in assessment/plan — document exact language, date, physician name
-- [ ] ICD-10 code on problem list or encounter diagnosis — document the code
-- [ ] Specialist confirmation (e.g., cardiologist diagnosed CHF, nephrologist confirmed CKD)
-- [ ] Diagnostic test results that meet formal criteria (reference the Injuries & Severity section)
-- [ ] Date of injury onset: ____ (document the FIRST appearance in records)
-- [ ] Was injury present BEFORE ${t.product_lc} exposure? If yes, document pre-existing baseline — this is critical
-- [ ] Document EVERY synonym — the same injury may appear under 3-4 different names across records
-- [ ] Search for: physician notes, specialist consults, discharge summaries, ER records, imaging reports, lab results, nursing assessments
+For EACH alleged injury:
+- Injury name: ____ ICD-10: ____ Date first documented: ____
+- Diagnosed by: ____ (name, specialty) — must be a physician diagnosis, not "rule out" or "possible"
+- Grading scale used: ____ (see Injuries & Severity section for the correct scale)
+- **Assigned grade/stage: ____** — cite the specific chart findings that support this grade
+- Highest grade reached: ____ Date: ____
+- Current status: RESOLVED / ONGOING / PERMANENT / FATAL
+  - Resolved = past damages only (lower value)
+  - Ongoing/permanent = continuing damages (significantly higher value)
+  - Fatal = wrongful death
 
-**INJURY RED FLAGS (strengthen case):** Clear physician diagnosis with ICD-10, specialist confirmation, multiple entries confirming same injury
-**INJURY WEAKNESSES (hurt case):** "Rule out" or "possible" diagnosis only, no ICD-10 code, no specialist confirmation, injury documented BEFORE exposure
-
----
-
-## ELEMENT 3: SEVERITY GRADING — This determines the payout
-**Higher severity = more damages = larger recovery. Accurate grading is the single most impactful task.**
-
-- [ ] Identify the correct grading scale for EACH injury (reference the Injuries & Severity section for specific scales)
-- [ ] Assign a grade/stage based on chart findings: specific lab values, clinical findings, functional status, imaging results
-- [ ] Document the evidence supporting the grade assignment — not just the grade, but WHAT chart entries prove it
-- [ ] Track severity over time — did it worsen during ${t.product_lc} exposure? Did it improve after?
-- [ ] Document the HIGHEST severity grade reached at any point
-- [ ] Is the injury RESOLVED, IMPROVING, STABLE, or PERMANENT/PROGRESSIVE?
-  - Resolved = past damages only
-  - Permanent/progressive = ongoing damages (significantly higher value)
-- [ ] Hospitalizations: dates, duration, ICU days, reason for admission
-- [ ] Surgeries/procedures: what, when, outcome
-- [ ] ER visits related to the injury
-- [ ] Functional impact: work disability, activity limitations, quality of life changes documented by physician
-- [ ] Death: date, cause of death on death certificate, was ${t.product_lc} or injury listed as contributing factor?
-
-**SEVERITY RED FLAGS (strengthen case):** Grade 3+ injury, ICU admission, surgery required, permanent functional limitation, ongoing treatment
-**SEVERITY WEAKNESSES (hurt case):** Grade 1 injury, resolved quickly, no hospitalization, no functional impact documented
+**What increases case value:** Grade 3+, ICU stay, surgery, permanent impairment, ongoing treatment, death
+**What decreases case value:** Grade 1, self-resolved, no hospitalization, brief duration
 
 ---
 
-## ELEMENT 4: CAUSATION — Connect the ${t.product_lc} to the injury
-**The timeline and lab trajectory are the two most powerful causation tools.**
+## 3. CAUSATION — Can we connect the ${t.product_lc} to the injury?
 
-- [ ] TIMELINE: ${t.product} exposure start date: ____ → Injury first documented: ____
-  - Is the time between exposure and injury onset consistent with the known onset pattern? (reference Causation section)
-  - A clean timeline with injury appearing shortly after exposure start is strong
-  - A long gap between exposure start and injury onset is weaker
-- [ ] LAB TRAJECTORY: Baseline values BEFORE exposure vs. values AFTER injury onset
-  - Did labs change from normal to abnormal during ${t.product_lc} exposure?
-  - Document specific values at each time point: pre-exposure → during exposure → at injury onset → most recent
-- [ ] DECHALLENGE: Was the ${t.product_lc} stopped? Date: ____ Did injury improve/resolve after stopping? Date improvement noted: ____
-  - Improvement after stopping = strong causation evidence
-- [ ] RECHALLENGE: Was the ${t.product_lc} restarted/re-used? Did injury recur?
-  - Recurrence on re-exposure = strongest causation evidence available
-- [ ] PHYSICIAN ATTRIBUTION: Any note in which a physician attributes the injury to the ${t.product_lc}
-  - Look for: "likely ${t.product_lc}-related," "discontinue due to [injury]," "adverse reaction to," "side effect of"
-- [ ] ADVERSE EVENT REPORTS: Was a MedWatch, MDR, incident report, or adverse event report filed?
-- [ ] Was ${t.monitoring} followed? If not, document the failure — failure to monitor may be an additional claim
+- **Timeline:** Exposure start ____ → Injury onset ____
+  - Does timing match the known onset pattern for this injury? (see Causation section)
+- **Dechallenge:** Was ${t.product_lc} stopped? ____ Did injury improve after? ____
+  - This is the strongest evidence short of rechallenge
+- **Rechallenge:** Was ${t.product_lc} restarted? ____ Did injury return? ____
+  - If yes, document — this is the best causation evidence available
+- **Lab trajectory:** Key lab value ____ baseline (pre-exposure): ____ → on-exposure: ____ → post-injury: ____
+  - Normal → abnormal during exposure = strong causation
+- **Physician attribution:** Any note linking the injury to the ${t.product_lc}?
+  - Exact language: ____
+  - Look for: "d/c due to," "adverse reaction," "likely related to," "secondary to"
 
-**CAUSATION RED FLAGS (strengthen case):** Clear timeline, abnormal labs appeared during exposure, improvement on dechallenge, recurrence on rechallenge, physician note attributing injury to ${t.product_lc}
-**CAUSATION WEAKNESSES (hurt case):** Long gap between exposure and onset, no baseline labs for comparison, no dechallenge evidence, multiple other potential causes present
+**Strong causation:** Clean timeline + dechallenge improvement + physician attribution
+**Weak causation:** Long onset gap + no dechallenge + no physician attribution + multiple alternative causes
 
 ---
 
-## ELEMENT 5: CONFOUNDERS & COMORBIDITIES — What the defense will use to reduce value
-**Every pre-existing condition is a potential defense weapon. Document them ALL so the legal team can prepare.**
+## 4. DEFENSE RISKS — What will reduce the case value?
 
-- [ ] List ALL pre-existing conditions with diagnosis dates — BEFORE or AFTER ${t.product_lc} exposure?
-  - Conditions diagnosed BEFORE exposure = defense will argue these caused the injury
-  - Conditions diagnosed AFTER exposure = may be ADDITIONAL ${t.product_lc}-caused injuries (helps our case)
-- [ ] For each pre-existing condition: was it STABLE or PROGRESSING before exposure?
-  - Stable pre-existing condition that worsened after exposure = supports causation
-  - Already-progressing condition = defense argument
-- [ ] BMI at ${t.product_lc} exposure start date: ____ (defense will argue obesity contributed)
-- [ ] Alcohol use: Is it MD-DIAGNOSED or just self-reported? (only MD-diagnosed counts as valid confounder)
-- [ ] Smoking status at exposure start
-- [ ] All concomitant medications/exposures — especially those that could independently cause similar injuries
-- [ ] Family history / genetic conditions relevant to the alleged injuries
-- [ ] Age-related conditions (defense may argue age/natural degeneration)
-- [ ] Environmental or occupational exposures
+The defense only needs ONE strong confounder to shift blame. Document these so the legal team is not surprised.
 
-**CONFOUNDER RED FLAGS (strengthen case):** No significant confounders, pre-existing conditions documented as STABLE before exposure, all confounders adequately ruled out
-**CONFOUNDER WEAKNESSES (hurt case):** Multiple uncontrolled comorbidities, obesity, active alcohol abuse (MD-diagnosed), concurrent medications with similar injury profile, strong family history
+**Pre-existing conditions that could explain the injury:**
+For each: Condition ____ | Diagnosed BEFORE or AFTER exposure? ____ | Stable or progressing pre-exposure? ____
+- If diagnosed BEFORE exposure AND progressing = defense will use this aggressively
+- If diagnosed BEFORE but STABLE, then worsened after exposure = helps our causation argument
+- If diagnosed AFTER exposure = may be additional ${t.product_lc}-caused injury (helps us)
+
+**Specific defense ammunition to flag:**
+- [ ] BMI at exposure start: ____ (>30 = defense will argue obesity)
+- [ ] Alcohol use documented? ____ MD-diagnosed or self-reported? ____ (only MD-diagnosed counts)
+- [ ] Smoking status: ____
+- [ ] Other products/medications that could cause the same injury: ____
+- [ ] Family/genetic history relevant to the injury: ____
+- [ ] Any physician note suggesting an alternative cause for the injury: ____ (flag this immediately)
+
+**Low defense risk:** Few/no confounders, pre-existing conditions stable, no competing causes documented
+**High defense risk:** Multiple uncontrolled comorbidities, physician note attributing injury to something else, same injury documented before exposure
 
 ---
 
-## QUICK CASE ASSESSMENT
+## 5. DAMAGES — What did this cost the client?
 
-**✅ STRONG CASE:** Clear exposure documentation + confirmed physician diagnosis + severity Grade 3-5 + clean exposure-to-onset timeline + lab trajectory showing change during exposure + improvement on dechallenge + few/no confounders or all pre-existing conditions stable
+This section feeds directly into the demand. Document everything that quantifies harm.
 
-**⚠️ MODERATE CASE:** Exposure documented but with gaps + confirmed diagnosis but lower severity (Grade 2) + some confounders present but manageable + partial causation evidence (timeline consistent but no dechallenge data)
+- [ ] Hospitalizations: dates, LOS, ICU days ____
+- [ ] Surgeries/procedures directly related to injury: ____
+- [ ] Ongoing treatment required (medications, monitoring, follow-up): ____
+- [ ] ER visits related to injury: ____
+- [ ] Work missed / disability: ____
+- [ ] Functional limitations documented by physician: ____
+- [ ] Pain/suffering documented in records: ____
+- [ ] If fatal: date of death ____, cause of death ____, ${t.product_lc}/injury on death certificate? ____
 
-**🚩 WEAK CASE:** Exposure gaps or short duration + "possible" diagnosis without specialist confirmation + severity Grade 1 + multiple pre-existing conditions that could independently explain injury + no baseline labs + no dechallenge evidence + physician notes suggesting alternative cause
+---
 
-**Flag immediately if:** Injury documented BEFORE exposure (possible pre-existing), physician note attributing injury to something other than the ${t.product_lc}, client non-compliance with ${t.product_lc} use, conflicting records about exposure dates`
+## CASE VALUATION QUICK READ
+
+**HIGH VALUE:** Documented exposure + confirmed diagnosis by specialist + severity Grade 3-5 + clean causation timeline + dechallenge evidence + few confounders + significant damages (hospitalization/surgery/death/permanent impairment)
+
+**MODERATE VALUE:** Documented exposure + confirmed diagnosis + Grade 2 + causation timeline consistent but no dechallenge + manageable confounders + some damages documented
+
+**LOW VALUE / AT RISK:** Exposure gaps + Grade 1 or unconfirmed diagnosis + weak causation + multiple strong confounders + minimal documented damages
+
+**FLAG FOR ATTORNEY IMMEDIATELY:**
+- Injury documented BEFORE ${t.product_lc} exposure
+- Physician note attributing injury to something other than the ${t.product_lc}
+- Records conflict on exposure dates
+- No records confirming exposure at all`
   };
 }
 const SP=null; // Use getSP() instead
@@ -1951,7 +1933,7 @@ async function run(){
   const gHead=document.getElementById('gHead');
   const gBody=document.getElementById('gBody');
   gHead.innerHTML='<h1>Litigation Review Guide: '+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
-  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+RP.length+' research passes across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(parseInt(document.getElementById('maxConc').value)||2)+' parallel, '+(parseInt(document.getElementById('staggerDelay').value)||15)+'s stagger). Auto-retries on rate limits with exponential backoff. This takes 3–8 minutes...</p></div>';
+  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+RP.length+' research passes across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(getBudget().parallel)+' parallel, '+(getBudget().stagger)+'s stagger). Auto-retries on rate limits with exponential backoff. This takes 3–8 minutes...</p></div>';
   document.getElementById('toc').style.display='none';
   document.getElementById('wc').textContent='';
 
@@ -2168,7 +2150,7 @@ async function retryFailedResearch(passId){
   try{
     const sys=buildResSys(drug,cond,inj,extra,pass);
     const r=await callApi(keys[0],[{role:'user',content:'Research now. Use web search for every topic. Be exhaustive. Output structured notes.'}],sys,{
-      tools:[{type:'web_search_20250305',name:'web_search',max_uses:parseInt(document.getElementById('searchBudget').value)||5}],maxTok:5000,signal:null,stream:true
+      tools:[{type:'web_search_20250305',name:'web_search',max_uses:getBudget().searches}],maxTok:5000,signal:null,stream:true
     });
     const txt=await streamToText(r);
     if(txt.trim().length<100)throw new Error('Response too short');
@@ -2232,19 +2214,20 @@ function dlPDF(){
       ${document.getElementById('gBody').innerHTML}
     </div>`;
 
-  // Style the clone for print — tight formatting, prevent overflow
-  container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;page-break-after:avoid;overflow-wrap:break-word'});
-  container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;page-break-after:avoid;overflow-wrap:break-word'});
-  container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;page-break-after:avoid;overflow-wrap:break-word'});
-  container.querySelectorAll('h4').forEach(el=>{el.style.cssText='font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#444;margin:10px 0 4px'});
-  container.querySelectorAll('p').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:4px;line-height:1.55;overflow-wrap:break-word;word-break:break-word'});
-  container.querySelectorAll('li').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:2px;line-height:1.5;overflow-wrap:break-word;word-break:break-word'});
+  // Style the clone for print — prevent page-break text clipping
+  container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;page-break-after:avoid;page-break-inside:avoid;overflow-wrap:break-word'});
+  container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;page-break-after:avoid;page-break-inside:avoid;overflow-wrap:break-word'});
+  container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;page-break-after:avoid;page-break-inside:avoid;overflow-wrap:break-word'});
+  container.querySelectorAll('h4').forEach(el=>{el.style.cssText='font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#444;margin:10px 0 4px;page-break-after:avoid;page-break-inside:avoid'});
+  container.querySelectorAll('p').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:4px;line-height:1.55;overflow-wrap:break-word;word-break:break-word;page-break-inside:avoid'});
+  container.querySelectorAll('li').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:2px;line-height:1.5;overflow-wrap:break-word;word-break:break-word;page-break-inside:avoid'});
   container.querySelectorAll('ul,ol').forEach(el=>{el.style.cssText='margin:3px 0 8px 16px;font-size:11px;padding-left:0'});
   container.querySelectorAll('strong,b').forEach(el=>{el.style.cssText='font-weight:600;color:#1a1a2e'});
   container.querySelectorAll('table').forEach(el=>{el.style.cssText='width:100%;border-collapse:collapse;margin:8px 0;font-size:10px;page-break-inside:avoid;table-layout:fixed'});
+  container.querySelectorAll('tr').forEach(el=>{el.style.cssText='page-break-inside:avoid'});
   container.querySelectorAll('th').forEach(el=>{el.style.cssText='background:#e6e8f0;padding:4px 6px;text-align:left;font-weight:600;border-bottom:1.5px solid #bbb;font-size:10px;overflow-wrap:break-word;word-break:break-word'});
   container.querySelectorAll('td').forEach(el=>{el.style.cssText='padding:3px 6px;border-bottom:1px solid #ddd;font-size:10px;overflow-wrap:break-word;word-break:break-word'});
-  container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:2px solid #1a2e6c;padding:5px 10px;margin:8px 0;background:#f4f5fa;font-size:11px;overflow-wrap:break-word'});
+  container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:2px solid #1a2e6c;padding:5px 10px;margin:8px 0;background:#f4f5fa;font-size:11px;overflow-wrap:break-word;page-break-inside:avoid'});
   container.querySelectorAll('hr').forEach(el=>{el.style.cssText='border:none;border-top:1px solid #ccc;margin:14px 0'});
   container.querySelectorAll('code').forEach(el=>{el.style.cssText='font-family:monospace;font-size:10px;background:#f0f0f0;padding:1px 3px;border-radius:2px;word-break:break-all'});
   container.querySelectorAll('a').forEach(el=>{el.style.cssText='color:#1a2e6c;text-decoration:underline;word-break:break-all;font-size:10px'});
@@ -2254,12 +2237,12 @@ function dlPDF(){
   });
 
   const opt={
-    margin:[0.5,0.65,0.5,0.65],
+    margin:[0.75,0.65,0.75,0.65],
     filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
-    image:{type:'jpeg',quality:0.95},
+    image:{type:'jpeg',quality:0.98},
     html2canvas:{scale:2,useCORS:true,letterRendering:true,width:816},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
-    pagebreak:{mode:['avoid-all','css','legacy']}
+    pagebreak:{mode:['css','legacy'],avoid:['p','li','tr','blockquote','h1','h2','h3','h4','table']}
   };
 
   html2pdf().set(opt).from(container).save().then(()=>{
@@ -2449,54 +2432,62 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 /* ═══════ COST ESTIMATION ═══════ */
 function estimateCost(){
-  const searches=parseInt(document.getElementById('searchBudget').value)||5;
+  const searches=getBudget().searches;
   const wantGap=document.getElementById('doGapAnalysis').checked;
   const isOpus=genModel.includes('opus');
   const numSecs=getSecs().length;
+  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
 
-  // Research: 4 passes, each with N searches
-  // Sonnet pricing: $3/MTok in, $15/MTok out. Web search ~$0.01/search
+  // Research: 4 passes × N searches
+  // Each search adds ~3k input tokens (search results context)
+  // Sonnet: $3/MTok in, $15/MTok out. Search tool: ~$0.01/search
   const researchSearches=4*searches;
-  const researchInputTok=4*30000;
+  const researchInputTok=4*(8000+searches*3000); // base + search results
   const researchOutputTok=4*4000;
   const researchCost=(researchInputTok/1e6)*3+(researchOutputTok/1e6)*15+researchSearches*0.01;
 
-  // Gap analysis: 1 analysis call + 1 follow-up with searches
+  // Gap analysis: 1 analysis + 1 follow-up with searches
   let gapCost=0;
   if(wantGap){
     const gapSearches=Math.min(searches,8);
     gapCost=(40000/1e6)*3+(3000/1e6)*15+(20000/1e6)*3+(4000/1e6)*15+gapSearches*0.01;
   }
 
-  // Generation: single call, all sections
+  // Generation: single call — scale output tokens to depth
   const genInRate=isOpus?15:3;
   const genOutRate=isOpus?75:15;
-  const genInputTok=80000;
-  const genOutputTok=12000;
+  const genInputTok=researchInputTok+20000; // research context + section prompts
+  const genOutputTok=Math.round(dc.tokPerCall*0.8); // actual output ~80% of max
   const genCost=(genInputTok/1e6)*genInRate+(genOutputTok/1e6)*genOutRate;
 
-  // Verification: always on
+  // Verification: always on (uses Sonnet regardless of gen model)
   const verifyCost=(50000/1e6)*3+(4000/1e6)*15;
 
   const total=researchCost+gapCost+genCost+verifyCost;
-  const low=(total*0.6).toFixed(2);
-  const high=(total*1.4).toFixed(2);
+  const low=(total*0.7).toFixed(2);
+  const high=(total*1.3).toFixed(2);
+
+  // Also calculate the other model's cost for comparison
+  const altGenInRate=isOpus?3:15;
+  const altGenOutRate=isOpus?15:75;
+  const altGenCost=(genInputTok/1e6)*altGenInRate+(genOutputTok/1e6)*altGenOutRate;
+  const altTotal=researchCost+gapCost+altGenCost+verifyCost;
+  const altLow=(altTotal*0.7).toFixed(2);
+  const altHigh=(altTotal*1.3).toFixed(2);
 
   const el=document.getElementById('costEstimate');
   el.style.display='block';
-  el.innerHTML='Estimated cost: <strong style="color:var(--am)">$'+low+' – $'+high+'</strong>'+
-    ' ('+researchSearches+' searches, '+(isOpus?'Opus':'Sonnet')+' gen + verification'+
-    (wantGap?', gap analysis':'')+')';
+  el.innerHTML='<strong style="color:var(--am)">'+(isOpus?'Opus':'Sonnet')+': $'+low+' – $'+high+'</strong>'+
+    ' <span style="color:var(--tx3)">('+(isOpus?'Sonnet':'Opus')+': $'+altLow+'–$'+altHigh+')</span>'+
+    '<br><span style="font-size:10px;color:var(--tx3)">'+researchSearches+' searches, '+dc.label+
+    (wantGap?', gap analysis':'')+', verification</span>';
 
   return{low:parseFloat(low),high:parseFloat(high)};
 }
 
 function wireUpCostEstimate(){
-  const ids=['searchBudget','doGapAnalysis'];
-  ids.forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)el.addEventListener('change',estimateCost);
-  });
+  const el=document.getElementById('doGapAnalysis');
+  if(el)el.addEventListener('change',estimateCost);
   setTimeout(estimateCost,500);
 }
 
