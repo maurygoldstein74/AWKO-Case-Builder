@@ -601,10 +601,10 @@ const GG=[
 let ac=null,allRes={},secMD={},allMD='',genModel='claude-sonnet-4-20250514';
 
 const DEPTH_CONFIG={
-  brief:    {totalWords:3000,  tokPerCall:5000,   label:'~3k words'},
-  standard: {totalWords:6000,  tokPerCall:10000,  label:'~6k words'},
-  thorough: {totalWords:10000, tokPerCall:16000,  label:'~10k words'},
-  exhaustive:{totalWords:15000, tokPerCall:24000,  label:'~15k+ words'}
+  brief:    {totalWords:3000,  tokPerCall:6000,   label:'~3k words'},
+  standard: {totalWords:6000,  tokPerCall:12000,  label:'~6k words'},
+  thorough: {totalWords:10000, tokPerCall:20000,  label:'~10k words'},
+  exhaustive:{totalWords:15000, tokPerCall:28000,  label:'~15k+ words'}
 };
 let outputDepth='standard';
 
@@ -1627,44 +1627,49 @@ function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
   const numSecs=secIds.length;
   const t=T();
 
-  const heavySecs=['injuries_severity','confounders_defense','reviewer_checklist'];
-  const medSecs=['causation_mechanism','medical_context','treatment_soc'];
-  const heavyCount=secIds.filter(s=>heavySecs.includes(s)).length;
-  const medCount=secIds.filter(s=>medSecs.includes(s)).length;
-  const lightCount=numSecs-heavyCount-medCount;
-  const totalWeight=heavyCount*3+medCount*1.5+lightCount*0.5;
-  const wordsPerWeight=Math.round(dc.totalWords/totalWeight);
+  // Calculate explicit per-section word budgets
+  const budgets={};
+  const heavyW=Math.round(dc.totalWords*0.25); // 25% each for injuries, confounders
+  const checklistW=Math.round(dc.totalWords*0.20); // 20% for checklist — non-negotiable
+  const remaining=dc.totalWords-heavyW*2-checklistW;
+  const otherCount=numSecs-3; // minus injuries, confounders, checklist
+  const otherW=otherCount>0?Math.round(remaining/otherCount):0;
+  secIds.forEach(id=>{
+    if(id==='injuries_severity')budgets[id]=heavyW;
+    else if(id==='confounders_defense')budgets[id]=heavyW;
+    else if(id==='reviewer_checklist')budgets[id]=checklistW;
+    else budgets[id]=otherW;
+  });
+  const budgetTable=secIds.map(id=>{
+    const label=getSEC().find(s=>s.id===id)?.l||id;
+    return '- '+label+': ~'+budgets[id]+' words';
+  }).join('\n');
 
   const depthInstructions={
-    brief:`HARD WORD LIMIT: ~${dc.totalWords} words total for the ENTIRE guide.
-- This is a quick-reference card, NOT a manual.
+    brief:`WORD BUDGETS — STRICT:
+Total: ~${dc.totalWords} words. Per-section budgets:
+${budgetTable}
 - One-line bullet points only. No paragraphs.
-- Heavy sections (Injuries, Confounders, Checklist): ~${wordsPerWeight*3} words each
-- Medium sections: ~${wordsPerWeight*1.5|0} words each
-- Light sections: ~${wordsPerWeight*0.5|0} words each
-- YOU MUST FINISH ALL ${numSecs} SECTIONS within ~${dc.totalWords} words.`,
+- If you are running long on a section, STOP and move to the next one.
+- The Reviewer Checklist section MUST be complete — it is the most important section. Budget ${checklistW} words for it.`,
 
-    standard:`HARD WORD LIMIT: ~${dc.totalWords} words total for the ENTIRE guide.
-- Tight bullet points, not paragraphs. One line per item where possible.
-- Lists: name + one-line description. Tables for lab values/monitoring.
-- Heavy sections (Injuries, Confounders, Checklist, Diagnostics): ~${wordsPerWeight*3} words each — these are the core
-- Medium sections (Labs, Mechanism, Exposure Details, Complications): ~${wordsPerWeight*1.5|0} words each
-- Light sections (Overview, Background, Types, Anatomy, Specialists): ~${wordsPerWeight*0.5|0} words each — brief context only
-- YOU MUST FINISH ALL ${numSecs} SECTIONS within ~${dc.totalWords} words. Compress light sections aggressively.`,
+    standard:`WORD BUDGETS — STRICT:
+Total: ~${dc.totalWords} words. Per-section budgets:
+${budgetTable}
+- Tight bullet points, not paragraphs. Tables for lab values.
+- Track your word count as you write each section. When you hit a section's budget, move on.
+- The Reviewer Checklist section is NON-NEGOTIABLE — it MUST be written in full. Reserve at least ${checklistW} words for it. If you are running long, compress the earlier sections to make room.`,
 
-    thorough:`WORD LIMIT: ~${dc.totalWords} words total for the ENTIRE guide.
-- Room for 2-3 sentence descriptions on important items. Full tables.
-- Heavy sections: ~${wordsPerWeight*3} words each
-- Medium sections: ~${wordsPerWeight*1.5|0} words each  
-- Light sections: ~${wordsPerWeight*0.5|0} words each
-- YOU MUST FINISH ALL ${numSecs} SECTIONS. Compress remaining sections rather than leaving them unfinished.`,
+    thorough:`WORD BUDGETS:
+Total: ~${dc.totalWords} words. Per-section budgets:
+${budgetTable}
+- Room for 2-3 sentence descriptions. Full tables.
+- The Reviewer Checklist section MUST be complete — reserve ${checklistW} words.`,
 
-    exhaustive:`WORD GUIDANCE: ~${dc.totalWords} words total.
-- Be thorough: full explanations, detailed pathophysiology, all synonyms, ICD codes.
-- Heavy sections: ~${wordsPerWeight*3} words each
-- Medium sections: ~${wordsPerWeight*1.5|0} words each
-- Light sections: ~${wordsPerWeight*0.5|0} words each
-- YOU MUST FINISH ALL ${numSecs} SECTIONS. If running long, compress light sections.`
+    exhaustive:`WORD GUIDANCE:
+Total: ~${dc.totalWords} words. Per-section budgets:
+${budgetTable}
+- Be thorough but the Reviewer Checklist MUST be complete — reserve ${checklistW} words.`
   };
 
   return `You are a senior medical-legal consultant writing a COMPLETE Litigation Review Guide in a single pass — a practical tool for nurse reviewers and paralegals who review medical records to BUILD CASES THAT GET CLIENTS PAID.
@@ -1705,11 +1710,11 @@ FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key t
 ${depthInstructions[outputDepth]}
 
 CRITICAL RULES:
-1. You MUST write ALL ${numSecs} sections below as one cohesive document.
-2. HARD WORD LIMIT: ~${dc.totalWords} words total. The last section must have a proper ending.
-3. Define terms on FIRST USE ONLY. Cross-reference between sections instead of repeating.
-4. If approaching your limit, COMPRESS remaining sections rather than stopping.
-5. The Injuries & Severity Grading section should be the longest section in the guide.
+1. You MUST write ALL ${numSecs} sections. Skipping ANY section is a failure.
+2. The Reviewer Extraction Checklist is the MOST IMPORTANT section — it must be written in full with all subsections. If you are running out of space, compress EARLIER sections to make room for the checklist. NEVER cut the checklist short.
+3. HARD WORD LIMIT: ~${dc.totalWords} words total. Follow the per-section budgets above.
+4. If approaching your limit, compress Product & Exposure and Medical Context first — those are the most compressible. NEVER compress the checklist.
+5. Every section must have a proper ending — never stop mid-sentence or mid-list.
 
 SECTIONS TO WRITE (in this order):
 ${secInstr}
@@ -2064,7 +2069,7 @@ async function run(){
         const allSecIds=secs;
         const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,allSecIds);
         const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE litigation review guide now — all '+allSecIds.length+' sections as one cohesive document. Target ~'+dc.totalWords+' words. Define terms once, cross-reference between sections, include [Source](URL) citations. You MUST complete every section. Output only Markdown.'}],sys,{
+        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE litigation review guide — all '+allSecIds.length+' sections. Target ~'+dc.totalWords+' words. The Reviewer Extraction Checklist is the MOST IMPORTANT section — write it in full. If running long, compress the earlier sections (especially Product & Exposure and Medical Context) to leave room. You MUST finish the checklist. Include [Source](URL) citations. Output only Markdown.'}],sys,{
           stream:true,maxTok:dc.tokPerCall,model:genModel,signal:ac.signal,
           onRetry:(msg)=>setP(genIdx,'par',msg)
         });
@@ -2094,6 +2099,50 @@ async function run(){
     }
 
     updWC();buildTOC();
+
+    // ═══ COMPLETION CHECK: Ensure Reviewer Checklist was written ═══
+    if(genSuccess&&allMD&&!allMD.includes('# Reviewer Extraction Checklist')&&!allMD.includes('# Reviewer Checklist')){
+      setP(genIdx,'par','Checklist was cut off — generating separately...');
+      try{
+        await sleep(5000,ac.signal);
+        const t=T();
+        const checklistSys=`You are a senior medical-legal consultant. The litigation review guide below was generated but the Reviewer Extraction Checklist section was cut off. Write ONLY the Reviewer Extraction Checklist section now.
+
+GUIDE CONTEXT (what was already written):
+<guide>
+${allMD.substring(0,30000)}
+</guide>
+
+SECTION TO WRITE:
+${getSP().reviewer_checklist}
+
+Write the COMPLETE checklist section. Start with # Reviewer Extraction Checklist. Include all 5 elements (Exposure Gate, Injury & Severity, Causation, Defense Risks, Damages) plus the Case Valuation Quick Read. This is the most important section in the guide — do not abbreviate it.
+
+Output ONLY this section's Markdown.`;
+        const checkResp=await callApi(genKey,[{role:'user',content:'Write the complete Reviewer Extraction Checklist section now. Do not skip any subsections. Output only Markdown.'}],checklistSys,{
+          stream:true,maxTok:4000,model:genModel,signal:ac.signal
+        });
+        const checkDiv=document.createElement('div');checkDiv.style.display='none';
+        document.body.appendChild(checkDiv);
+        const checklistMD=await streamTo(checkResp,checkDiv);
+        document.body.removeChild(checkDiv);
+
+        if(checklistMD&&checklistMD.trim().length>200){
+          allMD+='\n\n---\n\n'+checklistMD;
+          secMD['reviewer_checklist']=checklistMD;
+          // Re-render
+          const gc=genDiv.querySelector('.gc');
+          gc.innerHTML=md2html(allMD);
+          updWC();buildTOC();
+          setP(genIdx,'done',countW(allMD).toLocaleString()+' words (checklist recovered)');
+        }
+      }catch(e){
+        if(e.name!=='AbortError'){
+          setP(genIdx,'par','Checklist recovery failed — use Refine to add it');
+          logError(e,{step:'checklist_recovery',stepLabel:'Checklist Recovery',type:'generation'});
+        }
+      }
+    }
 
     // ═══ PHASE 4: VERIFICATION (mandatory) ═══
     {
