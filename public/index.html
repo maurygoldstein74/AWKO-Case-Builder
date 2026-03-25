@@ -2436,10 +2436,10 @@ function dlPDF(){
   const opt={
     margin:[0.75,0.65,0.75,0.65],
     filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
-    image:{type:'jpeg',quality:0.95},
-    html2canvas:{scale:2,useCORS:true,letterRendering:true,width:816},
+    image:{type:'jpeg',quality:0.85},
+    html2canvas:{scale:1.5,useCORS:true,width:816},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
-    pagebreak:{mode:['avoid-all','css','legacy']}
+    pagebreak:{mode:['css','legacy']}
   };
 
   html2pdf().set(opt).from(container).save().then(()=>{
