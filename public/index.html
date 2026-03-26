@@ -3114,6 +3114,8 @@ function renderVersions(){
 function extractSection(heading){
   const lines=allMD.split('\n');
   const h1Lines=[];lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+  
+  // Pass 1: exact match
   for(let i=0;i<h1Lines.length;i++){
     const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
     if(hText===heading){
@@ -3122,6 +3124,49 @@ function extractSection(heading){
       return{start,end,text:lines.slice(start,end).join('\n'),heading:hText};
     }
   }
+  
+  // Pass 2: case-insensitive match
+  for(let i=0;i<h1Lines.length;i++){
+    const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+    if(hText.toLowerCase()===heading.toLowerCase()){
+      const start=h1Lines[i];
+      const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+      return{start,end,text:lines.slice(start,end).join('\n'),heading:hText};
+    }
+  }
+  
+  // Pass 3: normalize & and special chars, then compare
+  const normalize=s=>s.toLowerCase().replace(/&amp;/g,'&').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+  const headingNorm=normalize(heading);
+  for(let i=0;i<h1Lines.length;i++){
+    const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+    if(normalize(hText)===headingNorm){
+      const start=h1Lines[i];
+      const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+      return{start,end,text:lines.slice(start,end).join('\n'),heading:hText};
+    }
+  }
+  
+  // Pass 4: keyword overlap — find best match above threshold
+  const headingWords=headingNorm.split(/\s+/).filter(w=>w.length>2);
+  let bestIdx=-1,bestScore=0;
+  for(let i=0;i<h1Lines.length;i++){
+    const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+    const hWords=normalize(hText).split(/\s+/).filter(w=>w.length>2);
+    const overlap=headingWords.filter(w=>hWords.some(hw=>hw===w||hw.includes(w)||w.includes(hw))).length;
+    const score=headingWords.length>0?overlap/Math.max(headingWords.length,hWords.length):0;
+    if(score>bestScore){bestScore=score;bestIdx=i}
+  }
+  if(bestIdx>=0&&bestScore>=0.4){
+    const hText=lines[h1Lines[bestIdx]].replace(/^# /,'').trim();
+    const start=h1Lines[bestIdx];
+    const end=bestIdx+1<h1Lines.length?h1Lines[bestIdx+1]:lines.length;
+    console.log('extractSection fuzzy matched "'+heading+'" → "'+hText+'" (score:'+bestScore.toFixed(2)+')');
+    return{start,end,text:lines.slice(start,end).join('\n'),heading:hText};
+  }
+  
+  console.warn('extractSection: no match for "'+heading+'"');
+  console.warn('  Available headings:', h1Lines.map(i=>lines[i].replace(/^# /,'').trim()));
   return null;
 }
 
@@ -3151,19 +3196,39 @@ function removeSection(heading){
 // ═══════ SECTION MATCHING (improved) ═══════
 function matchSectionHeading(text){
   const lines=allMD.split('\n');
-  const headings=lines.filter(l=>l.startsWith('# ')).map(l=>l.replace(/^# /,'').trim());
+  const h1Lines=[];lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+  const headings=h1Lines.map(i=>lines[i].replace(/^# /,'').trim());
 
   const clean=text.toLowerCase().replace(/\b(the|a|an|in|on|of|to|for|and|with|about|from|this|that|my|our|section|more|detail|expand|add|change|update|fix|edit|improve|make|include|remove|please|can you|could you|deeper|tell me|i want|want to)\b/gi,'').trim();
 
+  // Pass 1: match against H1 headings
   let best=null,bestSc=0;
   headings.forEach(h=>{
-    const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+    const hWords=h.toLowerCase().split(/[\s&/,]+/).filter(w=>w.length>2);
     let mc=0;
     hWords.forEach(w=>{if(clean.includes(w))mc++});
     const sc=hWords.length>0?mc/hWords.length:0;
     if(sc>bestSc&&mc>=1){bestSc=sc;best=h}
   });
-  return bestSc>=0.4?best:null;
+  if(bestSc>=0.4)return best;
+
+  // Pass 2: match against H2/H3 subheadings within each section
+  // This catches things like "regulatory timeline" → ## Regulatory & Safety Timeline inside Drug & Exposure
+  for(let i=0;i<h1Lines.length;i++){
+    const start=h1Lines[i];
+    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+    const sectionLines=lines.slice(start,end);
+    const subheadings=sectionLines.filter(l=>/^#{2,3}\s/.test(l)).map(l=>l.replace(/^#{2,3}\s+/,'').trim());
+    
+    for(const sh of subheadings){
+      const shWords=sh.toLowerCase().split(/[\s&/,]+/).filter(w=>w.length>2);
+      let mc=0;
+      shWords.forEach(w=>{if(clean.includes(w))mc++});
+      const sc=shWords.length>0?mc/shWords.length:0;
+      if(sc>bestSc&&mc>=1){bestSc=sc;best=headings[i]}
+    }
+  }
+  return bestSc>=0.35?best:null;
 }
 
 // ═══════ CHAT SEND ═══════
@@ -3500,16 +3565,21 @@ function acceptChanges(){
 
   let applied=0;
   for(const rev of pendingChanges.revisions){
+    console.log('APPLY: trying heading "'+rev.heading+'" (isNew:'+!!rev.isNew+', newMD length:'+rev.newMD.length+')');
     if(rev.isNew){
       // Append new section
       allMD=allMD.trimEnd()+'\n\n---\n\n'+rev.newMD;
       applied++;
+      console.log('APPLY: appended new section');
     } else if(replaceSection(rev.heading,rev.newMD)){
       applied++;
+      console.log('APPLY: replaceSection succeeded for "'+rev.heading+'"');
     } else {
+      console.warn('APPLY: replaceSection failed for "'+rev.heading+'", trying fuzzy...');
       // Try fuzzy match on heading — score by keyword overlap
       const lines=allMD.split('\n');
       const guideHeadings=lines.filter(l=>l.startsWith('# ')).map(l=>l.replace(/^# /,'').trim());
+      console.warn('APPLY: guide headings:', guideHeadings);
       const revWords=rev.heading.toLowerCase().split(/[\s,&/]+/).filter(w=>w.length>2);
       let bestMatch=null,bestScore=0;
       guideHeadings.forEach(h=>{
@@ -3518,7 +3588,13 @@ function acceptChanges(){
         const score=revWords.length>0?overlap/revWords.length:0;
         if(score>bestScore){bestScore=score;bestMatch=h}
       });
-      if(bestMatch&&bestScore>=0.3&&replaceSection(bestMatch,rev.newMD))applied++;
+      console.warn('APPLY: fuzzy best="'+bestMatch+'" score='+bestScore);
+      if(bestMatch&&bestScore>=0.3&&replaceSection(bestMatch,rev.newMD)){
+        applied++;
+        console.log('APPLY: fuzzy match succeeded via "'+bestMatch+'"');
+      } else {
+        console.error('APPLY: FAILED to apply revision for "'+rev.heading+'"');
+      }
     }
   }
 
