@@ -1546,15 +1546,14 @@ Cover ALL relevant categories: ${isDevice
 CRITICAL RULE: A confounder only works as a defense argument if it is documented BEFORE ${t.product_lc} exposure. Conditions appearing in records AFTER exposure may be ADDITIONAL ${t.product_lc}-caused injuries, not confounders.`,
 
 treatment_soc:`# Treatment & Standard of Care
-PURPOSE: (1) Quantify damages — what treatment did the injury REQUIRE? (2) Was the ${t.product_lc} the right choice? (3) Should the ${t.admin_by} have done something differently?
+PURPOSE: (1) What medical treatment did the injury REQUIRE? (2) Was the ${t.product_lc} the right choice? (3) Should the ${t.admin_by} have done something differently?
 
-## Damages Evidence — Treatment Required for Injuries
-For each alleged injury, what treatment was needed? Each item quantifies damages:
+## Treatment Required for Injuries
+For each alleged injury, what treatment was needed?
 - Hospitalizations (dates, length of stay, ICU days)
 - Surgeries/procedures (each one = damages)
 - Ongoing treatment (chronic medication, monitoring, follow-up visits)
 - Specialist referrals triggered by the injury
-- Functional limitations, work disability, reduced quality of life
 - Death (date, cause of death, was ${t.product_lc}/injury listed)
 
 ## Standard of Care — Was the ${t.product} Appropriate?
@@ -1681,28 +1680,25 @@ For each: Condition ____ | Diagnosed BEFORE or AFTER exposure? ____ | Stable or 
 
 ---
 
-## 5. DAMAGES — What did this cost the client?
+## 5. MEDICAL TREATMENT — What did the injury require?
 
-This section feeds directly into the demand. Document everything that quantifies harm.
+This section documents the medical intervention the injury required.
 
 - [ ] Hospitalizations: dates, LOS, ICU days ____
 - [ ] Surgeries/procedures directly related to injury: ____
 - [ ] Ongoing treatment required (medications, monitoring, follow-up): ____
 - [ ] ER visits related to injury: ____
-- [ ] Work missed / disability: ____
-- [ ] Functional limitations documented by physician: ____
-- [ ] Pain/suffering documented in records: ____
 - [ ] If fatal: date of death ____, cause of death ____, ${t.product_lc}/injury on death certificate? ____
 
 ---
 
 ## CASE VALUATION QUICK READ
 
-**HIGH VALUE:** Documented exposure + confirmed diagnosis by specialist + severity Grade 3-5 + clean causation timeline + dechallenge evidence + few confounders + significant damages (hospitalization/surgery/death/permanent impairment)
+**HIGH VALUE:** Documented exposure + confirmed diagnosis by specialist + severity Grade 3-5 + clean causation timeline + dechallenge evidence + few confounders + significant medical intervention (hospitalization/surgery/death)
 
-**MODERATE VALUE:** Documented exposure + confirmed diagnosis + Grade 2 + causation timeline consistent but no dechallenge + manageable confounders + some damages documented
+**MODERATE VALUE:** Documented exposure + confirmed diagnosis + Grade 2 + causation timeline consistent but no dechallenge + manageable confounders + some treatment documented
 
-**LOW VALUE / AT RISK:** Exposure gaps + Grade 1 or unconfirmed diagnosis + weak causation + multiple strong confounders + minimal documented damages
+**LOW VALUE / AT RISK:** Exposure gaps + Grade 1 or unconfirmed diagnosis + weak causation + multiple strong confounders + minimal treatment documented
 
 **FLAG FOR ATTORNEY IMMEDIATELY:**
 - Injury documented BEFORE ${t.product_lc} exposure
@@ -2677,12 +2673,28 @@ async function refine(){
       // ═══ DETECT REMOVE/DELETE — handle without API ═══
       const isRemove=/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(instruction);
       if(isRemove){
-        // Find which section the instruction refers to
+        // Find which section the instruction refers to — require strong match
         let removeIdx=-1;
+        let bestScore=0;
+        const instrLower=instruction.toLowerCase().replace(/\b(remove|delete|drop|cut|get rid of|take out|the|section|from|guide|this|please|can you)\b/gi,'').trim();
+
         headings.forEach((h,i)=>{
-          const words=h.toLowerCase().split(/\s+/);
-          if(words.some(w=>instruction.toLowerCase().includes(w)&&w.length>3))removeIdx=i;
+          const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+          const matchCount=hWords.filter(w=>instrLower.includes(w)).length;
+          const score=hWords.length>0?matchCount/hWords.length:0;
+          // Require at least 40% of heading words to match
+          if(score>bestScore&&score>=0.4&&matchCount>=1){
+            bestScore=score;
+            removeIdx=i;
+          }
         });
+
+        // NEVER allow removing the Reviewer Extraction Checklist via fuzzy match
+        if(removeIdx>=0&&headings[removeIdx].toLowerCase().includes('checklist')){
+          if(!instruction.toLowerCase().includes('checklist')){
+            removeIdx=-1; // Don't remove checklist unless explicitly named
+          }
+        }
 
         if(removeIdx>=0){
           const startLine=h1Lines[removeIdx];
