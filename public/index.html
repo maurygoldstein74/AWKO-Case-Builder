@@ -2950,131 +2950,152 @@ async function refine(){
       }
     }
 
-    // ═══ EVERYTHING ELSE — send to Claude like pasting in chat ═══
-    // Each edit is a fresh interaction. The guide itself is the context.
-    // INSTRUCTION FIRST, GUIDE SECOND — so the model knows what to
-    // look for BEFORE it reads 6000 words of content.
-    const messages=[
-      {
-        role:'user',
-        content: msg + '\n\nHere is the full litigation review guide for reference:\n\n<guide>\n' + allMD + '\n</guide>'
-      }
-    ];
+    // ═══ EVERYTHING ELSE — send to Claude ═══
+    // The model outputs ONLY the changes, not full sections.
+    // This fixes the truncation problem — the output IS short.
 
-    // Debug: log what we're sending so we can verify
-    console.log('CHAT DEBUG - Guide length:',allMD.length,'chars,',allMD.split(/\s+/).length,'words');
-    console.log('CHAT DEBUG - Guide sections:',allMD.split('\n').filter(l=>l.startsWith('# ')).join(' | '));
+    const messages=[{
+      role:'user',
+      content: msg + '\n\nHere is the full litigation review guide:\n\n<guide>\n' + allMD + '\n</guide>'
+    }];
+
+    console.log('CHAT DEBUG - Guide:',allMD.split(/\s+/).length,'words,',allMD.split('\n').filter(l=>l.startsWith('# ')).length,'sections');
     console.log('CHAT DEBUG - Instruction:',msg);
-    console.log('CHAT DEBUG - Messages count:',messages.length);
 
-    // Show preview for live streaming
     document.getElementById('previewTitle').textContent='Working...';
     previewBody.innerHTML='';
     previewPanel.style.display='block';
     previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='hidden');
 
     const resp=await callApi(keys[0], messages,
-      'You are a medical-legal consultant helping a law firm refine a litigation review guide. The user will state what they want FIRST, then provide the guide in <guide> tags.\n\nRULES:\n- If they want an EDIT: find the relevant section(s) in the guide, apply the change, and output ONLY the modified section(s). Start each with its # heading. Write each section COMPLETELY from heading to last line — never truncate.\n- If they want to ADD content: output the new content as a complete section with a # heading.\n- If they ask a QUESTION: answer it directly without outputting guide sections.\n- NEVER output sections that were not changed. Do NOT start with Product & Exposure unless specifically asked about it.',
-      {stream:true, maxTok:16000, model:genModel, signal:null, onRetry:m=>{btn.textContent=m}}
+      'You are a medical-legal consultant editing a litigation review guide.\n\n'
+      +'The user states their request, then provides the guide in <guide> tags.\n\n'
+      +'Respond using this EXACT format for each change:\n\n'
+      +'SECTION: [exact section heading from the guide]\n'
+      +'FIND: [copy 10-40 words of existing text to locate where the change goes — must be an exact quote from the guide]\n'
+      +'ACTION: REPLACE | INSERT_AFTER | INSERT_BEFORE | DELETE\n'
+      +'CONTENT:\n[the new or replacement text]\nEND_CONTENT\n\n'
+      +'Multiple changes = multiple blocks. For questions, just answer normally.\n\n'
+      +'RULES:\n'
+      +'- FIND must be an exact substring from the guide — copy it character-for-character\n'
+      +'- Keep FIND short (10-40 words) — just enough to be unique\n'
+      +'- CONTENT is the new text only — not the entire section\n'
+      +'- For INSERT_AFTER: new content goes after the FIND text\n'
+      +'- For REPLACE: FIND text is replaced with CONTENT\n'
+      +'- For DELETE: FIND text is removed (no CONTENT needed)\n'
+      +'- You may make multiple changes across multiple sections',
+      {stream:true, maxTok:4000, model:genModel, signal:null, onRetry:m=>{btn.textContent=m}}
     );
 
     let output = await streamTo(resp, previewBody);
 
-    // Auto-continue if it stopped mid-section
-    for(let c=0;c<3;c++){
-      const last=output.trim().split('\n').pop()||'';
-      const words=output.trim().split(/\s+/).length;
-      if(words<80 && output.includes('# '))break; // short answer is fine
-      const midStop=last.endsWith(',') || (last.startsWith('- ')&&!last.endsWith('.')) || last.endsWith('and') || last.endsWith('or');
-      if(!midStop)break;
+    // ═══ PARSE AND APPLY CHANGES ═══
+    const changeBlocks=output.split(/(?=^SECTION:)/gm).filter(b=>b.trim().startsWith('SECTION:'));
 
-      btn.textContent='Continuing ('+(c+1)+'/3)...';
-      document.getElementById('previewTitle').textContent='Continuing ('+(c+1)+'/3)...';
-      await new Promise(r=>setTimeout(r,1000));
+    if(changeBlocks.length>0){
+      pushUndo();
+      let newMD=allMD;
+      let applied=0;
+      const changeLog=[];
 
-      try{
-        const contResp=await callApi(keys[0],[
-          ...messages,
-          {role:'assistant',content:output},
-          {role:'user',content:'Continue from where you stopped. Do not repeat anything already written.'}
-        ],'Continue the response.',{stream:true,maxTok:8000,model:genModel,signal:null});
+      for(const block of changeBlocks){
+        const secMatch=block.match(/^SECTION:\s*(.+)/m);
+        const findMatch=block.match(/^FIND:\s*(.+(?:\n(?!ACTION:).+)*)/m);
+        const actionMatch=block.match(/^ACTION:\s*(\w+)/m);
+        const contentMatch=block.match(/^CONTENT:\n([\s\S]*?)(?:\nEND_CONTENT|$)/m);
 
-        const reader=contResp.body.getReader(),dec=new TextDecoder();
-        let buf='',contMD='',lastT=0;
-        while(true){
-          const{done,value}=await reader.read();if(done)break;
-          buf+=dec.decode(value,{stream:true});
-          const lines=buf.split('\n');buf=lines.pop()||'';
-          for(const ln of lines){
-            if(!ln.startsWith('data: '))continue;
-            const d=ln.slice(6).trim();if(d==='[DONE]')continue;
-            try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){contMD+=ev.delta.text;const now=Date.now();if(now-lastT>200){previewBody.innerHTML=md2html(output+'\n'+contMD);lastT=now}}}catch(e){}
+        if(!secMatch||!findMatch)continue;
+
+        const findText=findMatch[1].trim();
+        const action=(actionMatch?actionMatch[1]:'REPLACE').toUpperCase();
+        let newContent=contentMatch?contentMatch[1].trimEnd():'';
+
+        // Strip section headings from content — model sometimes includes them
+        // which causes duplicate headings when spliced in
+        newContent=newContent.replace(/^# .+\n?/,'').trimStart();
+
+        // Find the text in allMD
+        if(!newMD.includes(findText)){
+          // Try fuzzy: collapse whitespace
+          const fuzzyFind=findText.replace(/\s+/g,' ');
+          const fuzzyMD=newMD.replace(/\s+/g,' ');
+          if(!fuzzyMD.includes(fuzzyFind)){
+            changeLog.push('\u26a0 Could not find: "'+findText.substring(0,50)+'..."');
+            continue;
+          }
+          // Find the position in the original using fuzzy match
+          const fuzzyIdx=fuzzyMD.indexOf(fuzzyFind);
+          // Map back to original position (approximate)
+          let origIdx=0,fuzzyPos=0;
+          for(let ci=0;ci<newMD.length&&fuzzyPos<fuzzyIdx;ci++){
+            if(!/\s/.test(newMD[ci])||fuzzyPos===0||!/\s/.test(newMD[ci-1]))fuzzyPos++;
+            origIdx=ci;
+          }
+          // Use a simpler approach — just try with normalized whitespace
+          const lines=newMD.split('\n');
+          let found=false;
+          for(let li=0;li<lines.length;li++){
+            if(lines[li].replace(/\s+/g,' ').includes(fuzzyFind.substring(0,40))){
+              if(action==='DELETE'){
+                lines[li]='';
+              }else if(action==='INSERT_AFTER'){
+                lines.splice(li+1,0,newContent);
+              }else if(action==='INSERT_BEFORE'){
+                lines.splice(li,0,newContent);
+              }else{
+                lines[li]=newContent;
+              }
+              newMD=lines.join('\n');
+              found=true;applied++;
+              changeLog.push('\u2713 '+action+' in '+secMatch[1].trim());
+              break;
+            }
+          }
+          if(!found)changeLog.push('\u26a0 Fuzzy match failed: "'+findText.substring(0,50)+'..."');
+          continue;
+        }
+
+        // Exact match found
+        if(action==='DELETE'){
+          newMD=newMD.replace(findText,'');
+        }else if(action==='INSERT_AFTER'){
+          newMD=newMD.replace(findText,findText+'\n'+newContent);
+        }else if(action==='INSERT_BEFORE'){
+          newMD=newMD.replace(findText,newContent+'\n'+findText);
+        }else{
+          // REPLACE
+          newMD=newMD.replace(findText,newContent);
+        }
+        applied++;
+        changeLog.push('\u2713 '+action+' in '+secMatch[1].trim());
+      }
+
+      if(applied>0){
+        pendingPreview={md:newMD};
+        // Show change summary — not the full guide
+        let summary='<div style="margin-bottom:8px;font-size:12px;color:var(--tx2)"><strong>Changes to apply:</strong></div>';
+        summary+=changeLog.map(c=>'<div style="font-size:12px;padding:4px 0;color:var(--tx2)">'+c+'</div>').join('');
+        // Show the new/changed content for review
+        for(const block of changeBlocks){
+          const contentMatch2=block.match(/^CONTENT:\n([\s\S]*?)(?:\nEND_CONTENT|$)/m);
+          if(contentMatch2){
+            summary+='<div style="margin:10px 0 4px;font-size:10px;color:var(--tx3);text-transform:uppercase">New content:</div>';
+            summary+='<div style="padding:8px 12px;background:rgba(86,196,144,.08);border-left:3px solid var(--gn);border-radius:4px;font-size:12px;line-height:1.5">'+md2html(contentMatch2[1].trimEnd())+'</div>';
           }
         }
-        if(contMD&&contMD.trim().length>10){output+='\n'+contMD;previewBody.innerHTML=md2html(output)}else break;
-      }catch(e){if(e.name==='AbortError')throw e;break}
-    }
-
-    // Figure out what the model did — sections or answer?
-    const hasH1=output.match(/^# .+/gm);
-
-    if(hasH1 && hasH1.length>0){
-      // Model output section(s) — splice them into the guide
-      const editLines=output.split('\n');
-      const blocks=[];
-      let cur=null;
-      for(const line of editLines){
-        if(line.startsWith('# ')){
-          if(cur)blocks.push(cur);
-          cur={heading:line.replace(/^# /,'').trim(),lines:[line]};
-        }else if(cur){
-          cur.lines.push(line);
-        }
-      }
-      if(cur)blocks.push(cur);
-
-      let newMD=allMD;
-      let spliced=0;
-
-      for(const block of blocks){
-        const mdLines=newMD.split('\n');
-        const mdH1s=[];mdLines.forEach((l,i)=>{if(l.startsWith('# '))mdH1s.push(i)});
-
-        // Match by heading words
-        let bestIdx=-1,bestScore=0;
-        mdH1s.forEach((li,idx)=>{
-          const existing=mdLines[li].replace(/^# /,'').trim().toLowerCase();
-          const edited=block.heading.toLowerCase();
-          const eWords=existing.split(/\s+/).filter(w=>w.length>2);
-          const mc=eWords.filter(w=>edited.includes(w)).length;
-          const score=eWords.length>0?mc/eWords.length:0;
-          if(score>bestScore&&mc>=1){bestScore=score;bestIdx=idx}
-        });
-
-        if(bestIdx>=0){
-          const secStart=mdH1s[bestIdx];
-          const secEnd=bestIdx+1<mdH1s.length?mdH1s[bestIdx+1]:mdLines.length;
-          const before=mdLines.slice(0,secStart).join('\n');
-          const after=mdLines.slice(secEnd).join('\n');
-          newMD=(before?(before+'\n'):'')+block.lines.join('\n')+(after?('\n'+after):'');
-          spliced++;
-        }
-      }
-
-      if(spliced>0){
-        pendingPreview={md:newMD};
-        const secNames=blocks.map(b=>b.heading).join(', ');
-        document.getElementById('previewTitle').textContent=secNames;
+        summary+='<div style="margin-top:10px;font-size:11px;color:var(--tx3)">Click Accept to apply these changes to the full guide.</div>';
+        previewBody.innerHTML=summary;
+        document.getElementById('previewTitle').textContent=applied+' change'+(applied>1?'s':'')+' applied';
         previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='visible');
-        document.getElementById('pfoot').textContent=spliced+' section'+(spliced>1?'s':'')+' modified \u2014 Accept or Discard';
+        document.getElementById('pfoot').textContent=applied+' change'+(applied>1?'s':'')+' \u2014 Accept or Discard';
       }else{
-        // Couldn't match headings — show as response
+        // No changes could be applied — show raw output as response
         previewPanel.style.display='none';
-        responseEl.innerHTML=md2html(output);
+        responseEl.innerHTML='<div style="margin-bottom:8px"><strong style="color:var(--am)">\u26a0 Changes could not be applied:</strong></div>'+changeLog.map(c=>'<div style="font-size:11px;color:var(--tx3)">'+c+'</div>').join('')+'<hr style="margin:10px 0;border:none;border-top:1px solid var(--bd)">'+md2html(output);
         responseEl.style.display='block';
       }
     }else{
-      // No headings — this is an answer
+      // No SECTION: blocks found — model answered a question or gave free-form response
       previewPanel.style.display='none';
       responseEl.innerHTML=md2html(output);
       responseEl.style.display='block';
