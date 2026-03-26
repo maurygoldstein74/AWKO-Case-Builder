@@ -6,7 +6,7 @@
 <title>Litigation Review Guide Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
-<script src="https://unpkg.com/docx@9.1.1/build/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@9.1.1/build/index.umd.min.js"></script>
 <style>
 :root{
   --bg:#0c0d12;--sf:#13141c;--sf2:#191b26;--sf3:#1f2230;
@@ -435,6 +435,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 <!-- Refinement bar (sticky to bottom of main panel) -->
 <div class="refine-bar" id="refineBar">
   <div class="refine-inner">
+    <div id="refineResponse" style="display:none;padding:10px 14px;margin-bottom:10px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;font-size:12px;color:var(--tx2);line-height:1.5;max-height:200px;overflow-y:auto"></div>
     <div class="refine-label">
       Refine Output
       <select id="refineScope">
@@ -442,7 +443,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       </select>
     </div>
     <div class="refine-row">
-      <textarea id="refineInput" placeholder="e.g., Expand the confounders section with more detail on cardiac conditions. Add ICD-10 codes to every injury. Make the mechanism of action section more accessible for non-clinical reviewers." rows="2"></textarea>
+      <textarea id="refineInput" placeholder="e.g., Expand the confounders section with more detail on cardiac conditions. Add ICD-10 codes to every injury. Remove the treatment section. What's the strongest defense argument here?" rows="2"></textarea>
       <button class="refine-send" id="refineBtn" onclick="refine()">Refine</button>
     </div>
     <div class="refine-history" id="refineHistory"></div>
@@ -2503,6 +2504,27 @@ async function dlDOCX(){
   btn.textContent='Building .docx...';btn.disabled=true;
 
   try{
+    // Check if docx library loaded — try lazy load if not
+    if(typeof docx==='undefined'){
+      btn.textContent='Loading docx library...';
+      await new Promise((resolve,reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.jsdelivr.net/npm/docx@9.1.1/build/index.umd.min.js';
+        s.onload=resolve;
+        s.onerror=()=>{
+          // Try alternate CDN
+          const s2=document.createElement('script');
+          s2.src='https://unpkg.com/docx@9.1.1/build/index.umd.js';
+          s2.onload=resolve;
+          s2.onerror=()=>reject(new Error('Could not load docx library from CDN'));
+          document.head.appendChild(s2);
+        };
+        document.head.appendChild(s);
+      });
+    }
+
+    if(typeof docx==='undefined')throw new Error('docx library not available');
+
     const {Document,Packer,Paragraph,TextRun,HeadingLevel,AlignmentType,
            Table,TableRow,TableCell,BorderStyle,WidthType,ShadingType,
            ExternalHyperlink,LevelFormat,PageBreak}=docx;
@@ -2693,178 +2715,222 @@ function showRefineBar(){
 
 async function refine(){
   const keys=getKeys();
-  if(!keys.length)return alert('No API keys configured on server.');
+  if(!keys.length)return alert('No API keys configured.');
   const input=document.getElementById('refineInput');
   const instruction=input.value.trim();
   if(!instruction)return;
 
   const scope=document.getElementById('refineScope').value;
   const btn=document.getElementById('refineBtn');
-  btn.disabled=true;btn.textContent='Refining...';
+  const responseEl=document.getElementById('refineResponse');
+  btn.disabled=true;btn.textContent='Working...';
+  responseEl.style.display='none';
 
-  // Log to history
   const scopeLabel=scope==='full'?'Entire Guide':document.querySelector('#refineScope option:checked').textContent;
   refineHist.push({scope:scopeLabel,text:instruction});
-  const histEl=document.getElementById('refineHistory');
-  histEl.innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
+  document.getElementById('refineHistory').innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
 
-  const needsResearch=/\b(add|include|expand|more detail|missing|flesh out|elaborate|research|data|cite|source|evidence|study|trial|FDA)\b/i.test(instruction);
-  const researchText=needsResearch?Object.values(allRes).join('\n\n---\n\n').substring(0,15000):'';
+  const il=instruction.toLowerCase();
+  const researchText=Object.values(allRes).join('\n\n---\n\n').substring(0,15000);
 
   try{
-    // ═══ PARSE SECTIONS ═══
     const allLines=allMD.split('\n');
     const h1Lines=[];
     allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
     const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
 
-    // ═══ DETECT REMOVE/DELETE — no API needed ═══
-    const isRemove=/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(instruction);
-    if(isRemove){
+    // ═══════════════════════════════════════════
+    // INTENT 1: REMOVE — no API, instant
+    // ═══════════════════════════════════════════
+    if(/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(il)&&!/\b(add|expand|more)\b/i.test(il)){
       let removeIdx=-1,bestScore=0;
-      const instrLower=instruction.toLowerCase().replace(/\b(remove|delete|drop|cut|get rid of|take out|the|section|from|guide|this|please|can you)\b/gi,'').trim();
+      const stripped=il.replace(/\b(remove|delete|drop|cut|get rid of|take out|the|section|from|guide|this|please|can you)\b/gi,'').trim();
       headings.forEach((h,i)=>{
         const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-        const matchCount=hWords.filter(w=>instrLower.includes(w)).length;
-        const score=hWords.length>0?matchCount/hWords.length:0;
-        if(score>bestScore&&score>=0.4&&matchCount>=1){bestScore=score;removeIdx=i}
+        const mc=hWords.filter(w=>stripped.includes(w)).length;
+        const sc=hWords.length>0?mc/hWords.length:0;
+        if(sc>bestScore&&sc>=0.4&&mc>=1){bestScore=sc;removeIdx=i}
       });
-      // Protect checklist and review guide from fuzzy removal
       if(removeIdx>=0&&(headings[removeIdx].toLowerCase().includes('checklist')||headings[removeIdx].toLowerCase().includes('review guide'))){
-        if(!instruction.toLowerCase().includes('checklist')&&!instruction.toLowerCase().includes('review guide'))removeIdx=-1;
+        if(!il.includes('checklist')&&!il.includes('review guide'))removeIdx=-1;
       }
       if(removeIdx>=0){
-        const startLine=h1Lines[removeIdx];
-        const endLine=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
-        const removedTitle=headings[removeIdx];
-        const before=allLines.slice(0,startLine);
-        const after=allLines.slice(endLine);
+        const sl=h1Lines[removeIdx],el2=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
+        const before=allLines.slice(0,sl),after=allLines.slice(el2);
         while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
         allMD=before.join('\n')+'\n\n'+after.join('\n');
         reRender();input.value='';
-        document.getElementById('pfoot').textContent='Removed: '+removedTitle;
-        saveGuide();
-        btn.disabled=false;btn.textContent='Refine';
-        return;
+        document.getElementById('pfoot').textContent='Removed: '+headings[removeIdx];
+        saveGuide();btn.disabled=false;btn.textContent='Refine';return;
       }
     }
 
-    // ═══ FIND TARGET SECTION ═══
+    // ═══════════════════════════════════════════
+    // INTENT 2: REORDER — no API, instant
+    // ═══════════════════════════════════════════
+    if(/\b(move|reorder|swap|before|after)\b/i.test(il)&&/\b(section|before|after)\b/i.test(il)){
+      // Try to parse "move X before/after Y"
+      const moveMatch=il.match(/move\s+(.+?)\s+(before|after)\s+(.+)/i);
+      if(moveMatch){
+        const findSec=(name)=>{
+          let best=-1,bestSc=0;
+          headings.forEach((h,i)=>{
+            const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+            const mc=hWords.filter(w=>name.includes(w)).length;
+            const sc=hWords.length>0?mc/hWords.length:0;
+            if(sc>bestSc){bestSc=sc;best=i}
+          });
+          return bestSc>=0.3?best:-1;
+        };
+        const srcIdx=findSec(moveMatch[1].toLowerCase());
+        const dstIdx=findSec(moveMatch[3].toLowerCase());
+        const dir=moveMatch[2].toLowerCase();
+        if(srcIdx>=0&&dstIdx>=0&&srcIdx!==dstIdx){
+          const srcStart=h1Lines[srcIdx],srcEnd=srcIdx+1<h1Lines.length?h1Lines[srcIdx+1]:allLines.length;
+          const srcBlock=allLines.slice(srcStart,srcEnd).join('\n');
+          // Remove source
+          allLines.splice(srcStart,srcEnd-srcStart);
+          // Recalc
+          const h1s2=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1s2.push(i)});
+          const newDstIdx=headings.indexOf(headings[dstIdx])>=0?h1s2.findIndex(li=>allLines[li]&&allLines[li].includes(headings[dstIdx])):-1;
+          if(newDstIdx>=0){
+            const insertAt=dir==='before'?h1s2[newDstIdx]:((newDstIdx+1<h1s2.length)?h1s2[newDstIdx+1]:allLines.length);
+            allLines.splice(insertAt,0,...srcBlock.split('\n'));
+          }
+          allMD=allLines.join('\n');
+          reRender();input.value='';
+          document.getElementById('pfoot').textContent='Moved: '+headings[srcIdx]+' '+dir+' '+headings[dstIdx];
+          saveGuide();btn.disabled=false;btn.textContent='Refine';return;
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════
+    // INTENT 3: QUESTION — answer, don't edit
+    // ═══════════════════════════════════════════
+    const isQuestion=instruction.includes('?')||/^(what|why|how|is there|are there|which|does|do|can|should|would|could|tell me|explain)\b/i.test(instruction);
+    if(isQuestion&&!/\b(add|change|edit|update|expand|remove|rewrite)\b/i.test(il)){
+      btn.textContent='Thinking...';
+      const qSys='You are a medical-legal consultant. Answer this question about a litigation review guide.\n\nGUIDE:\n<guide>\n'+allMD.substring(0,40000)+'\n</guide>\n\nRESEARCH:\n<research>\n'+researchText+'\n</research>\n\nAnswer concisely and specifically based on the guide content and research. If the answer requires new research, say so.';
+      const qResp=await callApi(keys[0],[{role:'user',content:instruction}],qSys,{
+        stream:true,maxTok:1500,model:genModel,signal:null
+      });
+      const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+      const answer=await streamTo(qResp,tmpEl);
+      document.body.removeChild(tmpEl);
+      responseEl.innerHTML=md2html(answer);
+      responseEl.style.display='block';
+      input.value='';btn.disabled=false;btn.textContent='Refine';return;
+    }
+
+    // ═══════════════════════════════════════════
+    // INTENT 4: ADD NEW SECTION — generate fresh
+    // ═══════════════════════════════════════════
+    if(/\b(add a section|add a new|new section|create a section|insert a section)\b/i.test(il)){
+      btn.textContent='Generating new section...';
+      const t=T();
+      const addSys='You are a senior medical-legal consultant adding ONE new section to a litigation review guide.\n\nEXISTING SECTIONS:\n'+headings.map(h=>'- '+h).join('\n')+'\n\nRESEARCH:\n<research>\n'+researchText+'\n</research>\n\nINSTRUCTION: '+instruction+'\n\nWrite the new section in the same style as the existing guide. Use # for the main heading. Include [Source](URL) citations from research where available. This is a '+t.product_lc+' case.\n\nOutput ONLY the new section Markdown.';
+      const addResp=await callApi(keys[0],[{role:'user',content:'Write the new section. Match the existing guide style.'}],addSys,{
+        stream:true,maxTok:4000,model:genModel,signal:null,
+        onRetry:(msg)=>{btn.textContent=msg}
+      });
+      const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+      const newSec=await streamTo(addResp,tmpEl);
+      document.body.removeChild(tmpEl);
+      if(newSec&&newSec.trim().length>50){
+        // Insert before the last two sections (Review Guide & Checklist)
+        const insertBefore=Math.max(h1Lines.length-2,h1Lines.length-1);
+        if(insertBefore>=0&&insertBefore<h1Lines.length){
+          const insertLine=h1Lines[insertBefore];
+          const before=allLines.slice(0,insertLine).join('\n');
+          const after=allLines.slice(insertLine).join('\n');
+          allMD=before+'\n\n---\n\n'+newSec+'\n\n---\n\n'+after;
+        }else{
+          allMD+='\n\n---\n\n'+newSec;
+        }
+        reRender();
+        document.getElementById('pfoot').textContent='Added new section';
+        saveGuide();
+      }
+      input.value='';btn.disabled=false;btn.textContent='Refine';return;
+    }
+
+    // ═══════════════════════════════════════════
+    // INTENT 5: EDIT SECTION — the default
+    // ═══════════════════════════════════════════
+
+    // Detect if this is a "deeper dive" vs a small edit
+    const isExpand=/\b(deeper|more detail|expand|flesh out|elaborate|thorough|comprehensive|add more|bulk up)\b/i.test(il);
+
+    // Find target section
     let targetIdx=-1;
     if(scope!=='full'){
-      // User selected a specific section
       targetIdx=parseInt(scope.replace('sec-',''));
     }else{
-      // Ask model which single section to edit
       try{
-        const idSys='Sections:\n'+headings.map((h,i)=>i+': '+h).join('\n')+'\n\nWhich section number does this apply to: "'+instruction+'"\n\nReply with ONLY the number. If unclear reply -1.';
-        const idResp=await callApi(keys[0],[{role:'user',content:'Section number only.'}],idSys,{maxTok:20,model:genModel,signal:null});
+        const idResp=await callApi(keys[0],[{role:'user',content:'Section number only.'}],
+          'Sections:\n'+headings.map((h,i)=>i+': '+h).join('\n')+'\nWhich section does this apply to: "'+instruction+'"\nReply ONLY the number. -1 if unclear.',
+          {maxTok:20,model:genModel,signal:null});
         const idJson=await idResp.json();
-        const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'-1';
-        const n=parseInt(idText.trim());
+        const n=parseInt(((idJson.content&&idJson.content[0]&&idJson.content[0].text)||'-1').trim());
         if(n>=0&&n<h1Lines.length)targetIdx=n;
-      }catch(e){console.warn('Identify failed:',e.message)}
+      }catch(e){console.warn('Identify:',e.message)}
     }
 
     if(targetIdx<0||targetIdx>=h1Lines.length){
-      alert('Could not determine which section to modify. Please select a specific section from the dropdown.');
-      btn.disabled=false;btn.textContent='Refine';
-      return;
+      alert('Could not determine which section to modify. Select a section from the dropdown.');
+      btn.disabled=false;btn.textContent='Refine';return;
     }
 
-    // ═══ EXTRACT TARGET SECTION ═══
     const startLine=h1Lines[targetIdx];
     const endLine=targetIdx+1<h1Lines.length?h1Lines[targetIdx+1]:allLines.length;
     const secText=allLines.slice(startLine,endLine).join('\n');
     const secTitle=headings[targetIdx];
-    btn.textContent='Editing: '+secTitle.substring(0,30)+'...';
+    btn.textContent='Editing: '+secTitle.substring(0,25)+'...';
 
-    // ═══ DIFF-BASED EDIT — model outputs changes only, not the whole section ═══
-    const diffSys=`You are a precise text editor. You will receive a section of a document and an instruction. Output ONLY the minimum find/replace operations needed to satisfy the instruction. Do NOT touch any text the instruction didn't ask about.
+    // Token limit based on intent
+    const secWords=secText.split(/\s+/).length;
+    const maxTok=isExpand
+      ?Math.max(Math.round(secWords*3),4000)   // expand: 2x room to grow
+      :Math.max(Math.round(secWords*1.8),2000); // edit: tight buffer
 
-CURRENT SECTION:
+    const sys=`You are editing one section of a litigation review guide. Apply the user's instruction.
+
+${(isExpand&&researchText)?'RESEARCH (use to add depth):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT SECTION:
 <section>
 ${secText}
 </section>
-${researchText?'\nREFERENCE DATA (use ONLY if instruction asks for new facts):\n<ref>\n'+researchText+'\n</ref>':''}
 
-INSTRUCTION: ${instruction}
+RULES:
+${isExpand
+?'- EXPAND the content as requested — add depth, detail, and specificity\n- Keep all existing content and add to it\n- Use research notes for new facts and citations'
+:'- Change ONLY what the instruction asks. Leave everything else word-for-word identical.\n- Do NOT add content the instruction didn\'t request.\n- Do NOT rephrase or reorganize text the instruction didn\'t mention.'}
+- Preserve all [Source](URL) citations.
+- Start with the # heading. Output the revised section.`;
 
-OUTPUT FORMAT — JSON array of {"find":"exact text","replace":"new text"} objects:
-- "find" = exact substring copied from the section (character-for-character, including markdown)
-- "replace" = what to put in its place (use "" to delete)
-- One object per discrete change
-- Limit to 1-5 changes maximum
-
-CRITICAL:
-- If the instruction says "add X after Y" → find Y, replace with Y + new content
-- If the instruction says "change X to Z" → find X, replace with Z
-- If the instruction says "remove X" → find X, replace with ""
-- Do NOT reword, rephrase, or restructure ANYTHING the instruction didn't mention
-- Do NOT "improve" or "enhance" surrounding content — touch ONLY what was asked
-- The "find" string must appear verbatim in the section above — if you can't find it, don't guess
-
-Output ONLY the JSON array. No explanation. No markdown fences.`;
-
-    const diffResp=await callApi(keys[0],[{role:'user',content:'JSON array of find/replace changes only. Minimum changes needed. Do not rewrite anything not mentioned in the instruction.'}],diffSys,{
-      maxTok:1500,model:genModel,signal:null,
+    const resp=await callApi(keys[0],[{role:'user',content:instruction}],sys,{
+      stream:true,maxTok,model:genModel,signal:null,
       onRetry:(msg)=>{btn.textContent=msg}
     });
-    const diffJson=await diffResp.json();
-    const diffText=(diffJson.content&&diffJson.content[0]&&diffJson.content[0].text)||'[]';
-    const diffClean=diffText.replace(/```json|```/g,'').trim();
 
-    let changes=[];
-    try{changes=JSON.parse(diffClean)}catch(e){
-      console.warn('Diff parse failed:',e.message);
-      alert('Could not parse the edit. Please try rephrasing your instruction or select the specific section from the dropdown.');
-      btn.disabled=false;btn.textContent='Refine';
-      return;
-    }
+    const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+    const newSecMD=await streamTo(resp,tmpEl);
+    document.body.removeChild(tmpEl);
 
-    // ═══ APPLY CHANGES ═══
-    if(!Array.isArray(changes)||changes.length===0){
-      alert('No changes identified for this instruction.');
-      btn.disabled=false;btn.textContent='Refine';
-      return;
-    }
-
-    let modifiedSec=secText;
-    let applied=0;
-    for(const ch of changes){
-      if(!ch.find&&ch.find!=='')continue;
-      if(modifiedSec.includes(ch.find)){
-        modifiedSec=modifiedSec.replace(ch.find,ch.replace||'');
-        applied++;
-      }else{
-        // Try fuzzy: trim whitespace differences
-        const findTrimmed=ch.find.replace(/\s+/g,' ').trim();
-        const lines2=modifiedSec.split('\n');
-        let found=false;
-        for(let li=0;li<lines2.length&&!found;li++){
-          if(lines2[li].replace(/\s+/g,' ').trim().includes(findTrimmed)){
-            lines2[li]=lines2[li].replace(lines2[li].trim(),(ch.replace||'').trim());
-            found=true;applied++;
-          }
-        }
-        if(found)modifiedSec=lines2.join('\n');
-        else console.warn('Could not find:',ch.find.substring(0,60));
-      }
-    }
-
-    if(applied>0){
+    if(newSecMD&&newSecMD.trim().length>50){
       const before=allLines.slice(0,startLine).join('\n');
       const after=allLines.slice(endLine).join('\n');
-      allMD=(before?(before+'\n'):'')+modifiedSec+(after?('\n'+after):'');
-      document.getElementById('pfoot').textContent=applied+' change'+(applied>1?'s':'')+' applied to: '+secTitle;
-    }else{
-      document.getElementById('pfoot').textContent='No changes could be applied — try selecting the section from the dropdown';
+      allMD=(before?(before+'\n'):'')+newSecMD+(after?('\n'+after):'');
+      document.getElementById('pfoot').textContent=(isExpand?'Expanded':'Updated')+': '+secTitle;
+      saveGuide();
     }
 
-    reRender();
-    input.value='';
+    reRender();input.value='';
   }catch(e){
-    if(e.name!=='AbortError')alert('Refinement failed: '+e.message);
+    if(e.name!=='AbortError'){
+      alert('Refinement failed: '+e.message);
+      console.error('Refine error:',e);
+    }
   }finally{
     btn.disabled=false;btn.textContent='Refine';
   }
