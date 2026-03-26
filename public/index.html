@@ -2523,23 +2523,25 @@ Reply with ONLY a JSON array of the section heading numbers that need modificati
 If the instruction is too vague to determine, reply with: "ALL"
 No explanation. Just the array or "ALL".`;
 
-      const idResp=await callApi(keys[0],[{role:'user',content:'Which section numbers need to change? Reply with JSON array only.'}],identifySys,{
-        maxTok:200,model:genModel,signal:null
-      });
-      const idJson=await idResp.json();
-      const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'ALL';
-      const idClean=idText.replace(/```json|```/g,'').trim();
-
       const allLines=allMD.split('\n');
       const h1Lines=[];
       allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
 
-      let secIndicesToRefine=[];
-      if(idClean==='ALL'||!idClean.startsWith('[')){
-        // Fallback: refine all sections individually
-        secIndicesToRefine=h1Lines.map((_,i)=>i);
-      }else{
-        try{secIndicesToRefine=JSON.parse(idClean)}catch(e){secIndicesToRefine=h1Lines.map((_,i)=>i)}
+      let secIndicesToRefine=h1Lines.map((_,i)=>i); // default: all sections
+      try{
+        const idResp=await callApi(keys[0],[{role:'user',content:'Which section numbers need to change? Reply with JSON array only.'}],identifySys,{
+          maxTok:200,model:genModel,signal:null
+        });
+        const idJson=await idResp.json();
+        const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'ALL';
+        const idClean=idText.replace(/```json|```/g,'').trim();
+        if(idClean!=='ALL'&&idClean.startsWith('[')){
+          const parsed=JSON.parse(idClean);
+          if(Array.isArray(parsed)&&parsed.length>0)secIndicesToRefine=parsed;
+        }
+      }catch(e){
+        // Identify failed — fall back to refining all sections
+        console.warn('Section identify failed, refining all sections:',e.message);
       }
 
       // STEP 2: Refine only the affected sections, one at a time
@@ -3052,67 +3054,112 @@ async function applyUpdates(){
   const findings=_lastUpdateFindings||allRes._update_findings;
   if(!findings)return alert('No update findings to apply. Run "Check for Updates" first.');
 
-  if(!confirm('Apply findings to the guide.\n\nThis will update only affected sections — not rewrite the entire guide.\n\nEstimated cost: ~$1-3\n\nProceed?'))return;
+  if(!confirm('Apply findings to affected sections only.\n\nEstimated cost: ~$0.50-2\n\nProceed?'))return;
 
   const actionsDiv=document.getElementById('updateActions');
-  actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px;font-weight:500">Applying updates...</span>';
+  actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px;font-weight:500">Identifying affected sections...</span>';
 
   const drug=document.getElementById('drugName').value.trim();
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-  const t=T();
 
   try{
-    const sys=`You are a senior medical-legal consultant updating a Litigation Review Guide with new findings.
+    // STEP 1: Identify which sections the findings affect
+    const allLines=allMD.split('\n');
+    const h1Lines=[];
+    allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+    const headings=h1Lines.map(i=>allLines[i]);
 
-CURRENT GUIDE:
-<guide>
-${allMD.substring(0,50000)}
-</guide>
+    const idSys=`New findings for a litigation review guide:
+<findings>
+${findings.substring(0,5000)}
+</findings>
+
+Guide sections:
+${headings.map((h,i)=>i+': '+h).join('\n')}
+
+Which section numbers need updating based on these findings? Reply with ONLY a JSON array. Example: [0,2,4]`;
+
+    let secIndices=headings.map((_,i)=>i); // default: all sections
+    try{
+      const idResp=await callApi(keys[0],[{role:'user',content:'Which sections? JSON array only.'}],idSys,{maxTok:100,model:genModel,signal:null});
+      const idJson=await idResp.json();
+      const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'';
+      const parsed=JSON.parse(idText.replace(/```json|```/g,'').trim());
+      if(Array.isArray(parsed)&&parsed.length>0)secIndices=parsed;
+    }catch(e){
+      console.warn('Section identify failed, updating all sections:',e.message);
+    }
+
+    // STEP 2: Update each affected section individually
+    let modCount=0;
+    for(const si of secIndices){
+      if(si<0||si>=h1Lines.length)continue;
+      const startLine=h1Lines[si];
+      const endLine=si+1<h1Lines.length?h1Lines[si+1]:allLines.length;
+      const secText=allLines.slice(startLine,endLine).join('\n');
+      const secTitle=allLines[startLine].replace(/^# /,'').trim();
+
+      actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px;font-weight:500">Updating: '+secTitle.substring(0,40)+'...</span>';
+
+      const secSys=`You are updating ONE SECTION of a litigation review guide with new findings.
+
+CURRENT SECTION:
+<section>
+${secText}
+</section>
 
 NEW FINDINGS TO INCORPORATE:
 <findings>
 ${findings}
 </findings>
 
-TASK:
-- Output the COMPLETE guide with updates incorporated
-- Only change sections affected by the new findings — preserve everything else exactly as-is
-- Mark every new or changed item with **[UPDATED]** so reviewers can spot what changed
-- Preserve all existing [Source](URL) citations
-- Add new citations from the findings
-- Do NOT rewrite sections that aren't affected
-- Keep total length within ~${dc.totalWords} words
+RULES:
+- Incorporate ONLY findings relevant to THIS section. Ignore findings for other sections.
+- Mark every new or changed item with **[UPDATED]** at the start of the line.
+- Preserve ALL existing content exactly as-is unless a finding contradicts it.
+- Preserve all existing [Source](URL) citations. Add new ones from findings.
+- Do NOT add topics, subsections, or content beyond what the findings provide.
+- Start with the # heading.
 
-Output only Markdown. Start with the first # heading.`;
+Output ONLY the revised section Markdown.`;
 
-    const resp=await callApi(keys[0],[{role:'user',content:'Apply the updates now. Mark changed content with [UPDATED]. Only modify affected sections. Output the complete guide.'}],sys,{
-      stream:true,maxTok:dc.tokPerCall,model:genModel,signal:null,
-      onRetry:(msg)=>{actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px">'+msg+'</span>'}
-    });
+      const resp=await callApi(keys[0],[{role:'user',content:'Apply relevant findings to this section only. Mark changes with [UPDATED]. Preserve everything else. Output only Markdown.'}],secSys,{
+        stream:true,maxTok:Math.min(dc.tokPerCall,8000),model:genModel,signal:null
+      });
 
+      const tmpDiv=document.createElement('div');tmpDiv.style.display='none';document.body.appendChild(tmpDiv);
+      const newMD=await streamTo(resp,tmpDiv);
+      document.body.removeChild(tmpDiv);
+
+      if(newMD&&newMD.trim().length>50){
+        const before=allLines.slice(0,startLine).join('\n');
+        const after=allLines.slice(endLine).join('\n');
+        allMD=(before?(before+'\n'):'')+newMD+(after?('\n'+after):'');
+        allLines.length=0;
+        allMD.split('\n').forEach(l=>allLines.push(l));
+        h1Lines.length=0;
+        allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+        modCount++;
+      }
+
+      if(secIndices.indexOf(si)<secIndices.length-1)await new Promise(r=>setTimeout(r,2000));
+    }
+
+    // Re-render
     const gBody=document.getElementById('gBody');
-    gBody.innerHTML='<div class="gc"></div>';
-    const gc=gBody.querySelector('.gc');
-    allMD=await streamTo(resp,gc,()=>updWC());
-
-    // Re-split
+    gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
     const allSecIds=getSecOrder().length?getSecOrder():SEC_IDS;
     splitBatchMD(allMD,allSecIds);
-    updWC();buildTOC();
-    splitOutputIntoSections();
-    showRefineBar();
+    updWC();buildTOC();splitOutputIntoSections();showRefineBar();
 
-    // Update header
     const meta=document.getElementById('gMeta');
     const litType=document.getElementById('litType').value;
     const cond=document.getElementById('condition').value.trim();
     if(meta)meta.innerHTML=(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Updated '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
-    // Mark update as applied
-    actionsDiv.innerHTML='<span style="color:var(--gn);font-size:12px;font-weight:500">✓ Updates applied</span>';
-    document.getElementById('pfoot').textContent='Updates applied — '+countW(allMD).toLocaleString()+' words';
+    actionsDiv.innerHTML='<span style="color:var(--gn);font-size:12px;font-weight:500">✓ '+modCount+' section'+(modCount!==1?'s':'')+' updated</span>';
+    document.getElementById('pfoot').textContent='Updates applied to '+modCount+' section'+(modCount!==1?'s':'')+' — '+countW(allMD).toLocaleString()+' words';
 
-    // Auto-save
     saveGuide();
 
   }catch(e){
