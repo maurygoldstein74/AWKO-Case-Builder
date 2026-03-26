@@ -599,10 +599,10 @@ For EACH alleged injury, search for its grading/staging/classification system:
 let ac=null,allRes={},secMD={},allMD='',genModel='claude-sonnet-4-20250514';
 
 const DEPTH_CONFIG={
-  brief:    {totalWords:3000,  tokPerCall:6000,   label:'~3k words'},
-  standard: {totalWords:6000,  tokPerCall:12000,  label:'~6k words'},
-  thorough: {totalWords:10000, tokPerCall:20000,  label:'~10k words'},
-  exhaustive:{totalWords:15000, tokPerCall:28000,  label:'~15k+ words'}
+  brief:    {totalWords:3000,  tokPerCall:8000,   label:'~3k words'},
+  standard: {totalWords:6000,  tokPerCall:16000,  label:'~6k words'},
+  thorough: {totalWords:10000, tokPerCall:24000,  label:'~10k words'},
+  exhaustive:{totalWords:15000, tokPerCall:32000,  label:'~15k+ words'}
 };
 let outputDepth='standard';
 
@@ -1847,12 +1847,14 @@ FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key t
 
 ${depthInstructions[outputDepth]}
 
-CRITICAL RULES:
-1. You MUST write ALL ${numSecs} sections. Skipping ANY section is a failure.
-2. The Review Guide & Notes and Reviewer Extraction Checklist are the MOST IMPORTANT sections — both must be written in full. If you are running out of space, compress EARLIER sections (Product & Exposure, Medical Context) to make room. NEVER cut the review guide or checklist short.
-3. HARD WORD LIMIT: ~${dc.totalWords} words total. Follow the per-section budgets above.
-4. If approaching your limit, compress Product & Exposure and Medical Context first — those are the most compressible. NEVER compress the Review Guide, Checklist, Injuries, or Confounders sections.
-5. Every section must have a proper ending — never stop mid-sentence or mid-list.
+CRITICAL RULES — READ THESE BEFORE WRITING:
+1. You MUST write ALL ${numSecs} sections. Missing ANY section is a FAILURE. Count them as you go.
+2. BEFORE writing each section, check: how many words have I written so far? How many sections remain? Divide remaining budget evenly if you're running long.
+3. The Review Guide & Notes and Reviewer Extraction Checklist are the MOST IMPORTANT sections. If you must compress, compress Product & Exposure and Medical Context FIRST. NEVER compress Review Guide, Checklist, Injuries, or Confounders.
+4. HARD WORD LIMIT: ~${dc.totalWords} words total. Each section has a budget above — TRACK IT.
+5. If a section hits its word budget, STOP that section and move to the next one. An incomplete section is better than a missing section.
+6. Every section must have a proper ending — never stop mid-sentence or mid-list.
+7. Write the sections in the order listed below. Do not skip ahead or combine sections.
 
 SECTIONS TO WRITE (in this order):
 ${secInstr}
@@ -2237,51 +2239,72 @@ async function run(){
 
     updWC();buildTOC();
 
-    // ═══ COMPLETION CHECK: Ensure Review Guide and Checklist were written ═══
+    // ═══ COMPLETION CHECK: Recover ANY missing sections ═══
     if(genSuccess&&allMD){
+      const labels=getSecLabels();
+      const allSecIds=getSecOrder().length?getSecOrder():SEC_IDS;
       const missingSections=[];
-      if(!allMD.includes('# Review Guide')&&!allMD.includes('# Review Notes'))missingSections.push({id:'review_guide_notes',label:'Review Guide & Notes'});
-      if(!allMD.includes('# Reviewer Extraction Checklist')&&!allMD.includes('# Reviewer Checklist'))missingSections.push({id:'reviewer_checklist',label:'Reviewer Extraction Checklist'});
 
-      for(const missing of missingSections){
-        setP(genIdx,'par',missing.label+' was cut off — generating separately...');
-        try{
-          await sleep(5000,ac.signal);
-          const recoverSys=`You are a senior medical-legal consultant. The litigation review guide below was generated but the "${missing.label}" section was cut off. Write ONLY this section now.
+      // Check each expected section by looking for its heading in the output
+      for(const id of allSecIds){
+        const label=labels[id]||id;
+        // Check for the heading — try the full label and key words
+        const headingWords=label.split(/\s+/).filter(w=>w.length>3);
+        const found=allMD.split('\n').some(line=>{
+          if(!line.startsWith('# '))return false;
+          const lineLower=line.toLowerCase();
+          return headingWords.filter(w=>lineLower.includes(w.toLowerCase())).length>=Math.ceil(headingWords.length*0.5);
+        });
+        if(!found)missingSections.push({id,label});
+      }
 
-GUIDE CONTEXT (what was already written):
+      if(missingSections.length>0){
+        setP(genIdx,'par',missingSections.length+' section'+(missingSections.length>1?'s':'')+' missing — recovering...');
+
+        for(const missing of missingSections){
+          setP(genIdx,'par','Recovering: '+missing.label+'...');
+          try{
+            await sleep(3000,ac.signal);
+            const sp=getSP()[missing.id];
+            if(!sp)continue;
+
+            const recoverSys=`You are a senior medical-legal consultant. Write ONE section of a litigation review guide. The guide already has these sections written — do NOT duplicate their content:
+
+${allMD.split('\n').filter(l=>l.startsWith('# ')).join('\n')}
+
+GUIDE CONTEXT (abbreviated):
 <guide>
-${allMD.substring(0,30000)}
+${allMD.substring(0,20000)}
 </guide>
 
 SECTION TO WRITE:
-${getSP()[missing.id]}
+${sp}
 
-Write the COMPLETE section. This is one of the most important sections in the guide — do not abbreviate it.
+Write the COMPLETE section. Start with the # heading. Match the style and depth of the existing sections.
 
 Output ONLY this section's Markdown.`;
-          const recResp=await callApi(genKey,[{role:'user',content:'Write the complete '+missing.label+' section now. Output only Markdown.'}],recoverSys,{
-            stream:true,maxTok:4000,model:genModel,signal:ac.signal
-          });
-          const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
-          const recoveredMD=await streamTo(recResp,tmpEl);
-          document.body.removeChild(tmpEl);
+            const recResp=await callApi(genKey,[{role:'user',content:'Write the complete '+missing.label+' section now.'}],recoverSys,{
+              stream:true,maxTok:4000,model:genModel,signal:ac.signal
+            });
+            const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+            const recoveredMD=await streamTo(recResp,tmpEl);
+            document.body.removeChild(tmpEl);
 
-          if(recoveredMD&&recoveredMD.trim().length>200){
-            allMD+='\n\n---\n\n'+recoveredMD;
-            secMD[missing.id]=recoveredMD;
-            const gc=genDiv.querySelector('.gc');
-            gc.innerHTML=md2html(allMD);
-            updWC();buildTOC();
-            setP(genIdx,'done',countW(allMD).toLocaleString()+' words ('+missing.label+' recovered)');
-          }
-          if(missingSections.indexOf(missing)<missingSections.length-1)await sleep(3000,ac.signal);
-        }catch(e){
-          if(e.name!=='AbortError'){
+            if(recoveredMD&&recoveredMD.trim().length>100){
+              allMD+='\n\n---\n\n'+recoveredMD;
+              secMD[missing.id]=recoveredMD;
+              const gc=genDiv.querySelector('.gc');
+              gc.innerHTML=md2html(allMD);
+              updWC();buildTOC();
+            }
+            if(missingSections.indexOf(missing)<missingSections.length-1)await sleep(3000,ac.signal);
+          }catch(e){
+            if(e.name==='AbortError')throw e;
             setP(genIdx,'par',missing.label+' recovery failed — use Refine to add it');
             logError(e,{step:'section_recovery',stepLabel:missing.label+' Recovery',type:'generation'});
           }
         }
+        setP(genIdx,'done',countW(allMD).toLocaleString()+' words ('+missingSections.length+' section'+(missingSections.length>1?'s':'')+' recovered)');
       }
     }
 
@@ -2739,64 +2762,72 @@ async function refine(){
     allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
     const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
 
+    // ═══ Helper: local keyword match for section ═══
+    function matchSection(text){
+      const clean=text.toLowerCase().replace(/\b(the|a|an|in|on|of|to|for|and|with|about|from|this|that|my|our|section|more|detail|expand|add|change|update|fix|edit|improve|make|include|remove|please|can you|could you)\b/gi,'').trim();
+      let best=-1,bestSc=0;
+      headings.forEach((h,i)=>{
+        const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+        const mc=hWords.filter(w=>clean.includes(w)).length;
+        const sc=hWords.length>0?mc/hWords.length:0;
+        if(sc>bestSc&&mc>=1){bestSc=sc;best=i}
+      });
+      return best;
+    }
+
+    // ═══ Helper: splice section into allMD ═══
+    function spliceSection(idx,newContent){
+      const sl=h1Lines[idx];
+      const el=idx+1<h1Lines.length?h1Lines[idx+1]:allLines.length;
+      const before=allLines.slice(0,sl).join('\n');
+      const after=allLines.slice(el).join('\n');
+      allMD=(before?(before+'\n'):'')+newContent+(after?('\n'+after):'');
+    }
+
     // ═══════════════════════════════════════════
     // INTENT 1: REMOVE — no API, instant
     // ═══════════════════════════════════════════
     if(/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(il)&&!/\b(add|expand|more)\b/i.test(il)){
-      let removeIdx=-1,bestScore=0;
-      const stripped=il.replace(/\b(remove|delete|drop|cut|get rid of|take out|the|section|from|guide|this|please|can you)\b/gi,'').trim();
-      headings.forEach((h,i)=>{
-        const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-        const mc=hWords.filter(w=>stripped.includes(w)).length;
-        const sc=hWords.length>0?mc/hWords.length:0;
-        if(sc>bestScore&&sc>=0.4&&mc>=1){bestScore=sc;removeIdx=i}
-      });
-      if(removeIdx>=0&&(headings[removeIdx].toLowerCase().includes('checklist')||headings[removeIdx].toLowerCase().includes('review guide'))){
-        if(!il.includes('checklist')&&!il.includes('review guide'))removeIdx=-1;
-      }
+      const removeIdx=matchSection(il);
       if(removeIdx>=0){
-        const sl=h1Lines[removeIdx],el2=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
-        const before=allLines.slice(0,sl),after=allLines.slice(el2);
-        while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
-        allMD=before.join('\n')+'\n\n'+after.join('\n');
-        reRender();input.value='';
-        document.getElementById('pfoot').textContent='Removed: '+headings[removeIdx];
-        saveGuide();btn.disabled=false;btn.textContent='Refine';return;
+        // Protect checklist and review guide
+        const hl=headings[removeIdx].toLowerCase();
+        if((hl.includes('checklist')||hl.includes('review guide'))&&!il.includes('checklist')&&!il.includes('review guide')){
+          // Don't remove — fall through to edit
+        }else{
+          const sl=h1Lines[removeIdx],el=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
+          const before=allLines.slice(0,sl),after=allLines.slice(el);
+          while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
+          allMD=before.join('\n')+'\n\n'+after.join('\n');
+          reRender();input.value='';
+          document.getElementById('pfoot').textContent='Removed: '+headings[removeIdx];
+          saveGuide();btn.disabled=false;btn.textContent='Refine';return;
+        }
       }
     }
 
     // ═══════════════════════════════════════════
     // INTENT 2: REORDER — no API, instant
     // ═══════════════════════════════════════════
-    if(/\b(move|reorder|swap|before|after)\b/i.test(il)&&/\b(section|before|after)\b/i.test(il)){
-      // Try to parse "move X before/after Y"
-      const moveMatch=il.match(/move\s+(.+?)\s+(before|after)\s+(.+)/i);
+    if(/\b(move|reorder|swap)\b/i.test(il)&&/\b(before|after|above|below)\b/i.test(il)){
+      const moveMatch=il.match(/(?:move|put|place)\s+(.+?)\s+(before|after|above|below)\s+(.+)/i);
       if(moveMatch){
-        const findSec=(name)=>{
-          let best=-1,bestSc=0;
-          headings.forEach((h,i)=>{
-            const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-            const mc=hWords.filter(w=>name.includes(w)).length;
-            const sc=hWords.length>0?mc/hWords.length:0;
-            if(sc>bestSc){bestSc=sc;best=i}
-          });
-          return bestSc>=0.3?best:-1;
-        };
-        const srcIdx=findSec(moveMatch[1].toLowerCase());
-        const dstIdx=findSec(moveMatch[3].toLowerCase());
-        const dir=moveMatch[2].toLowerCase();
+        const srcIdx=matchSection(moveMatch[1]);
+        const dstIdx=matchSection(moveMatch[3]);
+        const dir=(moveMatch[2]==='before'||moveMatch[2]==='above')?'before':'after';
         if(srcIdx>=0&&dstIdx>=0&&srcIdx!==dstIdx){
           const srcStart=h1Lines[srcIdx],srcEnd=srcIdx+1<h1Lines.length?h1Lines[srcIdx+1]:allLines.length;
-          const srcBlock=allLines.slice(srcStart,srcEnd).join('\n');
-          // Remove source
-          allLines.splice(srcStart,srcEnd-srcStart);
-          // Recalc
+          const srcBlock=allLines.splice(srcStart,srcEnd-srcStart);
+          // Recalc after splice
           const h1s2=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1s2.push(i)});
-          const newDstIdx=headings.indexOf(headings[dstIdx])>=0?h1s2.findIndex(li=>allLines[li]&&allLines[li].includes(headings[dstIdx])):-1;
-          if(newDstIdx>=0){
-            const insertAt=dir==='before'?h1s2[newDstIdx]:((newDstIdx+1<h1s2.length)?h1s2[newDstIdx+1]:allLines.length);
-            allLines.splice(insertAt,0,...srcBlock.split('\n'));
+          let insertAt=allLines.length;
+          for(let j=0;j<h1s2.length;j++){
+            if(allLines[h1s2[j]]&&allLines[h1s2[j]].includes(headings[dstIdx].split(' ')[0])){
+              insertAt=dir==='before'?h1s2[j]:(j+1<h1s2.length?h1s2[j+1]:allLines.length);
+              break;
+            }
           }
+          allLines.splice(insertAt,0,...srcBlock);
           allMD=allLines.join('\n');
           reRender();input.value='';
           document.getElementById('pfoot').textContent='Moved: '+headings[srcIdx]+' '+dir+' '+headings[dstIdx];
@@ -2806,12 +2837,12 @@ async function refine(){
     }
 
     // ═══════════════════════════════════════════
-    // INTENT 3: QUESTION — answer, don't edit
+    // INTENT 3: QUESTION — answer in panel, guide untouched
     // ═══════════════════════════════════════════
-    const isQuestion=instruction.includes('?')||/^(what|why|how|is there|are there|which|does|do|can|should|would|could|tell me|explain)\b/i.test(instruction);
-    if(isQuestion&&!/\b(add|change|edit|update|expand|remove|rewrite)\b/i.test(il)){
+    const isQuestion=instruction.includes('?')||/^(what|why|how|who|when|where|is there|are there|which|does|do|can|should|would|could|tell me|explain|summarize|compare)\b/i.test(instruction);
+    if(isQuestion&&!/\b(add|change|edit|update|expand|remove|rewrite|include|move)\b/i.test(il)){
       btn.textContent='Thinking...';
-      const qSys='You are a medical-legal consultant. Answer this question about a litigation review guide.\n\nGUIDE:\n<guide>\n'+allMD.substring(0,40000)+'\n</guide>\n\nRESEARCH:\n<research>\n'+researchText+'\n</research>\n\nAnswer concisely and specifically based on the guide content and research. If the answer requires new research, say so.';
+      const qSys='You are a medical-legal consultant answering a question about a litigation review guide. Be specific and concise.\n\nGUIDE:\n'+allMD.substring(0,40000)+'\n\nRESEARCH:\n'+researchText;
       const qResp=await callApi(keys[0],[{role:'user',content:instruction}],qSys,{
         stream:true,maxTok:1500,model:genModel,signal:null
       });
@@ -2826,24 +2857,22 @@ async function refine(){
     // ═══════════════════════════════════════════
     // INTENT 4: ADD NEW SECTION — generate fresh
     // ═══════════════════════════════════════════
-    if(/\b(add a section|add a new|new section|create a section|insert a section)\b/i.test(il)){
+    if(/\b(add a section|add a new section|new section|create a section|insert a section)\b/i.test(il)){
       btn.textContent='Generating new section...';
       const t=T();
-      const addSys='You are a senior medical-legal consultant adding ONE new section to a litigation review guide.\n\nEXISTING SECTIONS:\n'+headings.map(h=>'- '+h).join('\n')+'\n\nRESEARCH:\n<research>\n'+researchText+'\n</research>\n\nINSTRUCTION: '+instruction+'\n\nWrite the new section in the same style as the existing guide. Use # for the main heading. Include [Source](URL) citations from research where available. This is a '+t.product_lc+' case.\n\nOutput ONLY the new section Markdown.';
-      const addResp=await callApi(keys[0],[{role:'user',content:'Write the new section. Match the existing guide style.'}],addSys,{
-        stream:true,maxTok:4000,model:genModel,signal:null,
-        onRetry:(msg)=>{btn.textContent=msg}
+      const addSys='You are adding ONE new section to a litigation review guide.\n\nEXISTING SECTIONS:\n'+headings.map(h=>'- '+h).join('\n')+'\n\nRESEARCH:\n'+researchText+'\n\nINSTRUCTION: '+instruction+'\n\nWrite the new section. Use # heading. Include [Source](URL) citations. Match the existing guide style.\n\nOutput ONLY the section Markdown.';
+      const addResp=await callApi(keys[0],[{role:'user',content:'Write the new section.'}],addSys,{
+        stream:true,maxTok:4000,model:genModel,signal:null
       });
       const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
       const newSec=await streamTo(addResp,tmpEl);
       document.body.removeChild(tmpEl);
       if(newSec&&newSec.trim().length>50){
-        // Insert before the last two sections (Review Guide & Checklist)
-        const insertBefore=Math.max(h1Lines.length-2,h1Lines.length-1);
-        if(insertBefore>=0&&insertBefore<h1Lines.length){
-          const insertLine=h1Lines[insertBefore];
-          const before=allLines.slice(0,insertLine).join('\n');
-          const after=allLines.slice(insertLine).join('\n');
+        // Insert before last two sections (Review Guide & Checklist)
+        const insertBefore=Math.max(h1Lines.length-2,0);
+        if(insertBefore<h1Lines.length){
+          const before=allLines.slice(0,h1Lines[insertBefore]).join('\n');
+          const after=allLines.slice(h1Lines[insertBefore]).join('\n');
           allMD=before+'\n\n---\n\n'+newSec+'\n\n---\n\n'+after;
         }else{
           allMD+='\n\n---\n\n'+newSec;
@@ -2856,30 +2885,39 @@ async function refine(){
     }
 
     // ═══════════════════════════════════════════
-    // INTENT 5: EDIT SECTION — the default
+    // INTENT 5: EDIT — identify section, apply change
     // ═══════════════════════════════════════════
+    const isExpand=/\b(deeper|more detail|expand|flesh out|elaborate|thorough|comprehensive|add more|bulk up|enrich)\b/i.test(il);
+    const needsResearch=isExpand||/\b(research|data|cite|source|evidence|study|trial|FDA|findings)\b/i.test(il);
 
-    // Detect if this is a "deeper dive" vs a small edit
-    const isExpand=/\b(deeper|more detail|expand|flesh out|elaborate|thorough|comprehensive|add more|bulk up)\b/i.test(il);
-
-    // Find target section
+    // Find target section — 3 attempts: dropdown > API > local keyword
     let targetIdx=-1;
+
+    // Attempt 1: User selected from dropdown
     if(scope!=='full'){
       targetIdx=parseInt(scope.replace('sec-',''));
-    }else{
-      try{
-        const idResp=await callApi(keys[0],[{role:'user',content:'Section number only.'}],
-          'Sections:\n'+headings.map((h,i)=>i+': '+h).join('\n')+'\nWhich section does this apply to: "'+instruction+'"\nReply ONLY the number. -1 if unclear.',
-          {maxTok:20,model:genModel,signal:null});
-        const idJson=await idResp.json();
-        const n=parseInt(((idJson.content&&idJson.content[0]&&idJson.content[0].text)||'-1').trim());
-        if(n>=0&&n<h1Lines.length)targetIdx=n;
-      }catch(e){console.warn('Identify:',e.message)}
     }
 
-    if(targetIdx<0||targetIdx>=h1Lines.length){
-      alert('Could not determine which section to modify. Select a section from the dropdown.');
-      btn.disabled=false;btn.textContent='Refine';return;
+    // Attempt 2: API identify
+    if(targetIdx<0){
+      try{
+        const idResp=await callApi(keys[0],[{role:'user',content:'Section number only.'}],
+          'Sections:\n'+headings.map((h,i)=>i+': '+h).join('\n')+'\nWhich section does this instruction apply to: "'+instruction+'"\nReply with ONLY the number (0-indexed). If it applies to multiple sections, pick the most relevant one. Never reply -1 — always pick your best guess.',
+          {maxTok:20,model:genModel,signal:null});
+        const idJson=await idResp.json();
+        const n=parseInt(((idJson.content&&idJson.content[0]&&idJson.content[0].text)||'').trim());
+        if(n>=0&&n<h1Lines.length)targetIdx=n;
+      }catch(e){console.warn('API identify failed:',e.message)}
+    }
+
+    // Attempt 3: Local keyword matching
+    if(targetIdx<0){
+      targetIdx=matchSection(instruction);
+    }
+
+    // Attempt 4: Default to the first content section (skip Product & Exposure)
+    if(targetIdx<0){
+      targetIdx=Math.min(1,h1Lines.length-1);
     }
 
     const startLine=h1Lines[targetIdx];
@@ -2891,22 +2929,23 @@ async function refine(){
     // Token limit based on intent
     const secWords=secText.split(/\s+/).length;
     const maxTok=isExpand
-      ?Math.max(Math.round(secWords*3),4000)   // expand: 2x room to grow
-      :Math.max(Math.round(secWords*1.8),2000); // edit: tight buffer
+      ?Math.max(Math.round(secWords*3),4000)
+      :Math.max(Math.round(secWords*1.8),2000);
 
-    const sys=`You are editing one section of a litigation review guide. Apply the user's instruction.
+    const sys=`You are editing one section of a litigation review guide.
 
-${(isExpand&&researchText)?'RESEARCH (use to add depth):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT SECTION:
+${(needsResearch&&researchText)?'RESEARCH (use for new facts/citations):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT SECTION:
 <section>
 ${secText}
 </section>
 
-RULES:
+INSTRUCTION FROM USER: ${instruction}
+
 ${isExpand
-?'- EXPAND the content as requested — add depth, detail, and specificity\n- Keep all existing content and add to it\n- Use research notes for new facts and citations'
-:'- Change ONLY what the instruction asks. Leave everything else word-for-word identical.\n- Do NOT add content the instruction didn\'t request.\n- Do NOT rephrase or reorganize text the instruction didn\'t mention.'}
-- Preserve all [Source](URL) citations.
-- Start with the # heading. Output the revised section.`;
+?'APPROACH: EXPAND this section — add depth, detail, specificity. Keep all existing content. Use research for new facts and [Source](URL) citations.'
+:'APPROACH: Make ONLY the change requested. Do not rewrite, rephrase, or reorganize anything the instruction didn\'t mention. Preserve all existing content and citations word-for-word except where the instruction asks for a change.'}
+
+Start with the # heading. Output the revised section.`;
 
     const resp=await callApi(keys[0],[{role:'user',content:instruction}],sys,{
       stream:true,maxTok,model:genModel,signal:null,
@@ -2918,9 +2957,7 @@ ${isExpand
     document.body.removeChild(tmpEl);
 
     if(newSecMD&&newSecMD.trim().length>50){
-      const before=allLines.slice(0,startLine).join('\n');
-      const after=allLines.slice(endLine).join('\n');
-      allMD=(before?(before+'\n'):'')+newSecMD+(after?('\n'+after):'');
+      spliceSection(targetIdx,newSecMD);
       document.getElementById('pfoot').textContent=(isExpand?'Expanded':'Updated')+': '+secTitle;
       saveGuide();
     }
