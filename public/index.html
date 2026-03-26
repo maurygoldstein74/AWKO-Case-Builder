@@ -534,7 +534,7 @@ function T(){return LIT_TERMS[document.getElementById('litType').value]||LIT_TER
 
 const SEC_IDS=[
   'product_exposure','injuries_severity','causation_mechanism',
-  'medical_context','confounders_defense','treatment_soc','reviewer_checklist'
+  'medical_context','confounders_defense','treatment_soc','review_guide_notes','reviewer_checklist'
 ];
 
 function getSecLabels(){
@@ -546,6 +546,7 @@ function getSecLabels(){
     medical_context:'Medical Context & Monitoring',
     confounders_defense:'Confounders & Defense Arguments',
     treatment_soc:'Treatment & Standard of Care',
+    review_guide_notes:'Review Guide & Notes',
     reviewer_checklist:'Reviewer Extraction Checklist',
   };
 }
@@ -1565,6 +1566,49 @@ For each alleged injury, what treatment was needed?
 ## Specialists Involved
 Bullet list: **Specialist Title** — what they manage, what notes from them matter for the case (one line each)`,
 
+review_guide_notes:`# Review Guide & Notes
+PURPOSE: Practical reference for the reviewer to keep open while reading medical records. This section tells them exactly what to look for, where to find it, and what terminology they will encounter. This is NOT a medical education resource — it is a field guide for building the case from the chart.
+
+## ICD-10 & Terminology Quick Reference
+TABLE format for each alleged injury:
+| Injury | ICD-10 Code(s) | Chart Synonyms / Alternate Terms | Nursing Shorthand | Coding Terms |
+Reviewers will see the same injury documented under multiple names. Every synonym that might appear in physician notes, nursing assessments, discharge summaries, or problem lists should be listed here.
+
+## What to Look For in the Chart — By Record Type
+For each record type, what specific entries matter for THIS case:
+- **Physician Assessment/Plan:** What diagnosis language confirms the injury? What phrases indicate attribution to the ${t.product_lc}?
+- **Specialist Consults:** Which specialties matter? What findings from their notes are case-relevant?
+- **Operative Reports:** What procedure details document ${t.product_lc} exposure or injury treatment?
+- **Nursing Notes:** What documented symptoms, vitals, or observations support injury claims?
+- **Lab Results:** Which specific labs to track, what values matter, at what time points?
+- **Imaging Reports:** What findings confirm injury or ${t.product_lc} failure?
+- **Discharge Summaries:** What diagnosis lists, medication changes, or follow-up plans matter?
+- **Medication Records (MAR/eMAR):** What medication entries prove exposure or confirm injury treatment?
+${isDevice?`- **Implant Records / Product Stickers:** Device ID, lot number, model, manufacturer — must match the product in litigation
+- **Surgical Technique Notes:** Compliance with manufacturer instructions for use`:''}
+
+## Red Flags & Case Alerts
+Items the reviewer should flag IMMEDIATELY for attorney attention:
+- Entries that suggest the injury existed BEFORE ${t.product_lc} exposure
+- Physician notes attributing the injury to a cause OTHER than the ${t.product_lc}
+- Documentation gaps in exposure records (missing dates, missing records for key time periods)
+- Conflicting information between different providers or record entries
+- Evidence of ${t.off_label}
+- Evidence of failure to monitor per ${t.monitoring}
+- Any adverse event report or incident report in the chart
+
+## Chronology Tips
+- Build the timeline from: ${t.exposure_records}
+- Key dates to anchor: first exposure date, injury onset date, ${isDevice?'revision/removal date':'discontinuation date'}, current status
+- Look for temporal gaps — missing records between exposure and injury onset weaken causation
+- Chart entries are not always in order — check dates carefully, especially across facilities
+
+## Common Pitfalls
+- "Rule out" or "possible" is NOT a confirmed diagnosis — look for definitive language
+- Self-reported history (e.g., patient says they drink alcohol) is NOT the same as a physician diagnosis — only MD-documented conditions count as confounders
+- Pre-existing conditions documented AFTER exposure start may actually be ${t.product_lc}-caused injuries, not confounders
+- Do not assume the problem list is complete — search physician notes and specialist consults for diagnoses that may not be on the problem list`,
+
 reviewer_checklist:`# Reviewer Extraction Checklist
 PURPOSE: Extract ONLY what the attorneys need to value the case, build the demand, and anticipate the defense. Do not summarize the medical history — extract the litigation-relevant data points.
 
@@ -1718,14 +1762,16 @@ function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
 
   // Calculate explicit per-section word budgets
   const budgets={};
-  const heavyW=Math.round(dc.totalWords*0.25); // 25% each for injuries, confounders
-  const checklistW=Math.round(dc.totalWords*0.20); // 20% for checklist — non-negotiable
-  const remaining=dc.totalWords-heavyW*2-checklistW;
-  const otherCount=numSecs-3; // minus injuries, confounders, checklist
+  const heavyW=Math.round(dc.totalWords*0.22); // 22% each for injuries, confounders
+  const guideW=Math.round(dc.totalWords*0.15); // 15% for review guide & notes
+  const checklistW=Math.round(dc.totalWords*0.15); // 15% for checklist — non-negotiable
+  const remaining=dc.totalWords-heavyW*2-guideW-checklistW;
+  const otherCount=numSecs-4; // minus injuries, confounders, guide, checklist
   const otherW=otherCount>0?Math.round(remaining/otherCount):0;
   secIds.forEach(id=>{
     if(id==='injuries_severity')budgets[id]=heavyW;
     else if(id==='confounders_defense')budgets[id]=heavyW;
+    else if(id==='review_guide_notes')budgets[id]=guideW;
     else if(id==='reviewer_checklist')budgets[id]=checklistW;
     else budgets[id]=otherW;
   });
@@ -1740,14 +1786,16 @@ Total: ~${dc.totalWords} words. Per-section budgets:
 ${budgetTable}
 - One-line bullet points only. No paragraphs.
 - If you are running long on a section, STOP and move to the next one.
-- The Reviewer Checklist section MUST be complete — it is the most important section. Budget ${checklistW} words for it.`,
+- The Reviewer Checklist section MUST be complete — it is the most important section. Budget ${checklistW} words for it.
+- The Review Guide & Notes section must include the ICD-10 table and chart navigation reference. Budget ${guideW} words for it.`,
 
     standard:`WORD BUDGETS — STRICT:
 Total: ~${dc.totalWords} words. Per-section budgets:
 ${budgetTable}
 - Tight bullet points, not paragraphs. Tables for lab values.
 - Track your word count as you write each section. When you hit a section's budget, move on.
-- The Reviewer Checklist section is NON-NEGOTIABLE — it MUST be written in full. Reserve at least ${checklistW} words for it. If you are running long, compress the earlier sections to make room.`,
+- The Reviewer Checklist section is NON-NEGOTIABLE — it MUST be written in full. Reserve at least ${checklistW} words for it. If you are running long, compress the earlier sections to make room.
+- The Review Guide & Notes section must include the ICD-10 table and chart navigation reference.`,
 
     thorough:`WORD BUDGETS:
 Total: ~${dc.totalWords} words. Per-section budgets:
@@ -1800,9 +1848,9 @@ ${depthInstructions[outputDepth]}
 
 CRITICAL RULES:
 1. You MUST write ALL ${numSecs} sections. Skipping ANY section is a failure.
-2. The Reviewer Extraction Checklist is the MOST IMPORTANT section — it must be written in full with all subsections. If you are running out of space, compress EARLIER sections to make room for the checklist. NEVER cut the checklist short.
+2. The Review Guide & Notes and Reviewer Extraction Checklist are the MOST IMPORTANT sections — both must be written in full. If you are running out of space, compress EARLIER sections (Product & Exposure, Medical Context) to make room. NEVER cut the review guide or checklist short.
 3. HARD WORD LIMIT: ~${dc.totalWords} words total. Follow the per-section budgets above.
-4. If approaching your limit, compress Product & Exposure and Medical Context first — those are the most compressible. NEVER compress the checklist.
+4. If approaching your limit, compress Product & Exposure and Medical Context first — those are the most compressible. NEVER compress the Review Guide, Checklist, Injuries, or Confounders sections.
 5. Every section must have a proper ending — never stop mid-sentence or mid-list.
 
 SECTIONS TO WRITE (in this order):
@@ -2157,7 +2205,7 @@ async function run(){
         const allSecIds=secs;
         const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,allSecIds);
         const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE litigation review guide — all '+allSecIds.length+' sections. Target ~'+dc.totalWords+' words. The Reviewer Extraction Checklist is the MOST IMPORTANT section — write it in full. If running long, compress the earlier sections (especially Product & Exposure and Medical Context) to leave room. You MUST finish the checklist. Include [Source](URL) citations. Output only Markdown.'}],sys,{
+        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE litigation review guide — all '+allSecIds.length+' sections. Target ~'+dc.totalWords+' words. The Review Guide & Notes and Reviewer Extraction Checklist are the MOST IMPORTANT sections — write both in full. If running long, compress earlier sections. Include [Source](URL) citations. Output only Markdown.'}],sys,{
           stream:true,maxTok:dc.tokPerCall,model:genModel,signal:ac.signal,
           onRetry:(msg)=>setP(genIdx,'par',msg)
         });
@@ -2188,13 +2236,17 @@ async function run(){
 
     updWC();buildTOC();
 
-    // ═══ COMPLETION CHECK: Ensure Reviewer Checklist was written ═══
-    if(genSuccess&&allMD&&!allMD.includes('# Reviewer Extraction Checklist')&&!allMD.includes('# Reviewer Checklist')){
-      setP(genIdx,'par','Checklist was cut off — generating separately...');
-      try{
-        await sleep(5000,ac.signal);
-        const t=T();
-        const checklistSys=`You are a senior medical-legal consultant. The litigation review guide below was generated but the Reviewer Extraction Checklist section was cut off. Write ONLY the Reviewer Extraction Checklist section now.
+    // ═══ COMPLETION CHECK: Ensure Review Guide and Checklist were written ═══
+    if(genSuccess&&allMD){
+      const missingSections=[];
+      if(!allMD.includes('# Review Guide')&&!allMD.includes('# Review Notes'))missingSections.push({id:'review_guide_notes',label:'Review Guide & Notes'});
+      if(!allMD.includes('# Reviewer Extraction Checklist')&&!allMD.includes('# Reviewer Checklist'))missingSections.push({id:'reviewer_checklist',label:'Reviewer Extraction Checklist'});
+
+      for(const missing of missingSections){
+        setP(genIdx,'par',missing.label+' was cut off — generating separately...');
+        try{
+          await sleep(5000,ac.signal);
+          const recoverSys=`You are a senior medical-legal consultant. The litigation review guide below was generated but the "${missing.label}" section was cut off. Write ONLY this section now.
 
 GUIDE CONTEXT (what was already written):
 <guide>
@@ -2202,32 +2254,32 @@ ${allMD.substring(0,30000)}
 </guide>
 
 SECTION TO WRITE:
-${getSP().reviewer_checklist}
+${getSP()[missing.id]}
 
-Write the COMPLETE checklist section. Start with # Reviewer Extraction Checklist. Include all 5 elements (Exposure Gate, Injury & Severity, Causation, Defense Risks, Damages) plus the Case Valuation Quick Read. This is the most important section in the guide — do not abbreviate it.
+Write the COMPLETE section. This is one of the most important sections in the guide — do not abbreviate it.
 
 Output ONLY this section's Markdown.`;
-        const checkResp=await callApi(genKey,[{role:'user',content:'Write the complete Reviewer Extraction Checklist section now. Do not skip any subsections. Output only Markdown.'}],checklistSys,{
-          stream:true,maxTok:4000,model:genModel,signal:ac.signal
-        });
-        const checkDiv=document.createElement('div');checkDiv.style.display='none';
-        document.body.appendChild(checkDiv);
-        const checklistMD=await streamTo(checkResp,checkDiv);
-        document.body.removeChild(checkDiv);
+          const recResp=await callApi(genKey,[{role:'user',content:'Write the complete '+missing.label+' section now. Output only Markdown.'}],recoverSys,{
+            stream:true,maxTok:4000,model:genModel,signal:ac.signal
+          });
+          const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+          const recoveredMD=await streamTo(recResp,tmpEl);
+          document.body.removeChild(tmpEl);
 
-        if(checklistMD&&checklistMD.trim().length>200){
-          allMD+='\n\n---\n\n'+checklistMD;
-          secMD['reviewer_checklist']=checklistMD;
-          // Re-render
-          const gc=genDiv.querySelector('.gc');
-          gc.innerHTML=md2html(allMD);
-          updWC();buildTOC();
-          setP(genIdx,'done',countW(allMD).toLocaleString()+' words (checklist recovered)');
-        }
-      }catch(e){
-        if(e.name!=='AbortError'){
-          setP(genIdx,'par','Checklist recovery failed — use Refine to add it');
-          logError(e,{step:'checklist_recovery',stepLabel:'Checklist Recovery',type:'generation'});
+          if(recoveredMD&&recoveredMD.trim().length>200){
+            allMD+='\n\n---\n\n'+recoveredMD;
+            secMD[missing.id]=recoveredMD;
+            const gc=genDiv.querySelector('.gc');
+            gc.innerHTML=md2html(allMD);
+            updWC();buildTOC();
+            setP(genIdx,'done',countW(allMD).toLocaleString()+' words ('+missing.label+' recovered)');
+          }
+          if(missingSections.indexOf(missing)<missingSections.length-1)await sleep(3000,ac.signal);
+        }catch(e){
+          if(e.name!=='AbortError'){
+            setP(genIdx,'par',missing.label+' recovery failed — use Refine to add it');
+            logError(e,{step:'section_recovery',stepLabel:missing.label+' Recovery',type:'generation'});
+          }
         }
       }
     }
@@ -2656,215 +2708,160 @@ async function refine(){
   const histEl=document.getElementById('refineHistory');
   histEl.innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
 
-  const drug=document.getElementById('drugName').value.trim();
-  const cond=document.getElementById('condition').value.trim();
-
-  // Detect if instruction needs research context (asking for new facts/data/detail)
   const needsResearch=/\b(add|include|expand|more detail|missing|flesh out|elaborate|research|data|cite|source|evidence|study|trial|FDA)\b/i.test(instruction);
-  const researchText=needsResearch?Object.values(allRes).join('\n\n---\n\n').substring(0,25000):'';
+  const researchText=needsResearch?Object.values(allRes).join('\n\n---\n\n').substring(0,15000):'';
 
   try{
-    if(scope==='full'){
-      const allLines=allMD.split('\n');
-      const h1Lines=[];
-      allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-      const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
+    // ═══ PARSE SECTIONS ═══
+    const allLines=allMD.split('\n');
+    const h1Lines=[];
+    allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+    const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
 
-      // ═══ DETECT REMOVE/DELETE — handle without API ═══
-      const isRemove=/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(instruction);
-      if(isRemove){
-        // Find which section the instruction refers to — require strong match
-        let removeIdx=-1;
-        let bestScore=0;
-        const instrLower=instruction.toLowerCase().replace(/\b(remove|delete|drop|cut|get rid of|take out|the|section|from|guide|this|please|can you)\b/gi,'').trim();
-
-        headings.forEach((h,i)=>{
-          const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-          const matchCount=hWords.filter(w=>instrLower.includes(w)).length;
-          const score=hWords.length>0?matchCount/hWords.length:0;
-          // Require at least 40% of heading words to match
-          if(score>bestScore&&score>=0.4&&matchCount>=1){
-            bestScore=score;
-            removeIdx=i;
-          }
-        });
-
-        // NEVER allow removing the Reviewer Extraction Checklist via fuzzy match
-        if(removeIdx>=0&&headings[removeIdx].toLowerCase().includes('checklist')){
-          if(!instruction.toLowerCase().includes('checklist')){
-            removeIdx=-1; // Don't remove checklist unless explicitly named
-          }
-        }
-
-        if(removeIdx>=0){
-          const startLine=h1Lines[removeIdx];
-          const endLine=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
-          const removedTitle=headings[removeIdx];
-          const before=allLines.slice(0,startLine);
-          const after=allLines.slice(endLine);
-          // Clean up trailing separators
-          while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
-          allMD=before.join('\n')+'\n\n'+after.join('\n');
-
-          const gBody=document.getElementById('gBody');
-          gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
-          const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
-          splitBatchMD(allMD,allSecIds);
-          updWC();buildTOC();showRefineBar();splitOutputIntoSections();
-          input.value='';
-          btn.disabled=false;btn.textContent='Refine';
-          document.getElementById('pfoot').textContent='Removed: '+removedTitle;
-          saveGuide();
-          return;
-        }
-        // If we couldn't identify the section, fall through to API path
+    // ═══ DETECT REMOVE/DELETE — no API needed ═══
+    const isRemove=/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(instruction);
+    if(isRemove){
+      let removeIdx=-1,bestScore=0;
+      const instrLower=instruction.toLowerCase().replace(/\b(remove|delete|drop|cut|get rid of|take out|the|section|from|guide|this|please|can you)\b/gi,'').trim();
+      headings.forEach((h,i)=>{
+        const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+        const matchCount=hWords.filter(w=>instrLower.includes(w)).length;
+        const score=hWords.length>0?matchCount/hWords.length:0;
+        if(score>bestScore&&score>=0.4&&matchCount>=1){bestScore=score;removeIdx=i}
+      });
+      // Protect checklist and review guide from fuzzy removal
+      if(removeIdx>=0&&(headings[removeIdx].toLowerCase().includes('checklist')||headings[removeIdx].toLowerCase().includes('review guide'))){
+        if(!instruction.toLowerCase().includes('checklist')&&!instruction.toLowerCase().includes('review guide'))removeIdx=-1;
       }
+      if(removeIdx>=0){
+        const startLine=h1Lines[removeIdx];
+        const endLine=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
+        const removedTitle=headings[removeIdx];
+        const before=allLines.slice(0,startLine);
+        const after=allLines.slice(endLine);
+        while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
+        allMD=before.join('\n')+'\n\n'+after.join('\n');
+        reRender();input.value='';
+        document.getElementById('pfoot').textContent='Removed: '+removedTitle;
+        saveGuide();
+        btn.disabled=false;btn.textContent='Refine';
+        return;
+      }
+    }
 
-      // ═══ TARGETED API EDIT — find affected section, edit only that one ═══
-      // Use ONE API call to identify AND produce the edit
-      const editSys=`You are modifying a litigation review guide. Here are the section headings:
-
-${headings.map((h,i)=>i+': '+h).join('\n')}
-
-INSTRUCTION: "${instruction}"
-
-Respond with ONLY a JSON object:
-{
-  "section": <number of the section to modify (0-indexed)>,
-  "action": "edit"
-}
-
-If the instruction affects multiple sections, pick the ONE most relevant section.
-If you truly cannot determine which section, respond: {"section": -1, "action": "all"}
-No explanation. JSON only.`;
-
-      let targetIdx=-1;
+    // ═══ FIND TARGET SECTION ═══
+    let targetIdx=-1;
+    if(scope!=='full'){
+      // User selected a specific section
+      targetIdx=parseInt(scope.replace('sec-',''));
+    }else{
+      // Ask model which single section to edit
       try{
-        const idResp=await callApi(keys[0],[{role:'user',content:'Which single section? JSON only.'}],editSys,{maxTok:100,model:genModel,signal:null});
+        const idSys='Sections:\n'+headings.map((h,i)=>i+': '+h).join('\n')+'\n\nWhich section number does this apply to: "'+instruction+'"\n\nReply with ONLY the number. If unclear reply -1.';
+        const idResp=await callApi(keys[0],[{role:'user',content:'Section number only.'}],idSys,{maxTok:20,model:genModel,signal:null});
         const idJson=await idResp.json();
-        const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'';
-        const parsed=JSON.parse(idText.replace(/```json|```/g,'').trim());
-        if(parsed.section>=0&&parsed.section<h1Lines.length)targetIdx=parsed.section;
+        const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'-1';
+        const n=parseInt(idText.trim());
+        if(n>=0&&n<h1Lines.length)targetIdx=n;
       }catch(e){console.warn('Identify failed:',e.message)}
+    }
 
-      if(targetIdx>=0){
-        // Edit just that one section
-        const startLine=h1Lines[targetIdx];
-        const endLine=targetIdx+1<h1Lines.length?h1Lines[targetIdx+1]:allLines.length;
-        const secText=allLines.slice(startLine,endLine).join('\n');
-        const secTitle=headings[targetIdx];
+    if(targetIdx<0||targetIdx>=h1Lines.length){
+      alert('Could not determine which section to modify. Please select a specific section from the dropdown.');
+      btn.disabled=false;btn.textContent='Refine';
+      return;
+    }
 
-        btn.textContent='Refining: '+secTitle.substring(0,30)+'...';
+    // ═══ EXTRACT TARGET SECTION ═══
+    const startLine=h1Lines[targetIdx];
+    const endLine=targetIdx+1<h1Lines.length?h1Lines[targetIdx+1]:allLines.length;
+    const secText=allLines.slice(startLine,endLine).join('\n');
+    const secTitle=headings[targetIdx];
+    btn.textContent='Editing: '+secTitle.substring(0,30)+'...';
 
-        const secSys=`You are revising ONE SECTION of a litigation review guide.
+    // ═══ DIFF-BASED EDIT — model outputs changes only, not the whole section ═══
+    const diffSys=`You are a precise text editor. You will receive a section of a document and an instruction. Output ONLY the minimum find/replace operations needed to satisfy the instruction. Do NOT touch any text the instruction didn't ask about.
 
-${researchText?'RESEARCH NOTES (use ONLY if needed):\n<research>\n'+researchText.substring(0,15000)+'\n</research>\n':''}
 CURRENT SECTION:
 <section>
 ${secText}
 </section>
+${researchText?'\nREFERENCE DATA (use ONLY if instruction asks for new facts):\n<ref>\n'+researchText+'\n</ref>':''}
 
 INSTRUCTION: ${instruction}
 
-RULES:
-- Modify ONLY what the instruction asks for. Preserve everything else EXACTLY as-is.
-- Do NOT add new subsections or topics the instruction didn't ask for.
-- Do NOT remove content the instruction didn't ask to remove.
-- Preserve all [Source](URL) citations.
-- Start with the # heading.
+OUTPUT FORMAT — JSON array of {"find":"exact text","replace":"new text"} objects:
+- "find" = exact substring copied from the section (character-for-character, including markdown)
+- "replace" = what to put in its place (use "" to delete)
+- One object per discrete change
+- Limit to 1-5 changes maximum
 
-Output ONLY the revised section Markdown.`;
+CRITICAL:
+- If the instruction says "add X after Y" → find Y, replace with Y + new content
+- If the instruction says "change X to Z" → find X, replace with Z
+- If the instruction says "remove X" → find X, replace with ""
+- Do NOT reword, rephrase, or restructure ANYTHING the instruction didn't mention
+- Do NOT "improve" or "enhance" surrounding content — touch ONLY what was asked
+- The "find" string must appear verbatim in the section above — if you can't find it, don't guess
 
-        const resp=await callApi(keys[0],[{role:'user',content:'Apply ONLY the requested change. Preserve everything else exactly. Output only the section Markdown.'}],secSys,{
-          stream:true,maxTok:Math.min((DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,8000),model:genModel,signal:null,
-          onRetry:(msg)=>{btn.textContent=msg}
-        });
+Output ONLY the JSON array. No explanation. No markdown fences.`;
 
-        const tempDiv=document.createElement('div');tempDiv.className='gc';
-        document.body.appendChild(tempDiv);tempDiv.style.display='none';
-        const newSecMD=await streamTo(resp,tempDiv);
-        document.body.removeChild(tempDiv);
+    const diffResp=await callApi(keys[0],[{role:'user',content:'JSON array of find/replace changes only. Minimum changes needed. Do not rewrite anything not mentioned in the instruction.'}],diffSys,{
+      maxTok:1500,model:genModel,signal:null,
+      onRetry:(msg)=>{btn.textContent=msg}
+    });
+    const diffJson=await diffResp.json();
+    const diffText=(diffJson.content&&diffJson.content[0]&&diffJson.content[0].text)||'[]';
+    const diffClean=diffText.replace(/```json|```/g,'').trim();
 
-        if(newSecMD&&newSecMD.trim().length>50){
-          const before=allLines.slice(0,startLine).join('\n');
-          const after=allLines.slice(endLine).join('\n');
-          allMD=(before?(before+'\n'):'')+newSecMD+(after?('\n'+after):'');
-        }
-
-        const gBody=document.getElementById('gBody');
-        gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
-        const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
-        splitBatchMD(allMD,allSecIds);
-        updWC();buildTOC();showRefineBar();splitOutputIntoSections();
-
-      }else{
-        // Couldn't identify a section — ask user to select one from dropdown
-        alert('Could not determine which section to modify. Please select a specific section from the dropdown and try again.');
-      }
-
-    }else{
-      // Refine a specific section
-      const secIdx=parseInt(scope.replace('sec-',''));
-      const h1s=document.getElementById('gBody').querySelectorAll('h1');
-      const targetH1=h1s[secIdx];
-      if(!targetH1)throw new Error('Section not found');
-
-      // Extract this section's markdown (approximate: from this h1 to next h1 or end)
-      const allLines=allMD.split('\n');
-      const secTitle=targetH1.textContent.trim();
-      let startLine=-1,endLine=allLines.length;
-      for(let i=0;i<allLines.length;i++){
-        if(allLines[i].startsWith('# ')&&allLines[i].includes(secTitle)&&startLine<0)startLine=i;
-        else if(allLines[i].startsWith('# ')&&startLine>=0){endLine=i;break}
-      }
-      if(startLine<0)startLine=0;
-      const secMDText=allLines.slice(startLine,endLine).join('\n');
-
-      const sys=`You are a senior medical-legal consultant revising ONE SECTION of a Litigation Review Guide.
-
-${researchText?'RESEARCH NOTES (use ONLY if the instruction asks for new facts/data):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT SECTION:
-<section>
-${secMDText}
-</section>
-
-REFINEMENT INSTRUCTION: ${instruction}
-
-RULES:
-- Modify ONLY what the instruction asks for. Preserve everything else EXACTLY as-is.
-- Do NOT add new subsections, new topics, or new content the instruction didn't request.
-- Do NOT remove existing content the instruction didn't ask to remove.
-- Do NOT reorganize or restructure unless explicitly asked.
-- Preserve all [Source](URL) citations.
-- Start with the # heading. Output the section with the requested changes applied — nothing more, nothing less.
-
-Output ONLY the revised section Markdown.`;
-
-      const resp=await callApi(keys[0],[{role:'user',content:'Apply ONLY the requested change to this section. Do not add, remove, or reorganize anything else. Preserve all existing content and citations. Output only Markdown.'}],sys,{
-        stream:true,maxTok:Math.min((DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,8000),model:genModel,signal:null,
-        onRetry:(msg)=>{btn.textContent=msg}
-      });
-
-      // Stream into a temp element
-      const tempDiv=document.createElement('div');tempDiv.className='gc';
-      document.body.appendChild(tempDiv);tempDiv.style.display='none';
-      const newSecMD=await streamTo(resp,tempDiv);
-      document.body.removeChild(tempDiv);
-
-      // Replace in allMD
-      const before=allLines.slice(0,startLine).join('\n');
-      const after=allLines.slice(endLine).join('\n');
-      allMD=before+(before?'\n':'')+newSecMD+(after?'\n':'')+after;
-
-      // Re-render full guide
-      const gBody=document.getElementById('gBody');
-      gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
-      // Re-split secMD
-      const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
-      splitBatchMD(allMD,allSecIds);
-      updWC();buildTOC();showRefineBar();
-      splitOutputIntoSections();
+    let changes=[];
+    try{changes=JSON.parse(diffClean)}catch(e){
+      console.warn('Diff parse failed:',e.message);
+      alert('Could not parse the edit. Please try rephrasing your instruction or select the specific section from the dropdown.');
+      btn.disabled=false;btn.textContent='Refine';
+      return;
     }
 
+    // ═══ APPLY CHANGES ═══
+    if(!Array.isArray(changes)||changes.length===0){
+      alert('No changes identified for this instruction.');
+      btn.disabled=false;btn.textContent='Refine';
+      return;
+    }
+
+    let modifiedSec=secText;
+    let applied=0;
+    for(const ch of changes){
+      if(!ch.find&&ch.find!=='')continue;
+      if(modifiedSec.includes(ch.find)){
+        modifiedSec=modifiedSec.replace(ch.find,ch.replace||'');
+        applied++;
+      }else{
+        // Try fuzzy: trim whitespace differences
+        const findTrimmed=ch.find.replace(/\s+/g,' ').trim();
+        const lines2=modifiedSec.split('\n');
+        let found=false;
+        for(let li=0;li<lines2.length&&!found;li++){
+          if(lines2[li].replace(/\s+/g,' ').trim().includes(findTrimmed)){
+            lines2[li]=lines2[li].replace(lines2[li].trim(),(ch.replace||'').trim());
+            found=true;applied++;
+          }
+        }
+        if(found)modifiedSec=lines2.join('\n');
+        else console.warn('Could not find:',ch.find.substring(0,60));
+      }
+    }
+
+    if(applied>0){
+      const before=allLines.slice(0,startLine).join('\n');
+      const after=allLines.slice(endLine).join('\n');
+      allMD=(before?(before+'\n'):'')+modifiedSec+(after?('\n'+after):'');
+      document.getElementById('pfoot').textContent=applied+' change'+(applied>1?'s':'')+' applied to: '+secTitle;
+    }else{
+      document.getElementById('pfoot').textContent='No changes could be applied — try selecting the section from the dropdown';
+    }
+
+    reRender();
     input.value='';
   }catch(e){
     if(e.name!=='AbortError')alert('Refinement failed: '+e.message);
@@ -2872,6 +2869,15 @@ Output ONLY the revised section Markdown.`;
     btn.disabled=false;btn.textContent='Refine';
   }
 }
+
+function reRender(){
+  const gBody=document.getElementById('gBody');
+  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+  const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
+  splitBatchMD(allMD,allSecIds);
+  updWC();buildTOC();showRefineBar();splitOutputIntoSections();
+}
+
 
 // Allow Enter to send (Shift+Enter for newline)
 document.addEventListener('DOMContentLoaded',()=>{
