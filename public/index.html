@@ -2511,37 +2511,109 @@ async function refine(){
 
   try{
     if(scope==='full'){
-      // Refine entire guide — send guide + instruction, research only if needed
-      const sys=`You are a senior medical-legal consultant revising a Litigation Review Guide. This guide exists to help reviewers BUILD CASES THAT GET CLIENTS PAID.
+      // STEP 1: Ask model which sections need changing (cheap, fast)
+      const identifySys=`You are analyzing a refinement instruction to determine which sections of a litigation review guide need to be modified.
 
-${researchText?'RESEARCH NOTES (use ONLY if the instruction asks for new facts/data):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT GUIDE:
-<guide>
-${allMD.substring(0,60000)}
-</guide>
+GUIDE SECTION HEADINGS:
+${allMD.split('\n').filter(l=>l.startsWith('# ')).map((l,i)=>i+': '+l).join('\n')}
 
-REFINEMENT INSTRUCTION: ${instruction}
+INSTRUCTION: "${instruction}"
+
+Reply with ONLY a JSON array of the section heading numbers that need modification. Example: [0,3]
+If the instruction is too vague to determine, reply with: "ALL"
+No explanation. Just the array or "ALL".`;
+
+      const idResp=await callApi(keys[0],[{role:'user',content:'Which section numbers need to change? Reply with JSON array only.'}],identifySys,{
+        maxTok:200,model:genModel,signal:null
+      });
+      const idJson=await idResp.json();
+      const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'ALL';
+      const idClean=idText.replace(/```json|```/g,'').trim();
+
+      const allLines=allMD.split('\n');
+      const h1Lines=[];
+      allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+
+      let secIndicesToRefine=[];
+      if(idClean==='ALL'||!idClean.startsWith('[')){
+        // Fallback: refine all sections individually
+        secIndicesToRefine=h1Lines.map((_,i)=>i);
+      }else{
+        try{secIndicesToRefine=JSON.parse(idClean)}catch(e){secIndicesToRefine=h1Lines.map((_,i)=>i)}
+      }
+
+      // STEP 2: Refine only the affected sections, one at a time
+      const gBody=document.getElementById('gBody');
+      let modCount=0;
+
+      for(const si of secIndicesToRefine){
+        if(si<0||si>=h1Lines.length)continue;
+        const startLine=h1Lines[si];
+        const endLine=si+1<h1Lines.length?h1Lines[si+1]:allLines.length;
+
+        // Find end accounting for --- separators
+        let actualEnd=endLine;
+        while(actualEnd>startLine&&(allLines[actualEnd-1].trim()===''||allLines[actualEnd-1].trim()==='---'))actualEnd--;
+
+        const secText=allLines.slice(startLine,endLine).join('\n');
+        const secTitle=allLines[startLine].replace(/^# /,'').trim();
+
+        // Other section headings for context (so model knows what NOT to duplicate)
+        const otherHeadings=allMD.split('\n').filter(l=>l.startsWith('# ')&&!l.includes(secTitle)).map(l=>l.replace(/^# /,''));
+
+        const secSys=`You are revising ONE SECTION of a litigation review guide.
+
+${researchText?'RESEARCH NOTES (use ONLY if the instruction asks for new facts/data):\n<research>\n'+researchText.substring(0,15000)+'\n</research>\n':''}
+CURRENT SECTION:
+<section>
+${secText}
+</section>
+
+OTHER SECTIONS IN THE GUIDE (do NOT duplicate their content):
+${otherHeadings.map(h=>'- '+h).join('\n')}
+
+INSTRUCTION: ${instruction}
 
 RULES:
-- Apply the instruction thoughtfully across the entire guide
-- Maintain the same Markdown format (# for major, ## for sub, etc.)
-- Keep all existing content UNLESS the instruction says to remove something
-- Preserve all [Source](URL) citations. Add new ones from research notes where relevant.
-- The TOTAL guide must stay under ~${(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords} words. If adding content, trim elsewhere to compensate.
-- Use bullet points, tables, and one-line descriptions — not paragraphs
-- Output the COMPLETE revised guide in Markdown — not just the changed parts
+- Modify ONLY what the instruction asks for. Preserve everything else in this section EXACTLY as-is.
+- Do NOT add new subsections or topics the instruction didn't ask for.
+- Do NOT remove content the instruction didn't ask to remove.
+- Preserve all [Source](URL) citations.
+- Start with the # heading. Output ONLY this section's revised Markdown.`;
 
-Output ONLY the revised Markdown. No preamble.`;
+        btn.textContent='Refining: '+secTitle.substring(0,30)+'...';
 
-      const resp=await callApi(keys[0],[{role:'user',content:'Apply the refinement now. Output the complete revised guide. Target ~'+(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).totalWords+' words total. Preserve all citations. You MUST complete the entire guide — do not stop mid-section.'}],sys,{
-        stream:true,maxTok:(DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,model:genModel,signal:null,
-        onRetry:(msg)=>{btn.textContent=msg}
-      });
+        const resp=await callApi(keys[0],[{role:'user',content:'Apply the instruction to this section only. Change ONLY what was requested. Preserve everything else exactly. Output only the section Markdown.'}],secSys,{
+          stream:true,maxTok:Math.min((DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,8000),model:genModel,signal:null,
+          onRetry:(msg)=>{btn.textContent=msg}
+        });
 
-      const gBody=document.getElementById('gBody');
-      gBody.innerHTML='<div class="gc"></div>';
-      const gc=gBody.querySelector('.gc');
-      allMD=await streamTo(resp,gc,()=>updWC());
-      // Re-split into individual sections
+        const tempDiv=document.createElement('div');tempDiv.className='gc';
+        document.body.appendChild(tempDiv);tempDiv.style.display='none';
+        const newSecMD=await streamTo(resp,tempDiv);
+        document.body.removeChild(tempDiv);
+
+        if(newSecMD&&newSecMD.trim().length>50){
+          const before=allLines.slice(0,startLine).join('\n');
+          const after=allLines.slice(endLine).join('\n');
+          allMD=(before?(before+'\n'):'')+newSecMD+(after?('\n'+after):'');
+          // Re-parse lines for next iteration
+          allLines.length=0;
+          allMD.split('\n').forEach(l=>allLines.push(l));
+          // Recalc h1Lines
+          h1Lines.length=0;
+          allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+          modCount++;
+        }
+
+        // Brief cooldown between sections
+        if(secIndicesToRefine.indexOf(si)<secIndicesToRefine.length-1){
+          await new Promise(r=>setTimeout(r,2000));
+        }
+      }
+
+      // Re-render
+      gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
       const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
       splitBatchMD(allMD,allSecIds);
       updWC();buildTOC();showRefineBar();
@@ -2575,17 +2647,16 @@ ${secMDText}
 REFINEMENT INSTRUCTION: ${instruction}
 
 RULES:
-- Apply the instruction to THIS SECTION ONLY
-- Maintain Markdown format — bullet points and tables over paragraphs
-- Keep existing content unless told to remove it
-- Preserve all [Source](URL) citations. Add new ones if instruction asks for more data.
-- Stay concise — this section should fit proportionally within the total guide
-- Output the COMPLETE revised section — not just changes
-- Start with the # heading
+- Modify ONLY what the instruction asks for. Preserve everything else EXACTLY as-is.
+- Do NOT add new subsections, new topics, or new content the instruction didn't request.
+- Do NOT remove existing content the instruction didn't ask to remove.
+- Do NOT reorganize or restructure unless explicitly asked.
+- Preserve all [Source](URL) citations.
+- Start with the # heading. Output the section with the requested changes applied — nothing more, nothing less.
 
 Output ONLY the revised section Markdown.`;
 
-      const resp=await callApi(keys[0],[{role:'user',content:'Revise this section now. Preserve all citations. You MUST write a complete section with a proper ending. Output only Markdown.'}],sys,{
+      const resp=await callApi(keys[0],[{role:'user',content:'Apply ONLY the requested change to this section. Do not add, remove, or reorganize anything else. Preserve all existing content and citations. Output only Markdown.'}],sys,{
         stream:true,maxTok:Math.min((DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,8000),model:genModel,signal:null,
         onRetry:(msg)=>{btn.textContent=msg}
       });
