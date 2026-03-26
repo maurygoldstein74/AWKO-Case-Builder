@@ -1051,7 +1051,8 @@ function splitOutputIntoSections(){
   });
 
   initOutputDrag();
-  rebuildMDFromOutput();
+  // NOTE: do NOT call rebuildMDFromOutput() here. 
+  // allMD is the source of truth. rebuildMDFromOutput only runs after drag-reorder.
 }
 
 function initOutputDrag(){
@@ -1096,14 +1097,30 @@ function rebuildMDFromOutput(){
   blocks.forEach(block=>{
     const gc=block.querySelector('.gc');
     if(!gc)return;
-    // Extract text content and try to reconstruct MD — or use stored secMD
+    // Extract text content — prefer stored secMD, then extract from allMD by heading
     const id=block.id?.replace('sb-','');
     if(id&&secMD[id]){
       parts.push(secMD[id]);
     }else{
-      // Fallback: extract H1 text at minimum
+      // Fallback: find this section's full content from allMD by heading match
       const h1=gc.querySelector('h1');
-      if(h1)parts.push('# '+h1.textContent.trim());
+      if(h1){
+        const heading=h1.textContent.trim();
+        // Try to extract full section from allMD
+        const lines=allMD.split('\n');
+        const h1Lines=[];lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+        let found=false;
+        for(let i=0;i<h1Lines.length;i++){
+          const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+          if(hText===heading||hText.toLowerCase().includes(heading.toLowerCase().split(' ')[0])){
+            const start=h1Lines[i];
+            const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+            parts.push(lines.slice(start,end).join('\n').trim());
+            found=true;break;
+          }
+        }
+        if(!found)parts.push('# '+heading);
+      }
     }
   });
   allMD=parts.join('\n\n---\n\n');
@@ -2225,8 +2242,31 @@ Output ONLY the section Markdown.`;
     const gc=block.querySelector('.gc');
     const newMD=await streamTo(resp,gc);
     secMD[secId]=newMD;
-    rebuildMDFromOutput();
-    buildTOC();
+    // Update allMD directly — find the section heading and replace
+    const secHeading=secDef?.l||secId;
+    const lines=allMD.split('\n');
+    const h1Lines=[];lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+    let replaced=false;
+    for(let i=0;i<h1Lines.length;i++){
+      const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+      const hWords=hText.toLowerCase().split(/[\s&/,]+/).filter(w=>w.length>2);
+      const secWords=secHeading.toLowerCase().split(/[\s&/,]+/).filter(w=>w.length>2);
+      const overlap=secWords.filter(w=>hWords.some(hw=>hw.includes(w))).length;
+      if(secWords.length>0&&overlap/secWords.length>=0.4){
+        const start=h1Lines[i];
+        const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+        const before=lines.slice(0,start);
+        const after=lines.slice(end);
+        while(before.length&&before[before.length-1].trim()==='')before.pop();
+        allMD=(before.length?before.join('\n')+'\n\n':'')+newMD.trim()+(after.length?'\n\n'+after.join('\n').trimStart():'');
+        replaced=true;break;
+      }
+    }
+    if(!replaced){
+      // Fallback: append
+      allMD=allMD.trimEnd()+'\n\n'+newMD;
+    }
+    updWC();buildTOC();saveGuide();
   }catch(e){alert('Failed: '+e.message)}
   finally{block.classList.remove('regen')}
 }
@@ -3225,29 +3265,40 @@ async function chatSend(){
         showTyping('');btn.disabled=false;return;
       }
 
+      // Scale token budget: section word count * 2 (for tokens) + 2000 buffer, minimum 4000
+      const secWords=countW(sec.text);
+      const secMaxTok=Math.max(4000, Math.min(secWords*3+2000, 32000));
+
       systemPrompt=`You are a medical-legal consultant editing a litigation review guide for ${drug||'a pharmaceutical/medical product'}.
 
-The user is editing ONE SPECIFIC SECTION of their guide. Here is the current section:
+The user is editing ONE SPECIFIC SECTION of their guide. Here is the current section (${secWords} words):
 
 <current_section>
 ${sec.text}
 </current_section>
 
-GUIDE SECTION HEADINGS (for context):
+GUIDE SECTION HEADINGS (for context only — do NOT rewrite other sections):
 ${headings.map((h,i)=>(i+1)+'. '+h).join('\n')}
 
-INSTRUCTIONS:
-- If the user asks a QUESTION: answer it directly. Do NOT output markdown section content.
-- If the user requests CHANGES to this section: output the COMPLETE REVISED SECTION in full markdown.
-  - Start with the # heading
-  - Include ALL existing content that should remain (don't drop anything unless asked to)
-  - Add/modify/remove only what the user asked for
-  - Preserve all existing [Source](URL) citations
-  - Mark new or changed content with **[UPDATED]** at the start of the relevant line
-  - Output the ENTIRE section — do not truncate, summarize, or abbreviate
-  - The section should be AT LEAST as long as the original unless the user asked to shorten it
+RESPONSE FORMAT — follow this EXACTLY:
 
-When outputting a revised section, start your response with REVISED_SECTION: on its own line, then the full section markdown. This marker tells the system to treat your output as a section replacement.`;
+IF the user asks a QUESTION (not requesting changes):
+- Answer the question directly in plain text. Do NOT use the REVISED_SECTION marker.
+
+IF the user requests CHANGES to this section:
+- First line must be: REVISED_SECTION:
+- Then output the COMPLETE section in full Markdown, starting with # heading
+- Last line must be: END_SECTION
+- Do NOT write anything after END_SECTION
+
+RULES FOR SECTION REWRITES:
+- Output the ENTIRE section — every paragraph, bullet, table, and subsection
+- Include ALL existing content verbatim unless the user specifically asked to change or remove it
+- The revised section MUST be at least ${secWords} words (same length as original) unless the user asked to shorten
+- Do NOT truncate with "..." or "[remaining content unchanged]" or any abbreviation
+- Preserve all existing [Source](URL) citations exactly
+- Mark new or changed lines with **[UPDATED]** prefix
+- Output ONLY this one section — never include content from other sections`;
 
       // Build conversation with context
       const contextMsgs=chatMessages.slice(-6).map(m=>({role:m.role,content:m.content}));
@@ -3294,8 +3345,11 @@ RULES:
 
     showTyping('Generating response...');
 
+    // Use section-scaled token budget for single sections, otherwise default
+    const apiMaxTok = (targetSections.length===1 && typeof secMaxTok!=='undefined') ? secMaxTok : Math.min(dc.tokPerCall,16000);
+
     const resp=await callApi(keys[0],userContent,systemPrompt,{
-      stream:true,maxTok:Math.min(dc.tokPerCall,16000),model:genModel,signal:null,
+      stream:true,maxTok:apiMaxTok,model:genModel,signal:null,
       onRetry:m=>showTyping(m)
     });
 
@@ -3335,9 +3389,36 @@ RULES:
       const revisions=[];
 
       if(targetSections.length===1){
-        // Single section mode — everything after REVISED_SECTION: is the new section
+        // Single section mode — extract content between REVISED_SECTION: and END_SECTION
         const revStart=fullOutput.indexOf('REVISED_SECTION:');
-        let sectionMD=fullOutput.substring(revStart).replace(/^REVISED_SECTION:.*\n/,'').replace(/\nEND_SECTION\s*$/,'').trim();
+        let afterMarker=fullOutput.substring(revStart);
+        // Remove the REVISED_SECTION: line
+        afterMarker=afterMarker.replace(/^REVISED_SECTION:.*\n/,'');
+        
+        // Extract content up to END_SECTION if present, otherwise take everything
+        const endIdx=afterMarker.indexOf('\nEND_SECTION');
+        let sectionMD=(endIdx>=0?afterMarker.substring(0,endIdx):afterMarker).trim();
+        
+        // Strip any trailing conversational text that isn't markdown content
+        // Look for the last line that looks like content (starts with #, -, *, |, **, or is a non-empty paragraph)
+        const sectionLines=sectionMD.split('\n');
+        let lastContentLine=sectionLines.length-1;
+        for(let i=sectionLines.length-1;i>=0;i--){
+          const trimmed=sectionLines[i].trim();
+          if(!trimmed)continue;
+          // If line looks like markdown content, this is the end
+          if(/^[#*|\->\d]/.test(trimmed)||/\*\*/.test(trimmed)||/\[.*\]\(/.test(trimmed)||trimmed.length>60){
+            lastContentLine=i;break;
+          }
+          // If it's short and doesn't look like content, it's likely conversational
+          if(trimmed.length<60&&/^(I |Let me|Hope|Feel free|Please|If you|Would you|This |Note:|The above)/i.test(trimmed)){
+            lastContentLine=i-1;
+          }else{
+            lastContentLine=i;break;
+          }
+        }
+        sectionMD=sectionLines.slice(0,lastContentLine+1).join('\n').trim();
+        
         // Ensure it starts with # heading
         if(!sectionMD.startsWith('# '))sectionMD='# '+targetSections[0]+'\n'+sectionMD;
         revisions.push({heading:targetSections[0],newMD:sectionMD});
@@ -3345,10 +3426,13 @@ RULES:
         // Multi-section mode — parse multiple blocks
         const blocks=fullOutput.split(/(?=REVISED_SECTION:)/g).filter(b=>b.trim().startsWith('REVISED_SECTION:'));
         for(const block of blocks){
-          const headingMatch=block.match(/^REVISED_SECTION:\s*(?:NEW\s*—\s*)?(.+)/m);
+          const headingMatch=block.match(/^REVISED_SECTION:\s*(?:NEW\s*[—\-]\s*)?(.+)/m);
           if(!headingMatch)continue;
           let heading=headingMatch[1].trim();
-          let sectionMD=block.replace(/^REVISED_SECTION:.*\n/,'').replace(/\nEND_SECTION\s*$/,'').trim();
+          // Extract content between REVISED_SECTION line and END_SECTION
+          let sectionContent=block.replace(/^REVISED_SECTION:.*\n/,'');
+          const endIdx=sectionContent.indexOf('\nEND_SECTION');
+          let sectionMD=(endIdx>=0?sectionContent.substring(0,endIdx):sectionContent).trim();
           if(!sectionMD.startsWith('# '))sectionMD='# '+heading+'\n'+sectionMD;
           // Match heading to existing section
           const existingHeading=headings.find(h=>h.toLowerCase()===heading.toLowerCase())||heading;
@@ -3423,11 +3507,18 @@ function acceptChanges(){
     } else if(replaceSection(rev.heading,rev.newMD)){
       applied++;
     } else {
-      // Try fuzzy match on heading
+      // Try fuzzy match on heading — score by keyword overlap
       const lines=allMD.split('\n');
-      const headings=lines.filter(l=>l.startsWith('# ')).map(l=>l.replace(/^# /,'').trim());
-      const fuzzy=headings.find(h=>h.toLowerCase().includes(rev.heading.toLowerCase().split(' ')[0]));
-      if(fuzzy&&replaceSection(fuzzy,rev.newMD))applied++;
+      const guideHeadings=lines.filter(l=>l.startsWith('# ')).map(l=>l.replace(/^# /,'').trim());
+      const revWords=rev.heading.toLowerCase().split(/[\s,&/]+/).filter(w=>w.length>2);
+      let bestMatch=null,bestScore=0;
+      guideHeadings.forEach(h=>{
+        const hWords=h.toLowerCase().split(/[\s,&/]+/).filter(w=>w.length>2);
+        const overlap=revWords.filter(w=>hWords.some(hw=>hw.includes(w)||w.includes(hw))).length;
+        const score=revWords.length>0?overlap/revWords.length:0;
+        if(score>bestScore){bestScore=score;bestMatch=h}
+      });
+      if(bestMatch&&bestScore>=0.3&&replaceSection(bestMatch,rev.newMD))applied++;
     }
   }
 
