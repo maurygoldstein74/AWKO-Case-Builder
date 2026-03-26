@@ -6,6 +6,7 @@
 <title>Litigation Review Guide Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<script src="https://unpkg.com/docx@9.1.1/build/index.umd.js"></script>
 <style>
 :root{
   --bg:#0c0d12;--sf:#13141c;--sf2:#191b26;--sf3:#1f2230;
@@ -390,8 +391,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
     <button onclick="copyHTML()">📋 Copy</button>
     <button onclick="printGuide()">🖨 Print</button>
     <button onclick="dlPDF()">📕 .pdf</button>
-    <button onclick="dlHTML()">💾 .html</button>
-    <button onclick="dlMD()">📄 .md</button>
+    <button onclick="dlDOCX()">📝 .docx</button>
     <div class="wc" id="wc"></div>
   </div>
 
@@ -2449,21 +2449,179 @@ function dlPDF(){
     btn.textContent='📕 .pdf';btn.disabled=false;
   });
 }
-function dlHTML(){
+async function dlDOCX(){
   const drug=document.getElementById('drugName').value.trim()||'Guide';
-  const h=document.getElementById('gHead').innerHTML;
-  // Clone gBody and strip UI artifacts
-  const tmpDiv=document.createElement('div');
-  tmpDiv.innerHTML=document.getElementById('gBody').innerHTML;
-  tmpDiv.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());
-  const c=tmpDiv.innerHTML;
-  const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Litigation Review Guide — ${drug}</title>
-<style>body{font-family:Georgia,'Times New Roman',serif;max-width:860px;margin:48px auto;padding:0 32px;color:#1a1a2e;line-height:1.75;font-size:15px}h1{font-size:26px;font-weight:bold;border-bottom:2px solid #1a2e6c;padding-bottom:10px;margin:40px 0 16px;page-break-after:avoid}h2{font-size:21px;color:#1a2e6c;margin:32px 0 12px;page-break-after:avoid}h3{font-size:17px;margin:24px 0 10px;page-break-after:avoid}h4{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:#444;margin:18px 0 8px}p{margin-bottom:10px}ul,ol{margin:8px 0 14px 24px}li{margin-bottom:5px}strong{color:#1a1a2e}u{text-underline-offset:3px}blockquote{border-left:3px solid #1a2e6c;padding:10px 18px;margin:14px 0;background:#f4f5fa;font-size:14px}table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;page-break-inside:avoid}th{background:#e6e8f0;padding:9px 12px;text-align:left;font-weight:600;border-bottom:2px solid #bbb}td{padding:8px 12px;border-bottom:1px solid #ddd}hr{border:none;border-top:1px solid #ccc;margin:32px 0}code{font-family:monospace;font-size:13px;background:#f0f0f0;padding:2px 5px;border-radius:3px}.guide-head{border-bottom:2px solid #1a2e6c;padding-bottom:16px;margin-bottom:32px}.guide-head h1{margin-top:0;font-size:28px}.meta{font-size:13px;color:#555}.sec-block{position:relative}.regen-btn{display:none}@media print{body{margin:24px;font-size:12pt}h1{font-size:18pt}h2{font-size:15pt}h3{font-size:13pt}table{font-size:10pt}}</style></head><body><div class="guide-head">${h}</div>${c}</body></html>`;
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.html';a.click();
-}
-function dlMD(){
-  const drug=document.getElementById('drugName').value.trim()||'Guide';
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([allMD],{type:'text/markdown'}));a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.md';a.click();
+  const btn=document.querySelector('.toolbar button[onclick="dlDOCX()"]');
+  btn.textContent='Building .docx...';btn.disabled=true;
+
+  try{
+    const {Document,Packer,Paragraph,TextRun,HeadingLevel,AlignmentType,
+           Table,TableRow,TableCell,BorderStyle,WidthType,ShadingType,
+           ExternalHyperlink,LevelFormat,PageBreak}=docx;
+
+    const border={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'};
+    const borders={top:border,bottom:border,left:border,right:border};
+    const cellMargins={top:60,bottom:60,left:100,right:100};
+
+    // Parse markdown into lines
+    const lines=allMD.split('\n');
+    const children=[];
+    let i=0;
+
+    // Parse inline formatting: **bold**, *italic*, [text](url)
+    function parseInline(text){
+      const runs=[];
+      const re=/(\*\*(.+?)\*\*|\*(.+?)\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|`([^`]+)`)/g;
+      let last=0,m;
+      while((m=re.exec(text))!==null){
+        if(m.index>last)runs.push(new TextRun({text:text.substring(last,m.index),font:'Arial',size:22}));
+        if(m[2])runs.push(new TextRun({text:m[2],bold:true,font:'Arial',size:22}));
+        else if(m[3])runs.push(new TextRun({text:m[3],italics:true,font:'Arial',size:22}));
+        else if(m[4]&&m[5])runs.push(new ExternalHyperlink({children:[new TextRun({text:m[4],style:'Hyperlink',font:'Arial',size:22})],link:m[5]}));
+        else if(m[6])runs.push(new TextRun({text:m[6],font:'Courier New',size:20}));
+        last=re.lastIndex;
+      }
+      if(last<text.length)runs.push(new TextRun({text:text.substring(last),font:'Arial',size:22}));
+      if(!runs.length)runs.push(new TextRun({text:text||' ',font:'Arial',size:22}));
+      return runs;
+    }
+
+    while(i<lines.length){
+      const line=lines[i];
+
+      // Headings
+      if(line.startsWith('#### ')){
+        children.push(new Paragraph({heading:HeadingLevel.HEADING_4,children:parseInline(line.substring(5)),spacing:{before:120,after:60}}));
+        i++;continue;
+      }
+      if(line.startsWith('### ')){
+        children.push(new Paragraph({heading:HeadingLevel.HEADING_3,children:parseInline(line.substring(4)),spacing:{before:160,after:80}}));
+        i++;continue;
+      }
+      if(line.startsWith('## ')){
+        children.push(new Paragraph({heading:HeadingLevel.HEADING_2,children:parseInline(line.substring(3)),spacing:{before:200,after:100}}));
+        i++;continue;
+      }
+      if(line.startsWith('# ')){
+        children.push(new Paragraph({heading:HeadingLevel.HEADING_1,children:parseInline(line.substring(2)),spacing:{before:280,after:120}}));
+        i++;continue;
+      }
+
+      // Horizontal rule
+      if(/^---+$/.test(line.trim())){
+        children.push(new Paragraph({border:{bottom:{style:BorderStyle.SINGLE,size:6,color:'CCCCCC',space:1}},spacing:{before:200,after:200},children:[new TextRun('')]}));
+        i++;continue;
+      }
+
+      // Table — collect all | rows
+      if(line.trim().startsWith('|')&&line.trim().endsWith('|')){
+        const tableLines=[];
+        while(i<lines.length&&lines[i].trim().startsWith('|')&&lines[i].trim().endsWith('|')){
+          const l=lines[i].trim();
+          if(!/^\|[\s-:|]+\|$/.test(l))tableLines.push(l); // skip separator row
+          i++;
+        }
+        if(tableLines.length>0){
+          const parseCells=row=>row.split('|').filter(c=>c.trim()).map(c=>c.trim());
+          const headerCells=parseCells(tableLines[0]);
+          const numCols=headerCells.length||1;
+          const colW=Math.floor(9360/numCols);
+
+          const rows=[];
+          // Header row
+          rows.push(new TableRow({children:headerCells.map(c=>new TableCell({
+            borders,margins:cellMargins,width:{size:colW,type:WidthType.DXA},
+            shading:{fill:'D5E8F0',type:ShadingType.CLEAR},
+            children:[new Paragraph({children:[new TextRun({text:c,bold:true,font:'Arial',size:20})]})]
+          }))}));
+          // Data rows
+          for(let r=1;r<tableLines.length;r++){
+            const cells=parseCells(tableLines[r]);
+            rows.push(new TableRow({children:headerCells.map((_,ci)=>new TableCell({
+              borders,margins:cellMargins,width:{size:colW,type:WidthType.DXA},
+              children:[new Paragraph({children:parseInline(cells[ci]||'')})]
+            }))}));
+          }
+          children.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:headerCells.map(()=>colW),rows}));
+        }
+        continue;
+      }
+
+      // Checkbox list items: - [ ] or - [x]
+      if(/^\s*-\s+\[[ x]\]\s/.test(line)){
+        const text=line.replace(/^\s*-\s+\[[ x]\]\s*/,'');
+        const checked=/\[x\]/i.test(line);
+        children.push(new Paragraph({
+          indent:{left:360,hanging:360},
+          children:[new TextRun({text:(checked?'☑ ':'☐ '),font:'Arial',size:22}),...parseInline(text)]
+        }));
+        i++;continue;
+      }
+
+      // Bullet list items
+      if(/^\s*-\s+/.test(line)){
+        const text=line.replace(/^\s*-\s+/,'');
+        children.push(new Paragraph({
+          numbering:{reference:'bullets',level:0},
+          children:parseInline(text)
+        }));
+        i++;continue;
+      }
+
+      // Empty lines — skip (spacing handled by paragraph spacing)
+      if(!line.trim()){i++;continue}
+
+      // Regular paragraph
+      children.push(new Paragraph({children:parseInline(line),spacing:{after:80}}));
+      i++;
+    }
+
+    const doc=new Document({
+      numbering:{config:[{
+        reference:'bullets',
+        levels:[{level:0,format:LevelFormat.BULLET,text:'\u2022',alignment:AlignmentType.LEFT,
+          style:{paragraph:{indent:{left:720,hanging:360}}}}]
+      }]},
+      styles:{
+        default:{document:{run:{font:'Arial',size:22}}},
+        paragraphStyles:[
+          {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',quickFormat:true,
+            run:{size:32,bold:true,font:'Arial',color:'1A1A2E'},
+            paragraph:{spacing:{before:280,after:120},outlineLevel:0,border:{bottom:{style:BorderStyle.SINGLE,size:6,color:'1A2E6C',space:4}}}},
+          {id:'Heading2',name:'Heading 2',basedOn:'Normal',next:'Normal',quickFormat:true,
+            run:{size:28,bold:true,font:'Arial',color:'1A2E6C'},
+            paragraph:{spacing:{before:200,after:100},outlineLevel:1}},
+          {id:'Heading3',name:'Heading 3',basedOn:'Normal',next:'Normal',quickFormat:true,
+            run:{size:24,bold:true,font:'Arial'},
+            paragraph:{spacing:{before:160,after:80},outlineLevel:2}},
+          {id:'Heading4',name:'Heading 4',basedOn:'Normal',next:'Normal',quickFormat:true,
+            run:{size:22,bold:true,font:'Arial',allCaps:true,color:'444444'},
+            paragraph:{spacing:{before:120,after:60},outlineLevel:3}},
+        ]
+      },
+      sections:[{
+        properties:{
+          page:{
+            size:{width:12240,height:15840},
+            margin:{top:1440,right:1440,bottom:1440,left:1440}
+          }
+        },
+        children
+      }]
+    });
+
+    const buffer=await Packer.toBlob(doc);
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(buffer);
+    a.download='Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
+    a.click();
+
+    btn.textContent='📝 .docx';btn.disabled=false;
+  }catch(e){
+    alert('DOCX generation failed: '+e.message);
+    console.error('DOCX error:',e);
+    btn.textContent='📝 .docx';btn.disabled=false;
+  }
 }
 
 /* ═══════ REFINEMENT ═══════ */
@@ -2511,81 +2669,101 @@ async function refine(){
 
   try{
     if(scope==='full'){
-      // STEP 1: Ask model which sections need changing (cheap, fast)
-      const identifySys=`You are analyzing a refinement instruction to determine which sections of a litigation review guide need to be modified.
-
-GUIDE SECTION HEADINGS:
-${allMD.split('\n').filter(l=>l.startsWith('# ')).map((l,i)=>i+': '+l).join('\n')}
-
-INSTRUCTION: "${instruction}"
-
-Reply with ONLY a JSON array of the section heading numbers that need modification. Example: [0,3]
-If the instruction is too vague to determine, reply with: "ALL"
-No explanation. Just the array or "ALL".`;
-
       const allLines=allMD.split('\n');
       const h1Lines=[];
       allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+      const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
 
-      let secIndicesToRefine=h1Lines.map((_,i)=>i); // default: all sections
-      try{
-        const idResp=await callApi(keys[0],[{role:'user',content:'Which section numbers need to change? Reply with JSON array only.'}],identifySys,{
-          maxTok:200,model:genModel,signal:null
+      // ═══ DETECT REMOVE/DELETE — handle without API ═══
+      const isRemove=/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(instruction);
+      if(isRemove){
+        // Find which section the instruction refers to
+        let removeIdx=-1;
+        headings.forEach((h,i)=>{
+          const words=h.toLowerCase().split(/\s+/);
+          if(words.some(w=>instruction.toLowerCase().includes(w)&&w.length>3))removeIdx=i;
         });
-        const idJson=await idResp.json();
-        const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'ALL';
-        const idClean=idText.replace(/```json|```/g,'').trim();
-        if(idClean!=='ALL'&&idClean.startsWith('[')){
-          const parsed=JSON.parse(idClean);
-          if(Array.isArray(parsed)&&parsed.length>0)secIndicesToRefine=parsed;
+
+        if(removeIdx>=0){
+          const startLine=h1Lines[removeIdx];
+          const endLine=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
+          const removedTitle=headings[removeIdx];
+          const before=allLines.slice(0,startLine);
+          const after=allLines.slice(endLine);
+          // Clean up trailing separators
+          while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
+          allMD=before.join('\n')+'\n\n'+after.join('\n');
+
+          const gBody=document.getElementById('gBody');
+          gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+          const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
+          splitBatchMD(allMD,allSecIds);
+          updWC();buildTOC();showRefineBar();splitOutputIntoSections();
+          input.value='';
+          btn.disabled=false;btn.textContent='Refine';
+          document.getElementById('pfoot').textContent='Removed: '+removedTitle;
+          saveGuide();
+          return;
         }
-      }catch(e){
-        // Identify failed — fall back to refining all sections
-        console.warn('Section identify failed, refining all sections:',e.message);
+        // If we couldn't identify the section, fall through to API path
       }
 
-      // STEP 2: Refine only the affected sections, one at a time
-      const gBody=document.getElementById('gBody');
-      let modCount=0;
+      // ═══ TARGETED API EDIT — find affected section, edit only that one ═══
+      // Use ONE API call to identify AND produce the edit
+      const editSys=`You are modifying a litigation review guide. Here are the section headings:
 
-      for(const si of secIndicesToRefine){
-        if(si<0||si>=h1Lines.length)continue;
-        const startLine=h1Lines[si];
-        const endLine=si+1<h1Lines.length?h1Lines[si+1]:allLines.length;
+${headings.map((h,i)=>i+': '+h).join('\n')}
 
-        // Find end accounting for --- separators
-        let actualEnd=endLine;
-        while(actualEnd>startLine&&(allLines[actualEnd-1].trim()===''||allLines[actualEnd-1].trim()==='---'))actualEnd--;
+INSTRUCTION: "${instruction}"
 
+Respond with ONLY a JSON object:
+{
+  "section": <number of the section to modify (0-indexed)>,
+  "action": "edit"
+}
+
+If the instruction affects multiple sections, pick the ONE most relevant section.
+If you truly cannot determine which section, respond: {"section": -1, "action": "all"}
+No explanation. JSON only.`;
+
+      let targetIdx=-1;
+      try{
+        const idResp=await callApi(keys[0],[{role:'user',content:'Which single section? JSON only.'}],editSys,{maxTok:100,model:genModel,signal:null});
+        const idJson=await idResp.json();
+        const idText=(idJson.content&&idJson.content[0]&&idJson.content[0].text)||'';
+        const parsed=JSON.parse(idText.replace(/```json|```/g,'').trim());
+        if(parsed.section>=0&&parsed.section<h1Lines.length)targetIdx=parsed.section;
+      }catch(e){console.warn('Identify failed:',e.message)}
+
+      if(targetIdx>=0){
+        // Edit just that one section
+        const startLine=h1Lines[targetIdx];
+        const endLine=targetIdx+1<h1Lines.length?h1Lines[targetIdx+1]:allLines.length;
         const secText=allLines.slice(startLine,endLine).join('\n');
-        const secTitle=allLines[startLine].replace(/^# /,'').trim();
+        const secTitle=headings[targetIdx];
 
-        // Other section headings for context (so model knows what NOT to duplicate)
-        const otherHeadings=allMD.split('\n').filter(l=>l.startsWith('# ')&&!l.includes(secTitle)).map(l=>l.replace(/^# /,''));
+        btn.textContent='Refining: '+secTitle.substring(0,30)+'...';
 
         const secSys=`You are revising ONE SECTION of a litigation review guide.
 
-${researchText?'RESEARCH NOTES (use ONLY if the instruction asks for new facts/data):\n<research>\n'+researchText.substring(0,15000)+'\n</research>\n':''}
+${researchText?'RESEARCH NOTES (use ONLY if needed):\n<research>\n'+researchText.substring(0,15000)+'\n</research>\n':''}
 CURRENT SECTION:
 <section>
 ${secText}
 </section>
 
-OTHER SECTIONS IN THE GUIDE (do NOT duplicate their content):
-${otherHeadings.map(h=>'- '+h).join('\n')}
-
 INSTRUCTION: ${instruction}
 
 RULES:
-- Modify ONLY what the instruction asks for. Preserve everything else in this section EXACTLY as-is.
+- Modify ONLY what the instruction asks for. Preserve everything else EXACTLY as-is.
 - Do NOT add new subsections or topics the instruction didn't ask for.
 - Do NOT remove content the instruction didn't ask to remove.
 - Preserve all [Source](URL) citations.
-- Start with the # heading. Output ONLY this section's revised Markdown.`;
+- Start with the # heading.
 
-        btn.textContent='Refining: '+secTitle.substring(0,30)+'...';
+Output ONLY the revised section Markdown.`;
 
-        const resp=await callApi(keys[0],[{role:'user',content:'Apply the instruction to this section only. Change ONLY what was requested. Preserve everything else exactly. Output only the section Markdown.'}],secSys,{
+        const resp=await callApi(keys[0],[{role:'user',content:'Apply ONLY the requested change. Preserve everything else exactly. Output only the section Markdown.'}],secSys,{
           stream:true,maxTok:Math.min((DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard).tokPerCall,8000),model:genModel,signal:null,
           onRetry:(msg)=>{btn.textContent=msg}
         });
@@ -2599,27 +2777,18 @@ RULES:
           const before=allLines.slice(0,startLine).join('\n');
           const after=allLines.slice(endLine).join('\n');
           allMD=(before?(before+'\n'):'')+newSecMD+(after?('\n'+after):'');
-          // Re-parse lines for next iteration
-          allLines.length=0;
-          allMD.split('\n').forEach(l=>allLines.push(l));
-          // Recalc h1Lines
-          h1Lines.length=0;
-          allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-          modCount++;
         }
 
-        // Brief cooldown between sections
-        if(secIndicesToRefine.indexOf(si)<secIndicesToRefine.length-1){
-          await new Promise(r=>setTimeout(r,2000));
-        }
+        const gBody=document.getElementById('gBody');
+        gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+        const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
+        splitBatchMD(allMD,allSecIds);
+        updWC();buildTOC();showRefineBar();splitOutputIntoSections();
+
+      }else{
+        // Couldn't identify a section — ask user to select one from dropdown
+        alert('Could not determine which section to modify. Please select a specific section from the dropdown and try again.');
       }
-
-      // Re-render
-      gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
-      const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
-      splitBatchMD(allMD,allSecIds);
-      updWC();buildTOC();showRefineBar();
-      splitOutputIntoSections();
 
     }else{
       // Refine a specific section
