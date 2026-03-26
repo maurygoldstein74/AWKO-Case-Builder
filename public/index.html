@@ -2861,6 +2861,26 @@ function rejectPreview(){
 // ═══════ CONVERSATION MEMORY ═══════
 let refineMessages=[]; // {role,content} pairs for multi-turn
 
+// ═══════ SECTION MATCHING ═══════
+function matchSection(text){
+  const allLines=allMD.split('\n');
+  const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+  const headings=h1Lines.map(i=>allLines[i].replace(/^# /,'').trim());
+
+  // Strip common filler words from the input
+  const clean=text.toLowerCase().replace(/\b(the|a|an|in|on|of|to|for|and|with|about|from|this|that|my|our|section|more|detail|expand|add|change|update|fix|edit|improve|make|include|remove|please|can you|could you|deeper|tell me|i want|want to)\b/gi,'').trim();
+
+  let best=-1,bestSc=0;
+  headings.forEach(function(h,i){
+    const hWords=h.toLowerCase().split(/\s+/).filter(function(w){return w.length>2});
+    var mc=0;
+    hWords.forEach(function(w){if(clean.includes(w))mc++});
+    var sc=hWords.length>0?mc/hWords.length:0;
+    if(sc>bestSc&&mc>=1){bestSc=sc;best=i}
+  });
+  return best;
+}
+
 async function refine(){
   const keys=getKeys();
   if(!keys.length)return alert('No API keys configured.');
@@ -2882,11 +2902,12 @@ async function refine(){
   document.getElementById('refineHistory').innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
 
   try{
+    const allLines=allMD.split('\n');
+    const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+    const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
+
     // ═══ REMOVE — instant, no API ═══
     if(/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(il)&&!/\b(add|expand|more)\b/i.test(il)){
-      const allLines=allMD.split('\n');
-      const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-      const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
       const removeIdx=matchSection(il);
       if(removeIdx>=0){
         const hl=headings[removeIdx].toLowerCase();
@@ -2905,9 +2926,6 @@ async function refine(){
 
     // ═══ REORDER — instant, no API ═══
     if(/\b(move|reorder|swap)\b/i.test(il)&&/\b(before|after|above|below)\b/i.test(il)){
-      const allLines=allMD.split('\n');
-      const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-      const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
       const moveMatch=il.match(/(?:move|put|place)\s+(.+?)\s+(before|after|above|below)\s+(.+)/i);
       if(moveMatch){
         const srcIdx=matchSection(moveMatch[1]);
@@ -2933,66 +2951,152 @@ async function refine(){
       }
     }
 
-    // ═══ EVERYTHING ELSE — send to API like pasting into Claude chat ═══
-    //
-    // This mimics exactly what happens when you paste the guide into
-    // Claude chat and type your instruction. Minimal system prompt.
-    // The guide goes in the USER message, not buried in system rules.
-    // No complex routing. No 20-rule instruction blocks. Just a
-    // document and a request.
-    //
-
-    const memMsgs=refineMessages.slice(-4);
-    const messages=[];
-
-    // Build conversation history if any
-    for(const m of memMsgs){
-      messages.push({role:m.role,content:m.content});
+    // ═══ QUESTION — answer only, don't edit ═══
+    const hasQ=instruction.includes('?');
+    const isEditWord=/\b(add|change|edit|update|expand|remove|rewrite|include|move|improve|better|deeper|more detail|flesh|strengthen|enrich|elaborate|put|make|write|incorporate|integrate|revise|tell me more)\b/i.test(il);
+    if(hasQ&&!isEditWord&&/^(what|why|how|who|when|where|is|are|does|do|can|should|would|could|which)\b/i.test(instruction)){
+      btn.textContent='Thinking...';
+      const qResp=await callApi(keys[0],[{role:'user',content:'Here is a litigation review guide:\n\n'+allMD.substring(0,40000)+'\n\n---\n\n'+instruction}],
+        'You are a medical-legal consultant. Answer the question based on the guide above. Be concise.',
+        {stream:true,maxTok:2000,model:genModel,signal:null});
+      const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+      const answer=await streamTo(qResp,tmpEl);
+      document.body.removeChild(tmpEl);
+      responseEl.innerHTML=md2html(answer);
+      responseEl.style.display='block';
+      refineMessages.push({role:'user',content:instruction},{role:'assistant',content:answer.substring(0,500)});
+      if(refineMessages.length>10)refineMessages=refineMessages.slice(-10);
+      input.value='';btn.disabled=false;btn.textContent='Send';return;
     }
 
-    // The main message: guide + instruction — just like pasting into Claude
-    messages.push({
-      role:'user',
-      content:'Here is my litigation review guide:\n\n'+allMD+'\n\n---\n\n'+instruction
-    });
+    // ═══ ADD NEW SECTION ═══
+    if(/\b(add a section|add a new section|new section|create a section|insert a section)\b/i.test(il)){
+      btn.textContent='Generating new section...';
+      const addResp=await callApi(keys[0],[{role:'user',content:'Here is a litigation review guide:\n\n'+allMD.substring(0,40000)+'\n\n---\n\n'+instruction+'\n\nWrite ONLY the new section in markdown. Start with # heading.'}],
+        'You are a medical-legal consultant. Add the requested section to this guide. Match the existing style. Include [Source](URL) citations.',
+        {stream:true,maxTok:4000,model:genModel,signal:null});
+      const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+      const newSec=await streamTo(addResp,tmpEl);
+      document.body.removeChild(tmpEl);
+      if(newSec&&newSec.trim().length>50){
+        pushUndo();
+        const insertBefore=Math.max(h1Lines.length-2,0);
+        if(insertBefore<h1Lines.length){
+          const before=allLines.slice(0,h1Lines[insertBefore]).join('\n');
+          const after=allLines.slice(h1Lines[insertBefore]).join('\n');
+          allMD=before+'\n\n---\n\n'+newSec+'\n\n---\n\n'+after;
+        }else{allMD+='\n\n---\n\n'+newSec}
+        reRender();document.getElementById('pfoot').textContent='Added new section';saveGuide();
+      }
+      input.value='';btn.disabled=false;btn.textContent='Send';return;
+    }
 
-    // Simple system prompt — no walls of rules
-    const sys='You are a medical-legal consultant helping edit a litigation review guide. When the user asks you to change something, output the COMPLETE modified section(s) in markdown starting with the # heading. When the user asks a question, just answer it. Be thorough and complete — never stop mid-section.';
+    // ═══════════════════════════════════════════════════════════
+    // EDIT — the core function
+    //
+    // How it works:
+    // 1. Find the target section using keyword matching (no API call)
+    // 2. Send the FULL GUIDE as context in the system prompt
+    //    (so the model understands everything, like pasting into Claude)
+    // 3. Send ONLY the target section + instruction in the user message
+    //    (so the model knows exactly what to output)
+    // 4. Model outputs the revised section — nothing else
+    // 5. If it stops early, auto-continue with the partial as assistant turn
+    // 6. Splice the result back into the guide
+    // ═══════════════════════════════════════════════════════════
 
-    // Show preview for streaming
-    document.getElementById('previewTitle').textContent='Working...';
+    // Find target section via keyword matching
+    let targetIdx=matchSection(instruction);
+    // If keyword match failed, ask the API which section (cheap, 20 tokens)
+    if(targetIdx<0){
+      try{
+        const idResp=await callApi(keys[0],[{role:'user',content:'Which section number?\n\n'+headings.map(function(h,i){return i+': '+h}).join('\n')+'\n\nInstruction: "'+instruction+'"\n\nReply with ONLY the number.'}],
+          'Reply with just the section number (0-indexed).',{maxTok:20,model:genModel,signal:null});
+        const idJson=await idResp.json();
+        const n=parseInt(((idJson.content&&idJson.content[0]&&idJson.content[0].text)||'-1').trim());
+        if(n>=0&&n<h1Lines.length)targetIdx=n;
+      }catch(e){console.warn('Section identify failed:',e.message)}
+    }
+    // Last resort — pick the middle of the guide, not the first section
+    if(targetIdx<0)targetIdx=Math.min(Math.floor(h1Lines.length/2),h1Lines.length-1);
+
+    const secStart=h1Lines[targetIdx];
+    const secEnd=targetIdx+1<h1Lines.length?h1Lines[targetIdx+1]:allLines.length;
+    const secText=allLines.slice(secStart,secEnd).join('\n');
+    const secTitle=headings[targetIdx];
+
+    btn.textContent='Editing: '+secTitle.substring(0,25)+'...';
+
+    // Build the OTHER sections as context (everything except the target)
+    const otherSections=[];
+    for(let i=0;i<h1Lines.length;i++){
+      if(i===targetIdx)continue;
+      const s2=h1Lines[i];
+      const e2=i+1<h1Lines.length?h1Lines[i+1]:allLines.length;
+      otherSections.push(allLines.slice(s2,e2).join('\n'));
+    }
+
+    const memMsgs=refineMessages.slice(-4).map(m=>m.role==='user'?'User: '+m.content:'Assistant: '+m.content).join('\n');
+    const researchText=Object.values(allRes).join('\n\n---\n\n').substring(0,10000);
+    const isExpand=/\b(deeper|more detail|expand|flesh out|elaborate|thorough|comprehensive|add more|enrich)\b/i.test(il);
+    const needsResearch=isExpand||/\b(research|data|cite|source|evidence|study|trial|FDA)\b/i.test(il);
+
+    // System prompt: full guide context + research (the model can READ everything)
+    // User message: just the target section + instruction (the model knows what to OUTPUT)
+    const sys='You are a medical-legal consultant editing a litigation review guide.\n\n'
+      +(memMsgs?'RECENT CONVERSATION:\n'+memMsgs+'\n\n':'')
+      +'THE REST OF THE GUIDE (for context only \u2014 do NOT output these):\n'
+      +otherSections.join('\n\n---\n\n').substring(0,35000)
+      +(needsResearch&&researchText?'\n\nRESEARCH DATA:\n'+researchText:'');
+
+    // Token limit: enough to reproduce the section + room for additions
+    const secWords=secText.split(/\s+/).length;
+    const maxTok=isExpand
+      ?Math.max(Math.round(secWords*4),5000)
+      :Math.max(Math.round(secWords*2.5),3000);
+
+    // Show preview for live streaming
+    document.getElementById('previewTitle').textContent=secTitle+' \u2014 streaming...';
     previewBody.innerHTML='';
     previewPanel.style.display='block';
     previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='hidden');
-    btn.textContent='Generating...';
+
+    // The API call — guide is in system, section + instruction is in user message
+    const userMsg='Here is the section to edit:\n\n'+secText+'\n\n---\n\nINSTRUCTION: '+instruction+'\n\nOutput the COMPLETE revised section from # heading to the last line. Do not output any other sections.';
+
+    const messages=[{role:'user',content:userMsg}];
 
     const resp=await callApi(keys[0],messages,sys,{
-      stream:true,maxTok:8000,model:genModel,signal:null,
+      stream:true,maxTok,model:genModel,signal:null,
       onRetry:(msg)=>{btn.textContent=msg}
     });
 
     let output=await streamTo(resp,previewBody);
 
-    // ═══ AUTO-CONTINUE if the model stopped mid-section ═══
+    // ═══ AUTO-CONTINUE if stopped mid-section ═══
     for(let cont=0;cont<3;cont++){
       const trimmed=output.trim();
+      const outputWords=trimmed.split(/\s+/).length;
       const lastLine=trimmed.split('\n').pop()||'';
-      // Check if it looks like it stopped mid-content
-      const midSentence=lastLine.length>0&&!lastLine.endsWith('.')&&!lastLine.endsWith(':')&&!lastLine.endsWith(')')&&!lastLine.endsWith('|')&&!lastLine.endsWith('---')&&!lastLine.endsWith('`')&&!/^\*\*/.test(lastLine)&&lastLine.length>10;
-      const midList=lastLine.startsWith('- ')&&trimmed.split('\n').filter(l=>l.startsWith('- ')).length>2;
 
-      if(!midSentence&&!midList)break;
+      // Is it done? Check word count + ending
+      const isRemovalEdit=/\b(remove|delete|shorten|condense|trim)\b/i.test(il);
+      const wordRatio=outputWords/Math.max(secWords,1);
+      const endsClean=/[.):|\-`]$/.test(lastLine.trim())||lastLine.trim()==='---'||lastLine.trim().length===0;
+
+      if(isRemovalEdit||wordRatio>=0.7||endsClean)break;
 
       btn.textContent='Continuing ('+(cont+1)+'/3)...';
-      document.getElementById('previewTitle').textContent='Continuing ('+(cont+1)+'/3)...';
+      document.getElementById('previewTitle').textContent=secTitle+' \u2014 continuing ('+(cont+1)+'/3)...';
       await new Promise(r=>setTimeout(r,1000));
 
       try{
+        // Continue as a real conversation — partial output as assistant, "keep going" as user
         const contResp=await callApi(keys[0],[
           ...messages,
           {role:'assistant',content:output},
-          {role:'user',content:'You stopped before finishing. Continue from exactly where you left off. Do not repeat anything.'}
-        ],sys,{stream:true,maxTok:4000,model:genModel,signal:null});
+          {role:'user',content:'You stopped before finishing the section. Continue from exactly where you left off. Do not repeat anything already written.'}
+        ],sys,{stream:true,maxTok:Math.min(maxTok,4000),model:genModel,signal:null});
 
         const reader=contResp.body.getReader(),dec=new TextDecoder();
         let buf='',contMD='',lastT=0;
@@ -3016,85 +3120,31 @@ async function refine(){
       }
     }
 
-    // ═══ FIGURE OUT WHAT THE MODEL DID ═══
-    // Did it output section(s) with # headings? → splice them in
-    // Did it just answer a question? → show in response panel
+    // ═══ SPLICE RESULT ═══
+    if(output&&output.trim().length>50){
+      const outputWords=output.split(/\s+/).length;
+      const isRemovalEdit=/\b(remove|delete|shorten|condense|trim)\b/i.test(il);
 
-    const hasHeadings=output.match(/^# .+/gm);
-
-    if(hasHeadings&&hasHeadings.length>0){
-      // Model output contains section(s) — parse and splice
-      const editLines=output.split('\n');
-      const editBlocks=[];
-      let cur=null;
-      for(const line of editLines){
-        if(line.startsWith('# ')){
-          if(cur)editBlocks.push(cur);
-          cur={heading:line.replace(/^# /,'').trim(),lines:[line]};
-        }else if(cur){
-          cur.lines.push(line);
-        }
-      }
-      if(cur)editBlocks.push(cur);
-
-      // Splice each block into allMD
-      let newMD=allMD;
-      let spliced=0;
-      for(const block of editBlocks){
-        const mdLines=newMD.split('\n');
-        const mdH1s=[];mdLines.forEach((l,i)=>{if(l.startsWith('# '))mdH1s.push(i)});
-
-        let bestIdx=-1,bestScore=0;
-        mdH1s.forEach((li,idx)=>{
-          const existing=mdLines[li].replace(/^# /,'').trim().toLowerCase();
-          const edited=block.heading.toLowerCase();
-          const eWords=existing.split(/\s+/).filter(w=>w.length>2);
-          const mc=eWords.filter(w=>edited.includes(w)).length;
-          const score=eWords.length>0?mc/eWords.length:0;
-          if(score>bestScore&&mc>=1){bestScore=score;bestIdx=idx}
-        });
-
-        if(bestIdx>=0){
-          const secStart=mdH1s[bestIdx];
-          const secEnd=bestIdx+1<mdH1s.length?mdH1s[bestIdx+1]:mdLines.length;
-          const origWords=mdLines.slice(secStart,secEnd).join(' ').split(/\s+/).length;
-          const newWords=block.lines.join(' ').split(/\s+/).length;
-
-          // Only splice if new content is substantial (not a truncated fragment)
-          if(newWords>=origWords*0.4||/\b(remove|delete|shorten|condense|trim)\b/i.test(il)){
-            const before=mdLines.slice(0,secStart).join('\n');
-            const after=mdLines.slice(secEnd).join('\n');
-            newMD=(before?(before+'\n'):'')+block.lines.join('\n')+(after?('\n'+after):'');
-            spliced++;
-          }
-        }
-      }
-
-      if(spliced>0){
-        pendingPreview={md:newMD};
-        const secNames=editBlocks.map(b=>b.heading).join(', ');
-        document.getElementById('previewTitle').textContent=secNames;
-        previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='visible');
-        document.getElementById('pfoot').textContent='Preview: '+spliced+' section'+(spliced>1?'s':'')+' modified \u2014 Accept or Discard';
-      }else{
-        // Couldn't splice — show as response instead
+      if(!isRemovalEdit&&outputWords<secWords*0.4){
         previewPanel.style.display='none';
-        responseEl.innerHTML=md2html(output);
+        responseEl.innerHTML='<strong style="color:var(--am)">\u26a0 Edit incomplete</strong> ('+outputWords+' words vs original '+secWords+'). Guide not modified.';
         responseEl.style.display='block';
-        document.getElementById('pfoot').textContent='Response shown above';
+      }else{
+        // Build new full guide with this section replaced
+        const before=allLines.slice(0,secStart).join('\n');
+        const after=allLines.slice(secEnd).join('\n');
+        const newFullMD=(before?(before+'\n'):'')+output+(after?('\n'+after):'');
+
+        pendingPreview={md:newFullMD};
+        document.getElementById('previewTitle').textContent=secTitle+' ('+outputWords+' words)';
+        previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='visible');
+        document.getElementById('pfoot').textContent='Preview: '+secTitle+' \u2014 Accept or Discard';
       }
-    }else{
-      // No # headings — this is an answer, not an edit
-      previewPanel.style.display='none';
-      responseEl.innerHTML=md2html(output);
-      responseEl.style.display='block';
-      document.getElementById('pfoot').textContent='Response shown above';
     }
 
     refineMessages.push({role:'user',content:instruction.substring(0,200)});
-    refineMessages.push({role:'assistant',content:(output||'').substring(0,500)});
+    refineMessages.push({role:'assistant',content:'Edited '+secTitle});
     if(refineMessages.length>10)refineMessages=refineMessages.slice(-10);
-
     input.value='';
   }catch(e){
     if(e.name!=='AbortError'){
