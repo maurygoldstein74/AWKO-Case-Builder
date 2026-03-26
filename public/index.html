@@ -2816,29 +2816,22 @@ async function refine(){
 
   const il=instruction.toLowerCase();
 
-  // Log to history
   refineHist.push({scope:'Chat',text:instruction});
   document.getElementById('refineHistory').innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
 
-  const researchText=Object.values(allRes).join('\n\n---\n\n').substring(0,15000);
-
   try{
-    const allLines=allMD.split('\n');
-    const h1Lines=[];
-    allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-    const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
-
-    // ═══ REMOVE — no API ═══
+    // ═══ REMOVE — instant, no API ═══
     if(/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(il)&&!/\b(add|expand|more)\b/i.test(il)){
+      const allLines=allMD.split('\n');
+      const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+      const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
       const removeIdx=matchSection(il);
       if(removeIdx>=0){
         const hl=headings[removeIdx].toLowerCase();
-        if((hl.includes('checklist')||hl.includes('review guide'))&&!il.includes('checklist')&&!il.includes('review guide')){
-          // protected — fall through
-        }else{
+        if(!((hl.includes('checklist')||hl.includes('review guide'))&&!il.includes('checklist')&&!il.includes('review guide'))){
           pushUndo();
-          const sl=h1Lines[removeIdx],el=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
-          const before=allLines.slice(0,sl),after=allLines.slice(el);
+          const sl=h1Lines[removeIdx],el2=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
+          const before=allLines.slice(0,sl),after=allLines.slice(el2);
           while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
           allMD=before.join('\n')+'\n\n'+after.join('\n');
           reRender();input.value='';
@@ -2848,8 +2841,11 @@ async function refine(){
       }
     }
 
-    // ═══ REORDER — no API ═══
+    // ═══ REORDER — instant, no API ═══
     if(/\b(move|reorder|swap)\b/i.test(il)&&/\b(before|after|above|below)\b/i.test(il)){
+      const allLines=allMD.split('\n');
+      const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+      const headings=h1Lines.map(i=>allLines[i].replace(/^# /,''));
       const moveMatch=il.match(/(?:move|put|place)\s+(.+?)\s+(before|after|above|below)\s+(.+)/i);
       if(moveMatch){
         const srcIdx=matchSection(moveMatch[1]);
@@ -2875,217 +2871,173 @@ async function refine(){
       }
     }
 
-    // ═══ QUESTION — answer in panel, guide untouched ═══
-    const hasQ=instruction.includes('?');
-    const isEditWord=/\b(add|change|edit|update|expand|remove|rewrite|include|move|improve|better|deeper|more detail|flesh|strengthen|enrich|elaborate|put|make|write|incorporate|integrate|revise|tell me more)\b/i.test(il);
-    if(hasQ&&!isEditWord&&/^(what|why|how|who|when|where|is|are|does|do|can|should|would|could|which)\b/i.test(instruction)){
-      btn.textContent='Thinking...';
-      const memMsgs=refineMessages.slice(-4).map(m=>m.role==='user'?'USER: '+m.content:'ASSISTANT: '+m.content).join('\n');
-      const qSys='You are a medical-legal consultant. Answer concisely based on the guide and research.\n\n'+(memMsgs?'CONVERSATION:\n'+memMsgs+'\n\n':'')+'GUIDE:\n'+allMD.substring(0,40000)+'\n\nRESEARCH:\n'+researchText;
-      const qResp=await callApi(keys[0],[{role:'user',content:instruction}],qSys,{stream:true,maxTok:1500,model:genModel,signal:null});
-      const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
-      const answer=await streamTo(qResp,tmpEl);
-      document.body.removeChild(tmpEl);
-      responseEl.innerHTML=md2html(answer);
-      responseEl.style.display='block';
-      refineMessages.push({role:'user',content:instruction},{role:'assistant',content:answer.substring(0,500)});
-      if(refineMessages.length>10)refineMessages=refineMessages.slice(-10);
-      input.value='';btn.disabled=false;btn.textContent='Send';return;
+    // ═══ EVERYTHING ELSE — send to API like pasting into Claude chat ═══
+    //
+    // This mimics exactly what happens when you paste the guide into
+    // Claude chat and type your instruction. Minimal system prompt.
+    // The guide goes in the USER message, not buried in system rules.
+    // No complex routing. No 20-rule instruction blocks. Just a
+    // document and a request.
+    //
+
+    const memMsgs=refineMessages.slice(-4);
+    const messages=[];
+
+    // Build conversation history if any
+    for(const m of memMsgs){
+      messages.push({role:m.role,content:m.content});
     }
 
-    // ═══ ADD NEW SECTION ═══
-    if(/\b(add a section|add a new section|new section|create a section|insert a section)\b/i.test(il)){
-      btn.textContent='Generating new section...';
-      const addSys='Add ONE new section to this litigation review guide.\n\nEXISTING SECTIONS:\n'+headings.map(h=>'- '+h).join('\n')+'\n\nRESEARCH:\n'+researchText+'\n\nINSTRUCTION: '+instruction+'\n\nWrite the section. Use # heading. Include [Source](URL) citations. Match existing style.\n\nOutput ONLY the section Markdown.';
-      const addResp=await callApi(keys[0],[{role:'user',content:'Write the new section.'}],addSys,{stream:true,maxTok:4000,model:genModel,signal:null});
-      const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
-      const newSec=await streamTo(addResp,tmpEl);
-      document.body.removeChild(tmpEl);
-      if(newSec&&newSec.trim().length>50){
-        pushUndo();
-        const insertBefore=Math.max(h1Lines.length-2,0);
-        if(insertBefore<h1Lines.length){
-          const before=allLines.slice(0,h1Lines[insertBefore]).join('\n');
-          const after=allLines.slice(h1Lines[insertBefore]).join('\n');
-          allMD=before+'\n\n---\n\n'+newSec+'\n\n---\n\n'+after;
-        }else{allMD+='\n\n---\n\n'+newSec}
-        reRender();
-        document.getElementById('pfoot').textContent='Added new section';
-        saveGuide();
-      }
-      input.value='';btn.disabled=false;btn.textContent='Send';return;
-    }
+    // The main message: guide + instruction — just like pasting into Claude
+    messages.push({
+      role:'user',
+      content:'Here is my litigation review guide:\n\n'+allMD+'\n\n---\n\n'+instruction
+    });
 
-    // ═══════════════════════════════════════════════════
-    // EDIT — the model sees the FULL GUIDE, decides what to change
-    // This is what makes it work like chatting with Claude directly
-    // ═══════════════════════════════════════════════════
-    const isExpand=/\b(deeper|more detail|expand|flesh out|elaborate|thorough|comprehensive|add more|bulk up|enrich)\b/i.test(il);
-    const needsResearch=isExpand||/\b(research|data|cite|source|evidence|study|trial|FDA|findings)\b/i.test(il);
-    const memMsgs=refineMessages.slice(-4).map(m=>m.role==='user'?'USER: '+m.content:'ASSISTANT: '+m.content).join('\n');
+    // Simple system prompt — no walls of rules
+    const sys='You are a medical-legal consultant helping edit a litigation review guide. When the user asks you to change something, output the COMPLETE modified section(s) in markdown starting with the # heading. When the user asks a question, just answer it. Be thorough and complete — never stop mid-section.';
 
-    const editSys=`You are a senior medical-legal consultant editing a litigation review guide. You can see the ENTIRE guide below.
-
-${(needsResearch&&researchText)?'RESEARCH DATA:\n<research>\n'+researchText+'\n</research>\n\n':''}${memMsgs?'PREVIOUS CONVERSATION:\n'+memMsgs+'\n\n':''}FULL GUIDE:
-<guide>
-${allMD}
-</guide>
-
-THE USER SAYS: ${instruction}
-
-YOUR TASK:
-1. Read the full guide above.
-2. Determine which section(s) the user's instruction applies to.
-3. Output ONLY the section(s) that need to change — with the changes applied.
-4. Start each section with its original # heading.
-5. If only one section needs changing, output only that section.
-6. If multiple sections need changing, output each one separated by ---
-7. Do NOT output sections that don't need changes.
-
-${isExpand
-?'The user wants MORE content — expand with depth, detail, specificity. Keep ALL existing content and add to it.'
-:'Make ONLY the change requested. Preserve all existing content in the affected section(s) except what the instruction asks to change.'}
-
-CRITICAL: For each section you output, write it COMPLETELY from # heading to last line. The output replaces the original — anything you omit is permanently lost. Do NOT abbreviate or truncate.`;
-
-    // Show preview panel for live streaming
-    document.getElementById('previewTitle').textContent='Editing \u2014 streaming...';
+    // Show preview for streaming
+    document.getElementById('previewTitle').textContent='Working...';
     previewBody.innerHTML='';
     previewPanel.style.display='block';
     previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='hidden');
+    btn.textContent='Generating...';
 
-    btn.textContent='Editing...';
+    const resp=await callApi(keys[0],messages,sys,{
+      stream:true,maxTok:8000,model:genModel,signal:null,
+      onRetry:(msg)=>{btn.textContent=msg}
+    });
 
-    // Calculate token budget based on full guide size
-    const guideWords=allMD.split(/\s+/).length;
-    const maxTok=isExpand
-      ?Math.max(Math.round(guideWords*1.5),6000)
-      :Math.max(Math.round(guideWords*0.8),4000);
+    let output=await streamTo(resp,previewBody);
 
-    const resp=await callApi(keys[0],[
-      {role:'user',content:instruction+'\n\nOutput ONLY the changed section(s), completely, from # heading to last line.'}
-    ],editSys,{stream:true,maxTok:Math.min(maxTok,16000),model:genModel,signal:null,onRetry:(msg)=>{btn.textContent=msg}});
+    // ═══ AUTO-CONTINUE if the model stopped mid-section ═══
+    for(let cont=0;cont<3;cont++){
+      const trimmed=output.trim();
+      const lastLine=trimmed.split('\n').pop()||'';
+      // Check if it looks like it stopped mid-content
+      const midSentence=lastLine.length>0&&!lastLine.endsWith('.')&&!lastLine.endsWith(':')&&!lastLine.endsWith(')')&&!lastLine.endsWith('|')&&!lastLine.endsWith('---')&&!lastLine.endsWith('`')&&!/^\*\*/.test(lastLine)&&lastLine.length>10;
+      const midList=lastLine.startsWith('- ')&&trimmed.split('\n').filter(l=>l.startsWith('- ')).length>2;
 
-    let editOutput=await streamTo(resp,previewBody);
+      if(!midSentence&&!midList)break;
 
-    // ═══ AUTO-CONTINUATION if output looks incomplete ═══
-    // Check: does the output end abruptly (mid-list, mid-sentence)?
-    const outputLines=editOutput.trim().split('\n');
-    const lastLine=outputLines[outputLines.length-1]||'';
-    const looksIncomplete=lastLine.startsWith('- ')&&!lastLine.endsWith('.')&&!lastLine.endsWith(':')
-      ||lastLine.endsWith(',')
-      ||lastLine.endsWith('and')
-      ||(editOutput.split(/\s+/).length<100&&guideWords>1000); // very short output for a long guide
+      btn.textContent='Continuing ('+(cont+1)+'/3)...';
+      document.getElementById('previewTitle').textContent='Continuing ('+(cont+1)+'/3)...';
+      await new Promise(r=>setTimeout(r,1000));
 
-    if(looksIncomplete&&editOutput.trim().length>50){
-      for(let cont=0;cont<3;cont++){
-        btn.textContent='Continuing ('+(cont+1)+'/3)...';
-        document.getElementById('previewTitle').textContent='Editing \u2014 continuing ('+(cont+1)+'/3)...';
-        await new Promise(r=>setTimeout(r,1500));
+      try{
+        const contResp=await callApi(keys[0],[
+          ...messages,
+          {role:'assistant',content:output},
+          {role:'user',content:'You stopped before finishing. Continue from exactly where you left off. Do not repeat anything.'}
+        ],sys,{stream:true,maxTok:4000,model:genModel,signal:null});
 
-        const contSys='You were editing a litigation review guide section but stopped before finishing.\n\nWhat you wrote so far:\n<partial>\n'+editOutput+'\n</partial>\n\nContinue from EXACTLY where you left off. Do NOT repeat content. Output ONLY the remaining content.';
-        try{
-          const contResp=await callApi(keys[0],[
-            {role:'user',content:'Continue from where you stopped. Do NOT repeat. Just the rest.'}
-          ],contSys,{stream:true,maxTok:4000,model:genModel,signal:null});
-
-          const reader=contResp.body.getReader(),dec=new TextDecoder();
-          let buf='',contMD='',lastT=0;
-          while(true){
-            const{done,value}=await reader.read();if(done)break;
-            buf+=dec.decode(value,{stream:true});
-            const lines=buf.split('\n');buf=lines.pop()||'';
-            for(const ln of lines){
-              if(!ln.startsWith('data: '))continue;
-              const d=ln.slice(6).trim();if(d==='[DONE]')continue;
-              try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){contMD+=ev.delta.text;const now=Date.now();if(now-lastT>200){previewBody.innerHTML=md2html(editOutput+'\n'+contMD);lastT=now}}}catch(e){}
-            }
+        const reader=contResp.body.getReader(),dec=new TextDecoder();
+        let buf='',contMD='',lastT=0;
+        while(true){
+          const{done,value}=await reader.read();if(done)break;
+          buf+=dec.decode(value,{stream:true});
+          const lines=buf.split('\n');buf=lines.pop()||'';
+          for(const ln of lines){
+            if(!ln.startsWith('data: '))continue;
+            const d=ln.slice(6).trim();if(d==='[DONE]')continue;
+            try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){contMD+=ev.delta.text;const now=Date.now();if(now-lastT>200){previewBody.innerHTML=md2html(output+'\n'+contMD);lastT=now}}}catch(e){}
           }
-          previewBody.innerHTML=md2html(editOutput+'\n'+contMD);
-          if(contMD&&contMD.trim().length>20){editOutput+='\n'+contMD}else break;
-
-          // Check if now complete
-          const newLast=(editOutput.trim().split('\n').pop()||'');
-          if(!newLast.endsWith(',')&&!newLast.endsWith('and'))break;
-        }catch(e){
-          if(e.name==='AbortError')throw e;
-          break;
         }
+        if(contMD&&contMD.trim().length>10){
+          output+='\n'+contMD;
+          previewBody.innerHTML=md2html(output);
+        }else break;
+      }catch(e){
+        if(e.name==='AbortError')throw e;
+        break;
       }
     }
 
-    // ═══ SPLICE changed sections back into the guide ═══
-    if(editOutput&&editOutput.trim().length>50){
-      // Parse the edit output into section blocks (split on # headings)
+    // ═══ FIGURE OUT WHAT THE MODEL DID ═══
+    // Did it output section(s) with # headings? → splice them in
+    // Did it just answer a question? → show in response panel
+
+    const hasHeadings=output.match(/^# .+/gm);
+
+    if(hasHeadings&&hasHeadings.length>0){
+      // Model output contains section(s) — parse and splice
+      const editLines=output.split('\n');
       const editBlocks=[];
-      const editLines=editOutput.split('\n');
-      let curBlock=null;
+      let cur=null;
       for(const line of editLines){
         if(line.startsWith('# ')){
-          if(curBlock)editBlocks.push(curBlock);
-          curBlock={heading:line.replace(/^# /,'').trim(),lines:[line]};
-        }else if(curBlock){
-          curBlock.lines.push(line);
+          if(cur)editBlocks.push(cur);
+          cur={heading:line.replace(/^# /,'').trim(),lines:[line]};
+        }else if(cur){
+          cur.lines.push(line);
         }
       }
-      if(curBlock)editBlocks.push(curBlock);
+      if(cur)editBlocks.push(cur);
 
-      // Match each edit block to an existing section and splice
+      // Splice each block into allMD
       let newMD=allMD;
       let spliced=0;
       for(const block of editBlocks){
-        // Find matching section in allMD by heading
         const mdLines=newMD.split('\n');
-        const mdH1s=[];
-        mdLines.forEach((l,i)=>{if(l.startsWith('# '))mdH1s.push(i)});
+        const mdH1s=[];mdLines.forEach((l,i)=>{if(l.startsWith('# '))mdH1s.push(i)});
 
         let bestIdx=-1,bestScore=0;
-        mdH1s.forEach((li,i)=>{
+        mdH1s.forEach((li,idx)=>{
           const existing=mdLines[li].replace(/^# /,'').trim().toLowerCase();
           const edited=block.heading.toLowerCase();
-          // Score by word overlap
           const eWords=existing.split(/\s+/).filter(w=>w.length>2);
           const mc=eWords.filter(w=>edited.includes(w)).length;
           const score=eWords.length>0?mc/eWords.length:0;
-          if(score>bestScore&&mc>=1){bestScore=score;bestIdx=i}
+          if(score>bestScore&&mc>=1){bestScore=score;bestIdx=idx}
         });
 
         if(bestIdx>=0){
           const secStart=mdH1s[bestIdx];
           const secEnd=bestIdx+1<mdH1s.length?mdH1s[bestIdx+1]:mdLines.length;
-          const before=mdLines.slice(0,secStart).join('\n');
-          const after=mdLines.slice(secEnd).join('\n');
-          newMD=(before?(before+'\n'):'')+block.lines.join('\n')+(after?('\n'+after):'');
-          spliced++;
+          const origWords=mdLines.slice(secStart,secEnd).join(' ').split(/\s+/).length;
+          const newWords=block.lines.join(' ').split(/\s+/).length;
+
+          // Only splice if new content is substantial (not a truncated fragment)
+          if(newWords>=origWords*0.4||/\b(remove|delete|shorten|condense|trim)\b/i.test(il)){
+            const before=mdLines.slice(0,secStart).join('\n');
+            const after=mdLines.slice(secEnd).join('\n');
+            newMD=(before?(before+'\n'):'')+block.lines.join('\n')+(after?('\n'+after):'');
+            spliced++;
+          }
         }
       }
 
       if(spliced>0){
-        const editWords=editOutput.split(/\s+/).length;
-        const secNames=editBlocks.map(b=>b.heading).join(', ');
         pendingPreview={md:newMD};
-        document.getElementById('previewTitle').textContent=secNames+' ('+editWords+' words)';
-        previewBody.innerHTML=md2html(editOutput);
+        const secNames=editBlocks.map(b=>b.heading).join(', ');
+        document.getElementById('previewTitle').textContent=secNames;
         previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='visible');
-        document.getElementById('pfoot').textContent='Preview ready \u2014 review and accept or discard';
+        document.getElementById('pfoot').textContent='Preview: '+spliced+' section'+(spliced>1?'s':'')+' modified \u2014 Accept or Discard';
       }else{
+        // Couldn't splice — show as response instead
         previewPanel.style.display='none';
-        responseEl.innerHTML='<strong style="color:var(--am)">\u26a0 Could not match the edit output to any section.</strong> The guide was not modified.';
+        responseEl.innerHTML=md2html(output);
         responseEl.style.display='block';
+        document.getElementById('pfoot').textContent='Response shown above';
       }
     }else{
+      // No # headings — this is an answer, not an edit
       previewPanel.style.display='none';
+      responseEl.innerHTML=md2html(output);
+      responseEl.style.display='block';
+      document.getElementById('pfoot').textContent='Response shown above';
     }
 
-    refineMessages.push({role:'user',content:instruction});
-    refineMessages.push({role:'assistant',content:'Edit applied'});
+    refineMessages.push({role:'user',content:instruction.substring(0,200)});
+    refineMessages.push({role:'assistant',content:(output||'').substring(0,500)});
     if(refineMessages.length>10)refineMessages=refineMessages.slice(-10);
 
     input.value='';
   }catch(e){
     if(e.name!=='AbortError'){
-      alert('Edit failed: '+e.message);
-      console.error('Refine error:',e);
+      alert('Failed: '+e.message);
+      console.error(e);
     }
     previewPanel.style.display='none';
   }finally{
