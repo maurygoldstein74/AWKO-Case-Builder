@@ -436,11 +436,22 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 <div class="refine-bar" id="refineBar">
   <div class="refine-inner">
     <div id="refineResponse" style="display:none;padding:10px 14px;margin-bottom:10px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;font-size:12px;color:var(--tx2);line-height:1.5;max-height:200px;overflow-y:auto"></div>
+    <div id="refinePreview" style="display:none;margin-bottom:10px;border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+      <div style="padding:8px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);font-size:11px;color:var(--tx3);display:flex;justify-content:space-between;align-items:center">
+        <span><strong>Preview:</strong> <span id="previewTitle"></span></span>
+        <span>
+          <button onclick="acceptPreview()" style="padding:4px 14px;background:var(--gnbg);color:var(--gn);border:1px solid rgba(86,196,144,.3);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600;margin-right:6px">✓ Accept</button>
+          <button onclick="rejectPreview()" style="padding:4px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer">✗ Discard</button>
+        </span>
+      </div>
+      <div id="previewBody" style="padding:10px 14px;max-height:300px;overflow-y:auto;font-size:12px;line-height:1.5;color:var(--tx2)"></div>
+    </div>
     <div class="refine-label">
       Refine Output
       <select id="refineScope">
         <option value="full">Entire Guide</option>
       </select>
+      <button id="undoBtn" onclick="undoRefine()" style="display:none;margin-left:8px;padding:3px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;color:var(--tx3)">↩ Undo</button>
     </div>
     <div class="refine-row">
       <textarea id="refineInput" placeholder="e.g., Expand the confounders section with more detail on cardiac conditions. Add ICD-10 codes to every injury. Remove the treatment section. What's the strongest defense argument here?" rows="2"></textarea>
@@ -2736,6 +2747,51 @@ function showRefineBar(){
   });
 }
 
+// ═══════ UNDO STACK ═══════
+let undoStack=[];
+function pushUndo(){
+  undoStack.push(JSON.stringify({md:allMD,secMD:Object.assign({},secMD)}));
+  if(undoStack.length>10)undoStack.shift(); // keep last 10
+  document.getElementById('undoBtn').style.display='inline-block';
+}
+function undoRefine(){
+  if(!undoStack.length)return;
+  const state=JSON.parse(undoStack.pop());
+  allMD=state.md;
+  secMD=state.secMD;
+  reRender();
+  document.getElementById('pfoot').textContent='Undo applied';
+  saveGuide();
+  if(!undoStack.length)document.getElementById('undoBtn').style.display='none';
+}
+
+// ═══════ PREVIEW ═══════
+let pendingPreview=null;
+function showPreview(targetIdx,newMD,title){
+  pendingPreview={targetIdx,newMD};
+  document.getElementById('previewTitle').textContent=title;
+  document.getElementById('previewBody').innerHTML=md2html(newMD);
+  document.getElementById('refinePreview').style.display='block';
+}
+function acceptPreview(){
+  if(!pendingPreview)return;
+  pushUndo();
+  spliceSection(pendingPreview.targetIdx,pendingPreview.newMD);
+  reRender();
+  document.getElementById('pfoot').textContent='Applied: '+document.getElementById('previewTitle').textContent;
+  saveGuide();
+  pendingPreview=null;
+  document.getElementById('refinePreview').style.display='none';
+}
+function rejectPreview(){
+  pendingPreview=null;
+  document.getElementById('refinePreview').style.display='none';
+  document.getElementById('pfoot').textContent='Edit discarded';
+}
+
+// ═══════ CONVERSATION MEMORY ═══════
+let refineMessages=[]; // {role,content} pairs for multi-turn
+
 async function refine(){
   const keys=getKeys();
   if(!keys.length)return alert('No API keys configured.');
@@ -2795,6 +2851,7 @@ async function refine(){
         if((hl.includes('checklist')||hl.includes('review guide'))&&!il.includes('checklist')&&!il.includes('review guide')){
           // Don't remove — fall through to edit
         }else{
+          pushUndo();
           const sl=h1Lines[removeIdx],el=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
           const before=allLines.slice(0,sl),after=allLines.slice(el);
           while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
@@ -2816,6 +2873,7 @@ async function refine(){
         const dstIdx=matchSection(moveMatch[3]);
         const dir=(moveMatch[2]==='before'||moveMatch[2]==='above')?'before':'after';
         if(srcIdx>=0&&dstIdx>=0&&srcIdx!==dstIdx){
+          pushUndo();
           const srcStart=h1Lines[srcIdx],srcEnd=srcIdx+1<h1Lines.length?h1Lines[srcIdx+1]:allLines.length;
           const srcBlock=allLines.splice(srcStart,srcEnd-srcStart);
           // Recalc after splice
@@ -2870,6 +2928,7 @@ async function refine(){
       const newSec=await streamTo(addResp,tmpEl);
       document.body.removeChild(tmpEl);
       if(newSec&&newSec.trim().length>50){
+        pushUndo();
         // Insert before last two sections (Review Guide & Checklist)
         const insertBefore=Math.max(h1Lines.length-2,0);
         if(insertBefore<h1Lines.length){
@@ -2891,36 +2950,100 @@ async function refine(){
     // ═══════════════════════════════════════════
     const isExpand=/\b(deeper|more detail|expand|flesh out|elaborate|thorough|comprehensive|add more|bulk up|enrich)\b/i.test(il);
     const needsResearch=isExpand||/\b(research|data|cite|source|evidence|study|trial|FDA|findings)\b/i.test(il);
+    const isCrossSection=/\b(all sections|every section|everywhere|throughout|each section|across the guide|whole guide)\b/i.test(il);
 
-    // Find target section — 3 attempts: dropdown > API > local keyword
+    // ═══ CROSS-SECTION: apply to multiple sections ═══
+    if(isCrossSection&&scope==='full'){
+      pushUndo();
+      btn.textContent='Editing all sections...';
+      let edited=0;
+      for(let si=0;si<h1Lines.length;si++){
+        const sl=h1Lines[si];
+        const el=si+1<h1Lines.length?h1Lines[si+1]:allMD.split('\n').length;
+        const curLines=allMD.split('\n');
+        // Recalc h1Lines each iteration since allMD changes
+        const h1s2=[];curLines.forEach((l,i)=>{if(l.startsWith('# '))h1s2.push(i)});
+        if(si>=h1s2.length)break;
+        const secStart=h1s2[si];
+        const secEnd=si+1<h1s2.length?h1s2[si+1]:curLines.length;
+        const secText2=curLines.slice(secStart,secEnd).join('\n');
+        const secTitle2=curLines[secStart].replace(/^# /,'');
+        btn.textContent='Editing: '+secTitle2.substring(0,20)+' ('+(si+1)+'/'+h1s2.length+')...';
+
+        const secWords2=secText2.split(/\s+/).length;
+        const maxTok2=Math.max(Math.round(secWords2*2.5),3000);
+
+        try{
+          const sys2=`You are editing one section of a litigation review guide.
+
+CURRENT SECTION:
+<section>
+${secText2}
+</section>
+
+INSTRUCTION: ${instruction}
+
+Apply this instruction to THIS section. If the instruction is not relevant to this section, output the section UNCHANGED.
+Preserve all existing content and [Source](URL) citations.
+You MUST output the COMPLETE section from # heading through last line.`;
+
+          const r=await callApi(keys[0],[{role:'user',content:instruction+'\n\nOutput the COMPLETE section.'}],sys2,{
+            stream:true,maxTok:maxTok2,model:genModel,signal:null
+          });
+          const tmp=document.createElement('div');tmp.style.display='none';document.body.appendChild(tmp);
+          const newMD=await streamTo(r,tmp);
+          document.body.removeChild(tmp);
+
+          if(newMD&&newMD.trim().length>50){
+            const newWords2=newMD.split(/\s+/).length;
+            if(newWords2>=secWords2*0.6){
+              // Splice into allMD
+              const cl=allMD.split('\n');
+              const h1s3=[];cl.forEach((l,i)=>{if(l.startsWith('# '))h1s3.push(i)});
+              if(si<h1s3.length){
+                const s2=h1s3[si];
+                const e2=si+1<h1s3.length?h1s3[si+1]:cl.length;
+                const before=cl.slice(0,s2).join('\n');
+                const after=cl.slice(e2).join('\n');
+                allMD=(before?(before+'\n'):'')+newMD+(after?('\n'+after):'');
+                edited++;
+              }
+            }
+          }
+          if(si<h1Lines.length-1)await new Promise(r=>setTimeout(r,1500));
+        }catch(e){
+          if(e.name==='AbortError')throw e;
+          console.warn('Cross-section edit failed for',secTitle2,e.message);
+        }
+      }
+      reRender();
+      document.getElementById('pfoot').textContent='Updated '+edited+' section'+(edited!==1?'s':'');
+      saveGuide();input.value='';
+      btn.disabled=false;btn.textContent='Refine';
+      // Add to memory
+      refineMessages.push({role:'user',content:instruction});
+      refineMessages.push({role:'assistant',content:'Applied to '+edited+' sections.'});
+      return;
+    }
+
+    // ═══ SINGLE-SECTION EDIT WITH AUTO-CONTINUATION ═══
     let targetIdx=-1;
-
-    // Attempt 1: User selected from dropdown
     if(scope!=='full'){
       targetIdx=parseInt(scope.replace('sec-',''));
     }
-
-    // Attempt 2: API identify
     if(targetIdx<0){
       try{
+        const memContext=refineMessages.length?'\n\nPrevious conversation:\n'+refineMessages.slice(-4).map(m=>m.role+': '+m.content).join('\n'):'';
         const idResp=await callApi(keys[0],[{role:'user',content:'Section number only.'}],
-          'Sections:\n'+headings.map((h,i)=>i+': '+h).join('\n')+'\nWhich section does this instruction apply to: "'+instruction+'"\nReply with ONLY the number (0-indexed). If it applies to multiple sections, pick the most relevant one. Never reply -1 — always pick your best guess.',
+          'Sections:\n'+headings.map((h,i)=>i+': '+h).join('\n')+memContext+'\nWhich section does this instruction apply to: "'+instruction+'"\nReply with ONLY the number (0-indexed). Never reply -1.',
           {maxTok:20,model:genModel,signal:null});
         const idJson=await idResp.json();
         const n=parseInt(((idJson.content&&idJson.content[0]&&idJson.content[0].text)||'').trim());
         if(n>=0&&n<h1Lines.length)targetIdx=n;
       }catch(e){console.warn('API identify failed:',e.message)}
     }
-
-    // Attempt 3: Local keyword matching
-    if(targetIdx<0){
-      targetIdx=matchSection(instruction);
-    }
-
-    // Attempt 4: Default to the first content section (skip Product & Exposure)
-    if(targetIdx<0){
-      targetIdx=Math.min(1,h1Lines.length-1);
-    }
+    if(targetIdx<0)targetIdx=matchSection(instruction);
+    if(targetIdx<0)targetIdx=Math.min(1,h1Lines.length-1);
 
     const startLine=h1Lines[targetIdx];
     const endLine=targetIdx+1<h1Lines.length?h1Lines[targetIdx+1]:allLines.length;
@@ -2928,15 +3051,11 @@ async function refine(){
     const secTitle=headings[targetIdx];
     btn.textContent='Editing: '+secTitle.substring(0,25)+'...';
 
-    // Token limit: markdown ≈ 1.3-1.5 tokens/word. Must reproduce section + add changes.
-    const secWords=secText.split(/\s+/).length;
-    const maxTok=isExpand
-      ?Math.max(Math.round(secWords*4),5000)
-      :Math.max(Math.round(secWords*2.5),3000);
+    const memMsgs=refineMessages.slice(-4).map(m=>m.role==='user'?'USER: '+m.content:'ASSISTANT: '+m.content).join('\n');
 
-    const sys=`You are editing one section of a litigation review guide.
+    const editSys=`You are editing one section of a litigation review guide.
 
-${(needsResearch&&researchText)?'RESEARCH (use for new facts/citations):\n<research>\n'+researchText+'\n</research>\n':''}CURRENT SECTION:
+${(needsResearch&&researchText)?'RESEARCH (use for new facts/citations):\n<research>\n'+researchText+'\n</research>\n':''}${memMsgs?'PREVIOUS CONVERSATION:\n'+memMsgs+'\n\n':''}CURRENT SECTION:
 <section>
 ${secText}
 </section>
@@ -2947,35 +3066,123 @@ ${isExpand
 ?'APPROACH: EXPAND this section — add depth, detail, specificity. Keep ALL existing content and add to it. Use research for new facts and [Source](URL) citations.'
 :'APPROACH: Make the change requested. Preserve all existing content and citations except where the instruction asks for a change.'}
 
-CRITICAL: You MUST output the COMPLETE section from the # heading through the very last line. Do NOT stop early or truncate. The output replaces the entire section — anything you omit is permanently lost.`;
+You MUST output the COMPLETE revised section from the # heading through the very last line. The output replaces the entire section — anything you omit is permanently lost.`;
 
-    const resp=await callApi(keys[0],[{role:'user',content:instruction+'\n\nOutput the COMPLETE section — # heading through last line. Do not stop early.'}],sys,{
-      stream:true,maxTok,model:genModel,signal:null,
-      onRetry:(msg)=>{btn.textContent=msg}
-    });
+    // ═══ AUTO-CONTINUATION LOOP ═══
+    // The model often stops after a few paragraphs. When it does, we send
+    // what it wrote so far back and say "continue." This repeats until
+    // the output is complete or we hit max attempts.
+    const secWords=secText.split(/\s+/).length;
+    const targetWords=Math.round(secWords*(isExpand?1.5:1.0)); // expect at least this many
+    const maxTokPerCall=Math.max(Math.round(secWords*2),4000);
+    let accumulated='';
+    const MAX_CONTINUATIONS=3;
 
-    const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
-    const newSecMD=await streamTo(resp,tmpEl);
-    document.body.removeChild(tmpEl);
+    // First call — stream visibly into preview panel
+    btn.textContent='Editing: '+secTitle.substring(0,25)+'...';
+    const previewPanel=document.getElementById('refinePreview');
+    const previewBody=document.getElementById('previewBody');
+    document.getElementById('previewTitle').textContent=secTitle+' \u2014 streaming...';
+    previewBody.innerHTML='';
+    previewPanel.style.display='block';
+    previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='hidden');
 
-    if(newSecMD&&newSecMD.trim().length>50){
-      const origWords=secText.split(/\s+/).length;
-      const newWords=newSecMD.split(/\s+/).length;
-      const isRemovalEdit=/\b(remove|delete|cut|drop|shorten|condense|trim)\b/i.test(il);
+    const firstResp=await callApi(keys[0],[
+      {role:'user',content:instruction+'\n\nOutput the COMPLETE revised section from # heading to the last line.'}
+    ],editSys,{stream:true,maxTok:maxTokPerCall,model:genModel,signal:null,onRetry:(msg)=>{btn.textContent=msg}});
 
-      if(!isRemovalEdit&&newWords<origWords*0.6){
-        // Truncated — protect the guide
-        responseEl.innerHTML='<strong style="color:var(--am)">⚠ Edit appears truncated</strong> ('+newWords+' words vs original '+origWords+'). Guide was NOT modified. Try selecting the section from the dropdown.';
-        responseEl.style.display='block';
-        document.getElementById('pfoot').textContent='Edit skipped — output was truncated';
-      }else{
-        spliceSection(targetIdx,newSecMD);
-        document.getElementById('pfoot').textContent=(isExpand?'Expanded':'Updated')+': '+secTitle+' ('+newWords+' words)';
-        saveGuide();
+    accumulated=await streamTo(firstResp,previewBody);
+
+    // Check if output looks complete
+    const accWords=accumulated.split(/\s+/).length;
+    const isRemovalEdit=/\b(remove|delete|cut|drop|shorten|condense|trim)\b/i.test(il);
+    const looksComplete=isRemovalEdit||accWords>=targetWords*0.7;
+
+    if(!looksComplete&&accumulated.trim().length>50){
+      // Auto-continue: send what we have, ask for the rest
+      for(let cont=0;cont<MAX_CONTINUATIONS;cont++){
+        btn.textContent='Continuing ('+(cont+1)+'/'+MAX_CONTINUATIONS+'): '+secTitle.substring(0,20)+'...';
+        await new Promise(r=>setTimeout(r,1500));
+
+        const contSys=`You were writing a revised section of a litigation review guide but stopped before finishing. Here is what you wrote so far:
+
+<partial>
+${accumulated}
+</partial>
+
+And here is the ORIGINAL section for reference (so you know what content still needs to be included):
+<original>
+${secText}
+</original>
+
+Continue from EXACTLY where you left off. Do NOT repeat what you already wrote. Output ONLY the remaining content that comes after your partial output above. Pick up mid-sentence if needed.`;
+
+        try{
+          document.getElementById('previewTitle').textContent=secTitle+' \u2014 continuing ('+(cont+1)+'/'+MAX_CONTINUATIONS+')...';
+          const contResp=await callApi(keys[0],[
+            {role:'user',content:'Continue the section from where you stopped. Do NOT repeat content. Just output the rest.'}
+          ],contSys,{stream:true,maxTok:maxTokPerCall,model:genModel,signal:null});
+
+          // Stream continuation visibly — render accumulated + new chunks live
+          const reader=contResp.body.getReader(),dec=new TextDecoder();
+          let buf='',contMD='',lastT=0;
+          while(true){
+            const{done,value}=await reader.read();if(done)break;
+            buf+=dec.decode(value,{stream:true});
+            const lines=buf.split('\n');buf=lines.pop()||'';
+            for(const ln of lines){
+              if(!ln.startsWith('data: '))continue;
+              const d=ln.slice(6).trim();if(d==='[DONE]')continue;
+              try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){contMD+=ev.delta.text;const now=Date.now();if(now-lastT>200){previewBody.innerHTML=md2html(accumulated+'\n'+contMD);lastT=now}}}catch(e){}
+            }
+          }
+          previewBody.innerHTML=md2html(accumulated+'\n'+contMD);
+
+          if(contMD&&contMD.trim().length>20){
+            accumulated+='\n'+contMD;
+          }else{
+            break;
+          }
+
+          // Check if now complete
+          const newAccWords=accumulated.split(/\s+/).length;
+          if(newAccWords>=targetWords*0.7)break;
+        }catch(e){
+          if(e.name==='AbortError')throw e;
+          console.warn('Continuation '+cont+' failed:',e.message);
+          break;
+        }
       }
     }
 
-    reRender();input.value='';
+    // ═══ APPLY RESULT ═══
+    if(accumulated&&accumulated.trim().length>50){
+      const origWords=secText.split(/\s+/).length;
+      const newWords=accumulated.split(/\s+/).length;
+
+      if(!isRemovalEdit&&newWords<origWords*0.4){
+        // Still truncated after continuations — hide preview, show warning
+        previewPanel.style.display='none';
+        responseEl.innerHTML='<strong style="color:var(--am)">\u26a0 Edit incomplete after '+MAX_CONTINUATIONS+' continuation attempts</strong> ('+newWords+' words vs original '+origWords+'). Guide was NOT modified.<br><br>Try: select "'+secTitle+'" from the dropdown and run the edit again.';
+        responseEl.style.display='block';
+        document.getElementById('pfoot').textContent='Edit skipped \u2014 could not complete output';
+      }else{
+        // Preview is already showing with streamed content — set up accept/reject
+        pendingPreview={targetIdx,newMD:accumulated};
+        document.getElementById('previewTitle').textContent=secTitle+' ('+newWords+' words)';
+        previewBody.innerHTML=md2html(accumulated);
+        previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='visible');
+        document.getElementById('pfoot').textContent='Preview ready \u2014 review and accept or discard';
+      }
+    }else{
+      previewPanel.style.display='none';
+    }
+
+    refineMessages.push({role:'user',content:instruction});
+    refineMessages.push({role:'assistant',content:'Edited '+secTitle});
+    if(refineMessages.length>10)refineMessages=refineMessages.slice(-10);
+
+    input.value='';
   }catch(e){
     if(e.name!=='AbortError'){
       alert('Refinement failed: '+e.message);
