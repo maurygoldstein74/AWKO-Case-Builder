@@ -193,25 +193,100 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .kt-row.fail{border-color:var(--rdbd)}.kt-row.fail .kt-label{color:var(--rd)}
 @keyframes kdim{0%,100%{opacity:.4}50%{opacity:1}}
 
-/* Refinement bar */
-.refine-bar{position:sticky;bottom:0;background:var(--sf);border-top:1px solid var(--bd);padding:16px 48px 20px;display:none;z-index:10}
-.refine-bar.show{display:block}
-.refine-inner{max-width:880px;display:flex;flex-direction:column;gap:8px}
-.refine-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--tx2);display:flex;align-items:center;gap:8px}
-.refine-label select{font-size:11px;font-family:'Outfit',sans-serif;background:var(--sf2);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:var(--tx2);appearance:none;cursor:pointer}
-.refine-row{display:flex;gap:8px}
-.refine-row textarea{flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);font-family:'Outfit',sans-serif;font-size:13px;resize:none;min-height:44px;max-height:120px;transition:border-color .15s}
-.refine-row textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(139,123,245,.1)}
-.refine-row textarea::placeholder{color:var(--tx3)}
-.refine-send{padding:10px 20px;background:linear-gradient(135deg,var(--ac),#7b6be5);color:#fff;border:none;border-radius:8px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;align-self:flex-end}
-.refine-send:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 16px rgba(139,123,245,.25)}
-.refine-send:disabled{opacity:.4;cursor:not-allowed}
-.refine-history{display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;margin-top:4px}
-.refine-hist-item{font-size:11px;color:var(--tx3);padding:4px 8px;background:var(--sf2);border-radius:4px;display:flex;gap:6px}
-.refine-hist-item .rh-scope{color:var(--ac2);font-weight:500;flex-shrink:0}
-.refine-hist-item .rh-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Chat Drawer */
+.chat-toggle{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--ac),#7b6be5);color:#fff;border:none;cursor:pointer;font-size:20px;display:none;align-items:center;justify-content:center;z-index:100;box-shadow:0 4px 20px rgba(139,123,245,.35);transition:all .2s}
+.chat-toggle:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(139,123,245,.45)}
+.chat-toggle.show{display:flex}
+.chat-toggle .badge{position:absolute;top:-2px;right:-2px;width:18px;height:18px;border-radius:50%;background:var(--am);font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700}
 
-@media(max-width:960px){.shell{grid-template-columns:1fr}.side{position:relative;max-height:none;border-right:none;border-bottom:1px solid var(--bd)}.out-wrap{padding:20px 16px 60px}.toc ol{columns:1}.refine-bar{padding:12px 16px 16px}}
+.chat-drawer{position:fixed;top:0;right:-520px;width:520px;height:100vh;background:var(--sf);border-left:1px solid var(--bd);display:flex;flex-direction:column;z-index:200;transition:right .3s cubic-bezier(.22,.61,.36,1);box-shadow:-8px 0 40px rgba(0,0,0,.4)}
+.chat-drawer.open{right:0}
+
+.chat-header{padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.chat-header h2{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;flex:1}
+.chat-tabs{display:flex;gap:2px;background:var(--sf2);border-radius:6px;padding:2px}
+.chat-tab{padding:6px 14px;border-radius:4px;font-size:11px;font-weight:600;color:var(--tx3);cursor:pointer;border:none;background:none;font-family:'Outfit',sans-serif;transition:all .12s}
+.chat-tab:hover{color:var(--tx2)}
+.chat-tab.active{background:var(--ac);color:#fff}
+.chat-close{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:4px;transition:all .12s}
+.chat-close:hover{color:var(--rd);background:var(--rdbg)}
+
+/* Chat panel */
+.chat-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.chat-panel.hidden{display:none}
+
+.chat-scope{padding:10px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.chat-scope label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--tx3)}
+.chat-scope select{flex:1;font-size:12px;font-family:'Outfit',sans-serif;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;padding:6px 10px;color:var(--tx);appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23686c90' viewBox='0 0 16 16'%3E%3Cpath d='M8 12L2 5h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.chat-scope select:focus{outline:none;border-color:var(--ac)}
+
+.chat-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px}
+.chat-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:var(--tx3);gap:8px;padding:20px}
+.chat-empty .ce-icon{font-size:32px;opacity:.3}
+.chat-empty p{font-size:12px;line-height:1.6;max-width:320px}
+.chat-empty .ce-hints{display:flex;flex-direction:column;gap:4px;margin-top:8px;width:100%}
+.chat-empty .ce-hint{padding:8px 12px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;font-size:11px;color:var(--tx2);cursor:pointer;text-align:left;transition:all .12s;font-family:'Outfit',sans-serif}
+.chat-empty .ce-hint:hover{border-color:var(--ac);color:var(--ac2)}
+
+.chat-msg{display:flex;flex-direction:column;gap:4px}
+.chat-msg.user .cm-bubble{background:var(--acbg);border:1px solid rgba(139,123,245,.2);border-radius:12px 12px 4px 12px;margin-left:40px;align-self:flex-end}
+.chat-msg.assistant .cm-bubble{background:var(--sf2);border:1px solid var(--bd);border-radius:12px 12px 12px 4px;margin-right:20px}
+.cm-bubble{padding:10px 14px;font-size:12.5px;line-height:1.6;color:var(--tx2);max-width:420px;word-wrap:break-word}
+.cm-bubble strong{color:var(--ac2)}
+.cm-bubble p{margin:4px 0}
+.cm-bubble ul,.cm-bubble ol{margin:4px 0 4px 16px;font-size:12px}
+.cm-scope{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);padding:0 4px}
+
+/* Pending changes card */
+.chat-pending{margin:0 20px;padding:12px 16px;background:var(--sf2);border:1px solid var(--ambd);border-radius:8px;flex-shrink:0}
+.chat-pending .cp-title{font-size:11px;font-weight:600;color:var(--am);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.chat-pending .cp-changes{font-size:11px;color:var(--tx2);line-height:1.5;max-height:180px;overflow-y:auto;margin-bottom:10px}
+.chat-pending .cp-changes .cp-sec{padding:6px 10px;background:rgba(86,196,144,.06);border-left:3px solid var(--gn);border-radius:0 4px 4px 0;margin-bottom:4px;font-size:11px}
+.chat-pending .cp-actions{display:flex;gap:8px}
+.chat-pending .cp-actions button{padding:7px 16px;border-radius:6px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s}
+.cp-accept{background:var(--gnbg);color:var(--gn);border:1px solid rgba(86,196,144,.3)}
+.cp-accept:hover{background:rgba(86,196,144,.15)}
+.cp-discard{background:var(--sf3);color:var(--tx3);border:1px solid var(--bd)}
+.cp-discard:hover{color:var(--rd);border-color:var(--rdbd)}
+
+.chat-input-area{padding:12px 20px 16px;border-top:1px solid var(--bd);flex-shrink:0;background:var(--sf)}
+.chat-input-row{display:flex;gap:8px}
+.chat-input-row textarea{flex:1;background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;color:var(--tx);font-family:'Outfit',sans-serif;font-size:13px;resize:none;min-height:42px;max-height:140px;transition:border-color .15s;line-height:1.5}
+.chat-input-row textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(139,123,245,.1)}
+.chat-input-row textarea::placeholder{color:var(--tx3)}
+.chat-send{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--ac),#7b6be5);color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;align-self:flex-end}
+.chat-send:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 16px rgba(139,123,245,.25)}
+.chat-send:disabled{opacity:.35;cursor:not-allowed}
+.chat-typing{font-size:10.5px;color:var(--am);padding:4px 0;height:18px;display:flex;align-items:center;gap:6px}
+.chat-typing .dots{display:inline-flex;gap:3px}
+.chat-typing .dots span{width:4px;height:4px;border-radius:50%;background:var(--am);animation:tdot .8s infinite}
+.chat-typing .dots span:nth-child(2){animation-delay:.15s}
+.chat-typing .dots span:nth-child(3){animation-delay:.3s}
+@keyframes tdot{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* Version History panel */
+.version-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.version-panel.hidden{display:none}
+.version-list{flex:1;overflow-y:auto;padding:12px 20px}
+.version-empty{text-align:center;color:var(--tx3);font-size:12px;padding:40px 20px;line-height:1.6}
+.version-item{padding:12px 14px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:all .12s}
+.version-item:hover{border-color:var(--ac);background:var(--acbg)}
+.version-item.current{border-color:var(--gn);background:var(--gnbg)}
+.vi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.vi-title{font-size:12px;font-weight:600;color:var(--tx)}
+.vi-time{font-size:9.5px;font-family:'JetBrains Mono',monospace;color:var(--tx3)}
+.vi-desc{font-size:11px;color:var(--tx3);line-height:1.4}
+.vi-meta{font-size:10px;color:var(--tx3);margin-top:4px;display:flex;gap:10px}
+.vi-actions{display:flex;gap:6px;margin-top:8px}
+.vi-actions button{padding:5px 12px;border-radius:5px;font-family:'Outfit',sans-serif;font-size:10.5px;cursor:pointer;font-weight:600;border:1px solid;transition:all .12s}
+.vi-restore{background:var(--acbg);color:var(--ac2);border-color:rgba(139,123,245,.3)}
+.vi-restore:hover{background:rgba(139,123,245,.15)}
+.vi-delete{background:none;color:var(--tx3);border-color:var(--bd)}
+.vi-delete:hover{color:var(--rd);border-color:var(--rdbd)}
+.version-foot{padding:12px 20px;border-top:1px solid var(--bd);flex-shrink:0}
+.version-foot button{width:100%;padding:9px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:7px;font-family:'Outfit',sans-serif;font-size:11.5px;font-weight:600;cursor:pointer}
+
+@media(max-width:960px){.shell{grid-template-columns:1fr}.side{position:relative;max-height:none;border-right:none;border-bottom:1px solid var(--bd)}.out-wrap{padding:20px 16px 60px}.toc ol{columns:1}.chat-drawer{width:100%;right:-100%}}
 
 /* Saved guides */
 .saves{margin-top:8px}
@@ -240,7 +315,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .btn-update{width:100%;padding:11px;background:var(--ambg);color:var(--am);border:1px solid var(--ambd);border-radius:9px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.2px;margin-top:6px}
 .btn-update:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 16px rgba(224,168,72,.15)}
 .btn-update:disabled{opacity:.4;cursor:not-allowed}
-@media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.out-drag-h,.refine-bar,.err-panel{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.guide{padding-left:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
+@media print{.side,.toolbar,.rp,.vp,.toc,.regen-btn,.out-drag-h,.chat-drawer,.chat-toggle,.err-panel{display:none!important}.shell{grid-template-columns:1fr}.main{max-height:none}.out-wrap{padding:0}.guide{padding-left:0}.gc h1,.gc h2{color:#000}.gc p,.gc li{color:#222}body{background:#fff;color:#000}.guide-head{border-color:#000}}
 
 /* Error log panel */
 .err-panel{background:var(--sf);border:1px solid var(--rdbd);border-radius:8px;margin-bottom:20px;overflow:hidden}
@@ -432,29 +507,62 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
   </div>
 </div>
 
-<!-- Refinement bar (sticky to bottom of main panel) -->
-<div class="refine-bar" id="refineBar">
-  <div class="refine-inner">
-    <div id="refineResponse" style="display:none;padding:10px 14px;margin-bottom:10px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;font-size:12px;color:var(--tx2);line-height:1.5;max-height:200px;overflow-y:auto"></div>
-    <div id="refinePreview" style="display:none;margin-bottom:10px;border:1px solid var(--bd);border-radius:8px;overflow:hidden">
-      <div style="padding:8px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);font-size:11px;color:var(--tx3);display:flex;justify-content:space-between;align-items:center">
-        <span><strong>Preview:</strong> <span id="previewTitle"></span></span>
-        <span>
-          <button onclick="acceptPreview()" style="padding:4px 14px;background:var(--gnbg);color:var(--gn);border:1px solid rgba(86,196,144,.3);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600;margin-right:6px">✓ Accept</button>
-          <button onclick="rejectPreview()" style="padding:4px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer">✗ Discard</button>
-        </span>
+<!-- Chat Toggle Button -->
+<button class="chat-toggle" id="chatToggle" onclick="toggleChat()">💬</button>
+
+<!-- Chat Drawer -->
+<div class="chat-drawer" id="chatDrawer">
+  <div class="chat-header">
+    <h2>Chat with Guide</h2>
+    <div class="chat-tabs">
+      <button class="chat-tab active" id="tabChat" onclick="switchTab('chat')">Chat</button>
+      <button class="chat-tab" id="tabVersions" onclick="switchTab('versions')">Versions</button>
+    </div>
+    <button class="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+
+  <!-- Chat Panel -->
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-scope">
+      <label>Scope</label>
+      <select id="chatScope">
+        <option value="auto">Auto-detect section</option>
+        <option value="all">Entire guide</option>
+      </select>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-empty" id="chatEmpty">
+        <div class="ce-icon">💬</div>
+        <p>Ask questions, request changes, add content, or remove sections. Claude will rewrite full sections — no more truncated snippets.</p>
+        <div class="ce-hints">
+          <button class="ce-hint" onclick="insertHint('Expand the confounders section with more detail on cardiac conditions')">Expand the confounders section with more detail...</button>
+          <button class="ce-hint" onclick="insertHint('Add ICD-10 codes to every injury in the severity section')">Add ICD-10 codes to every injury...</button>
+          <button class="ce-hint" onclick="insertHint('What is the strongest defense argument in this guide?')">What is the strongest defense argument?</button>
+          <button class="ce-hint" onclick="insertHint('Remove the treatment section')">Remove the treatment section</button>
+        </div>
       </div>
-      <div id="previewBody" style="padding:10px 14px;max-height:300px;overflow-y:auto;font-size:12px;line-height:1.5;color:var(--tx2)"></div>
     </div>
-    <div class="refine-label">
-      Chat with your case
-      <button id="undoBtn" onclick="undoRefine()" style="display:none;margin-left:8px;padding:3px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;color:var(--tx3)">↩ Undo</button>
+
+    <div id="chatPendingArea"></div>
+
+    <div class="chat-input-area">
+      <div class="chat-typing" id="chatTyping"></div>
+      <div class="chat-input-row">
+        <textarea id="chatInput" placeholder="Ask a question or request changes..." rows="2"></textarea>
+        <button class="chat-send" id="chatSendBtn" onclick="chatSend()">↑</button>
+      </div>
     </div>
-    <div class="refine-row">
-      <textarea id="refineInput" placeholder="e.g., Expand the confounders section with more detail on cardiac conditions. Add ICD-10 codes to every injury. Remove the treatment section. What's the strongest defense argument here?" rows="2"></textarea>
-      <button class="refine-send" id="refineBtn" onclick="refine()">Send</button>
+  </div>
+
+  <!-- Version History Panel -->
+  <div class="version-panel hidden" id="versionPanel">
+    <div class="version-list" id="versionList">
+      <div class="version-empty">No versions yet. Versions are saved automatically when you make changes via chat.</div>
     </div>
-    <div class="refine-history" id="refineHistory"></div>
+    <div class="version-foot">
+      <button onclick="clearVersions()">Clear All Versions</button>
+    </div>
   </div>
 </div>
 </div>
@@ -2811,114 +2919,249 @@ async function dlDOCX(){
 }
 
 /* ═══════ REFINEMENT ═══════ */
-let refineHist=[];
+
 
 function showRefineBar(){
-  document.getElementById('refineBar').classList.add('show');
+  document.getElementById('chatToggle').classList.add('show');
+  populateScopeSelect();
 }
 
-// ═══════ UNDO STACK ═══════
-let undoStack=[];
-function pushUndo(){
-  undoStack.push(JSON.stringify({md:allMD,secMD:Object.assign({},secMD)}));
-  if(undoStack.length>10)undoStack.shift(); // keep last 10
-  document.getElementById('undoBtn').style.display='inline-block';
+// ═══════ CHAT DRAWER ═══════
+let chatMessages=[]; // {role:'user'|'assistant', content:string, scope?:string}
+let pendingChanges=null; // {sections:[{heading,oldMD,newMD}], description}
+
+function toggleChat(){
+  const drawer=document.getElementById('chatDrawer');
+  drawer.classList.toggle('open');
+  if(drawer.classList.contains('open')){
+    setTimeout(()=>{document.getElementById('chatInput').focus()},300);
+  }
 }
-function undoRefine(){
-  if(!undoStack.length)return;
-  const state=JSON.parse(undoStack.pop());
-  allMD=state.md;
-  secMD=state.secMD;
+
+function switchTab(tab){
+  document.getElementById('tabChat').classList.toggle('active',tab==='chat');
+  document.getElementById('tabVersions').classList.toggle('active',tab==='versions');
+  document.getElementById('chatPanel').classList.toggle('hidden',tab!=='chat');
+  document.getElementById('versionPanel').classList.toggle('hidden',tab!=='versions');
+  if(tab==='versions')renderVersions();
+}
+
+function populateScopeSelect(){
+  const sel=document.getElementById('chatScope');
+  const currentVal=sel.value;
+  // Keep first two options (auto, all)
+  while(sel.options.length>2)sel.remove(2);
+  // Add sections from current guide
+  const lines=allMD.split('\n');
+  lines.forEach(l=>{
+    if(l.startsWith('# ')){
+      const title=l.replace(/^# /,'').trim();
+      const opt=document.createElement('option');
+      opt.value='sec:'+title;
+      opt.textContent=title;
+      sel.appendChild(opt);
+    }
+  });
+  if(currentVal&&sel.querySelector('option[value="'+CSS.escape(currentVal)+'"]'))sel.value=currentVal;
+}
+
+function insertHint(text){
+  document.getElementById('chatInput').value=text;
+  document.getElementById('chatInput').focus();
+}
+
+function addChatBubble(role,content,scope){
+  const container=document.getElementById('chatMessages');
+  const empty=document.getElementById('chatEmpty');
+  if(empty)empty.style.display='none';
+
+  const msg=document.createElement('div');
+  msg.className='chat-msg '+role;
+
+  let html='';
+  if(scope&&scope!=='auto'&&scope!=='all')html+='<div class="cm-scope">'+esc(scope.replace('sec:',''))+'</div>';
+  html+='<div class="cm-bubble">'+(role==='user'?esc(content):md2html(content))+'</div>';
+  msg.innerHTML=html;
+
+  container.appendChild(msg);
+  container.scrollTop=container.scrollHeight;
+}
+
+function showTyping(text){
+  document.getElementById('chatTyping').innerHTML=text?'<span class="dots"><span></span><span></span><span></span></span> '+esc(text):'';
+}
+
+// ═══════ VERSION HISTORY ═══════
+function getVersionKey(){return 'litguide_versions_'+(loadedGuideId||'unsaved')}
+function getVersions(){try{return JSON.parse(localStorage.getItem(getVersionKey()))||[]}catch(e){return[]}}
+function putVersions(v){
+  localStorage.setItem(getVersionKey(),JSON.stringify(v));
+  // Keep max 50 versions, remove oldest
+  if(v.length>50){v.splice(50);localStorage.setItem(getVersionKey(),JSON.stringify(v))}
+}
+
+function saveVersion(description){
+  if(!allMD)return;
+  const versions=getVersions();
+  versions.unshift({
+    id:'v_'+Date.now(),
+    timestamp:new Date().toISOString(),
+    description:description||'Manual save',
+    wordCount:countW(allMD),
+    allMD:allMD,
+    secMD:{...secMD}
+  });
+  putVersions(versions);
+}
+
+function restoreVersion(id){
+  const versions=getVersions();
+  const v=versions.find(x=>x.id===id);
+  if(!v)return alert('Version not found.');
+  if(!confirm('Restore this version? Current changes will be saved as a new version first.'))return;
+
+  // Save current state first
+  saveVersion('Before restoring: '+v.description);
+
+  // Restore
+  allMD=v.allMD;
+  secMD=v.secMD||{};
   reRender();
-  document.getElementById('pfoot').textContent='Undo applied';
   saveGuide();
-  if(!undoStack.length)document.getElementById('undoBtn').style.display='none';
+  document.getElementById('pfoot').textContent='Restored version: '+v.description;
+  renderVersions();
 }
 
-// ═══════ PREVIEW ═══════
-let pendingPreview=null;
-function showPreview(newFullMD,title){
-  pendingPreview={md:newFullMD};
-  document.getElementById('previewTitle').textContent=title;
-  document.getElementById('refinePreview').style.display='block';
-}
-function acceptPreview(){
-  if(!pendingPreview)return;
-  pushUndo();
-  allMD=pendingPreview.md;
-  reRender();
-  document.getElementById('pfoot').textContent='Applied: '+document.getElementById('previewTitle').textContent;
-  saveGuide();
-  pendingPreview=null;
-  document.getElementById('refinePreview').style.display='none';
-}
-function rejectPreview(){
-  pendingPreview=null;
-  document.getElementById('refinePreview').style.display='none';
-  document.getElementById('pfoot').textContent='Edit discarded';
+function deleteVersion(id,e){
+  e.stopPropagation();
+  const versions=getVersions().filter(v=>v.id!==id);
+  putVersions(versions);
+  renderVersions();
 }
 
-// ═══════ CONVERSATION MEMORY ═══════
-let refineMessages=[]; // {role,content} pairs for multi-turn
+function clearVersions(){
+  if(!confirm('Delete all version history for this guide?'))return;
+  localStorage.removeItem(getVersionKey());
+  renderVersions();
+}
 
-// ═══════ SECTION MATCHING ═══════
-function matchSection(text){
-  const allLines=allMD.split('\n');
-  const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-  const headings=h1Lines.map(i=>allLines[i].replace(/^# /,'').trim());
+function renderVersions(){
+  const versions=getVersions();
+  const list=document.getElementById('versionList');
+  if(!versions.length){
+    list.innerHTML='<div class="version-empty">No versions yet. Versions are saved automatically when you make changes via chat.</div>';
+    return;
+  }
+  list.innerHTML=versions.map((v,i)=>{
+    const time=new Date(v.timestamp);
+    const timeStr=time.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+time.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    const isCurrent=(i===0)?'current':'';
+    return `<div class="version-item ${isCurrent}" onclick="restoreVersion('${v.id}')">
+      <div class="vi-head">
+        <span class="vi-title">${i===0?'Latest':'Version '+(versions.length-i)}</span>
+        <span class="vi-time">${timeStr}</span>
+      </div>
+      <div class="vi-desc">${esc(v.description)}</div>
+      <div class="vi-meta">
+        <span>${v.wordCount?v.wordCount.toLocaleString()+' words':''}</span>
+      </div>
+      ${i>0?'<div class="vi-actions"><button class="vi-restore" onclick="event.stopPropagation();restoreVersion(\''+v.id+'\')">Restore</button><button class="vi-delete" onclick="deleteVersion(\''+v.id+'\',event)">Delete</button></div>':''}
+    </div>`;
+  }).join('');
+}
 
-  // Strip common filler words from the input
+// ═══════ SECTION EXTRACTION HELPERS ═══════
+function extractSection(heading){
+  const lines=allMD.split('\n');
+  const h1Lines=[];lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+  for(let i=0;i<h1Lines.length;i++){
+    const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+    if(hText===heading){
+      const start=h1Lines[i];
+      const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+      return{start,end,text:lines.slice(start,end).join('\n'),heading:hText};
+    }
+  }
+  return null;
+}
+
+function replaceSection(heading,newText){
+  const sec=extractSection(heading);
+  if(!sec)return false;
+  const lines=allMD.split('\n');
+  const before=lines.slice(0,sec.start);
+  const after=lines.slice(sec.end);
+  // Clean up trailing blanks before
+  while(before.length&&before[before.length-1].trim()==='')before.pop();
+  allMD=(before.length?before.join('\n')+'\n\n':'')+newText.trim()+(after.length?'\n\n'+after.join('\n').trimStart():'');
+  return true;
+}
+
+function removeSection(heading){
+  const sec=extractSection(heading);
+  if(!sec)return false;
+  const lines=allMD.split('\n');
+  const before=lines.slice(0,sec.start);
+  const after=lines.slice(sec.end);
+  while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
+  allMD=before.join('\n')+'\n\n'+after.join('\n').trimStart();
+  return true;
+}
+
+// ═══════ SECTION MATCHING (improved) ═══════
+function matchSectionHeading(text){
+  const lines=allMD.split('\n');
+  const headings=lines.filter(l=>l.startsWith('# ')).map(l=>l.replace(/^# /,'').trim());
+
   const clean=text.toLowerCase().replace(/\b(the|a|an|in|on|of|to|for|and|with|about|from|this|that|my|our|section|more|detail|expand|add|change|update|fix|edit|improve|make|include|remove|please|can you|could you|deeper|tell me|i want|want to)\b/gi,'').trim();
 
-  let best=-1,bestSc=0;
-  headings.forEach(function(h,i){
-    const hWords=h.toLowerCase().split(/\s+/).filter(function(w){return w.length>2});
-    var mc=0;
-    hWords.forEach(function(w){if(clean.includes(w))mc++});
-    var sc=hWords.length>0?mc/hWords.length:0;
-    if(sc>bestSc&&mc>=1){bestSc=sc;best=i}
+  let best=null,bestSc=0;
+  headings.forEach(h=>{
+    const hWords=h.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+    let mc=0;
+    hWords.forEach(w=>{if(clean.includes(w))mc++});
+    const sc=hWords.length>0?mc/hWords.length:0;
+    if(sc>bestSc&&mc>=1){bestSc=sc;best=h}
   });
-  return best;
+  return bestSc>=0.4?best:null;
 }
 
-async function refine(){
+// ═══════ CHAT SEND ═══════
+async function chatSend(){
   const keys=getKeys();
   if(!keys.length)return alert('No API keys configured.');
-  const input=document.getElementById('refineInput');
+  const input=document.getElementById('chatInput');
   const msg=input.value.trim();
   if(!msg)return;
 
-  const btn=document.getElementById('refineBtn');
-  const responseEl=document.getElementById('refineResponse');
-  const previewPanel=document.getElementById('refinePreview');
-  const previewBody=document.getElementById('previewBody');
-  btn.disabled=true;btn.textContent='Working...';
-  responseEl.style.display='none';
-  previewPanel.style.display='none';
+  const scopeEl=document.getElementById('chatScope');
+  let scope=scopeEl.value;
+  const btn=document.getElementById('chatSendBtn');
+  btn.disabled=true;
+  input.value='';
 
-  refineHist.push({scope:'Chat',text:msg});
-  document.getElementById('refineHistory').innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
+  // Add user bubble
+  addChatBubble('user',msg,scope);
+  chatMessages.push({role:'user',content:msg});
 
   try{
     const il=msg.toLowerCase();
-    const allLines=allMD.split('\n');
-    const h1Lines=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-    const headings=h1Lines.map(i=>allLines[i].replace(/^# /,'').trim());
 
     // ═══ REMOVE — instant, no API ═══
     if(/\b(remove|delete|drop|cut|get rid of|take out)\b/i.test(il)&&!/\b(add|expand|more)\b/i.test(il)){
-      const removeIdx=matchSection(il);
-      if(removeIdx>=0){
-        const hl=headings[removeIdx].toLowerCase();
-        if(!((hl.includes('checklist')||hl.includes('review guide'))&&!il.includes('checklist')&&!il.includes('review guide'))){
-          pushUndo();
-          const sl=h1Lines[removeIdx],el2=removeIdx+1<h1Lines.length?h1Lines[removeIdx+1]:allLines.length;
-          const before=allLines.slice(0,sl),after=allLines.slice(el2);
-          while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
-          allMD=before.join('\n')+'\n\n'+after.join('\n');
-          reRender();input.value='';
-          document.getElementById('pfoot').textContent='Removed: '+headings[removeIdx];
-          saveGuide();btn.disabled=false;btn.textContent='Send';return;
+      let targetHeading=null;
+      if(scope.startsWith('sec:'))targetHeading=scope.replace('sec:','');
+      else targetHeading=matchSectionHeading(il);
+
+      if(targetHeading){
+        saveVersion('Before removing: '+targetHeading);
+        if(removeSection(targetHeading)){
+          reRender();populateScopeSelect();saveGuide();
+          const reply='Removed the section "'+targetHeading+'".';
+          addChatBubble('assistant',reply);
+          chatMessages.push({role:'assistant',content:reply});
+          document.getElementById('pfoot').textContent='Removed: '+targetHeading;
+          btn.disabled=false;return;
         }
       }
     }
@@ -2927,189 +3170,297 @@ async function refine(){
     if(/\b(move|reorder|swap)\b/i.test(il)&&/\b(before|after|above|below)\b/i.test(il)){
       const moveMatch=il.match(/(?:move|put|place)\s+(.+?)\s+(before|after|above|below)\s+(.+)/i);
       if(moveMatch){
-        const srcIdx=matchSection(moveMatch[1]);
-        const dstIdx=matchSection(moveMatch[3]);
-        const dir=(moveMatch[2]==='before'||moveMatch[2]==='above')?'before':'after';
-        if(srcIdx>=0&&dstIdx>=0&&srcIdx!==dstIdx){
-          pushUndo();
-          const srcStart=h1Lines[srcIdx],srcEnd=srcIdx+1<h1Lines.length?h1Lines[srcIdx+1]:allLines.length;
-          const srcBlock=allLines.splice(srcStart,srcEnd-srcStart);
-          const h1s2=[];allLines.forEach((l,i)=>{if(l.startsWith('# '))h1s2.push(i)});
-          let insertAt=allLines.length;
-          for(let j=0;j<h1s2.length;j++){
-            if(allLines[h1s2[j]]&&allLines[h1s2[j]].includes(headings[dstIdx].split(' ')[0])){
-              insertAt=dir==='before'?h1s2[j]:(j+1<h1s2.length?h1s2[j+1]:allLines.length);break;
+        const srcHeading=matchSectionHeading(moveMatch[1]);
+        const dstHeading=matchSectionHeading(moveMatch[3]);
+        if(srcHeading&&dstHeading&&srcHeading!==dstHeading){
+          saveVersion('Before reorder');
+          const srcSec=extractSection(srcHeading);
+          if(srcSec){
+            removeSection(srcHeading);
+            const dstSec=extractSection(dstHeading);
+            if(dstSec){
+              const dir=(moveMatch[2]==='before'||moveMatch[2]==='above')?'before':'after';
+              const lines=allMD.split('\n');
+              const insertAt=dir==='before'?dstSec.start:dstSec.end;
+              lines.splice(insertAt,0,'\n'+srcSec.text+'\n');
+              allMD=lines.join('\n');
+              reRender();populateScopeSelect();saveGuide();
+              const reply='Moved "'+srcHeading+'" '+dir+' "'+dstHeading+'".';
+              addChatBubble('assistant',reply);
+              chatMessages.push({role:'assistant',content:reply});
+              btn.disabled=false;return;
             }
           }
-          allLines.splice(insertAt,0,...srcBlock);
-          allMD=allLines.join('\n');
-          reRender();input.value='';
-          document.getElementById('pfoot').textContent='Moved: '+headings[srcIdx]+' '+dir+' '+headings[dstIdx];
-          saveGuide();btn.disabled=false;btn.textContent='Send';return;
         }
       }
     }
 
-    // ═══ EVERYTHING ELSE — send to Claude ═══
-    // The model outputs ONLY the changes, not full sections.
-    // This fixes the truncation problem — the output IS short.
+    // ═══ API-BASED: Full section rewrite or question ═══
+    showTyping('Thinking...');
 
-    const messages=[{
-      role:'user',
-      content: msg + '\n\nHere is the full litigation review guide:\n\n<guide>\n' + allMD + '\n</guide>'
-    }];
+    // Determine scope
+    let targetSections=[];
+    if(scope.startsWith('sec:')){
+      targetSections=[scope.replace('sec:','')];
+    } else if(scope==='auto'){
+      const matched=matchSectionHeading(il);
+      if(matched)targetSections=[matched];
+    }
+    // scope==='all' or no match → let Claude figure it out
 
-    console.log('CHAT DEBUG - Guide:',allMD.split(/\s+/).length,'words,',allMD.split('\n').filter(l=>l.startsWith('# ')).length,'sections');
-    console.log('CHAT DEBUG - Instruction:',msg);
+    // Build the system prompt based on whether we have targeted sections
+    const drug=document.getElementById('drugName').value.trim();
+    const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+    const allLines=allMD.split('\n');
+    const headings=allLines.filter(l=>l.startsWith('# ')).map(l=>l.replace(/^# /,'').trim());
 
-    document.getElementById('previewTitle').textContent='Working...';
-    previewBody.innerHTML='';
-    previewPanel.style.display='block';
-    previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='hidden');
+    let systemPrompt,userContent;
 
-    const resp=await callApi(keys[0], messages,
-      'You are a medical-legal consultant editing a litigation review guide.\n\n'
-      +'The user states their request, then provides the guide in <guide> tags.\n\n'
-      +'Respond using this EXACT format for each change:\n\n'
-      +'SECTION: [exact section heading from the guide]\n'
-      +'FIND: [copy 10-40 words of existing text to locate where the change goes — must be an exact quote from the guide]\n'
-      +'ACTION: REPLACE | INSERT_AFTER | INSERT_BEFORE | DELETE\n'
-      +'CONTENT:\n[the new or replacement text]\nEND_CONTENT\n\n'
-      +'Multiple changes = multiple blocks. For questions, just answer normally.\n\n'
-      +'RULES:\n'
-      +'- FIND must be an exact substring from the guide — copy it character-for-character\n'
-      +'- Keep FIND short (10-40 words) — just enough to be unique\n'
-      +'- CONTENT is the new text only — not the entire section\n'
-      +'- For INSERT_AFTER: new content goes after the FIND text\n'
-      +'- For REPLACE: FIND text is replaced with CONTENT\n'
-      +'- For DELETE: FIND text is removed (no CONTENT needed)\n'
-      +'- You may make multiple changes across multiple sections',
-      {stream:true, maxTok:4000, model:genModel, signal:null, onRetry:m=>{btn.textContent=m}}
-    );
-
-    let output = await streamTo(resp, previewBody);
-
-    // ═══ PARSE AND APPLY CHANGES ═══
-    const changeBlocks=output.split(/(?=^SECTION:)/gm).filter(b=>b.trim().startsWith('SECTION:'));
-
-    if(changeBlocks.length>0){
-      pushUndo();
-      let newMD=allMD;
-      let applied=0;
-      const changeLog=[];
-
-      for(const block of changeBlocks){
-        const secMatch=block.match(/^SECTION:\s*(.+)/m);
-        const findMatch=block.match(/^FIND:\s*(.+(?:\n(?!ACTION:).+)*)/m);
-        const actionMatch=block.match(/^ACTION:\s*(\w+)/m);
-        const contentMatch=block.match(/^CONTENT:\n([\s\S]*?)(?:\nEND_CONTENT|$)/m);
-
-        if(!secMatch||!findMatch)continue;
-
-        const findText=findMatch[1].trim();
-        const action=(actionMatch?actionMatch[1]:'REPLACE').toUpperCase();
-        let newContent=contentMatch?contentMatch[1].trimEnd():'';
-
-        // Strip section headings from content — model sometimes includes them
-        // which causes duplicate headings when spliced in
-        newContent=newContent.replace(/^# .+\n?/,'').trimStart();
-
-        // Find the text in allMD
-        if(!newMD.includes(findText)){
-          // Try fuzzy: collapse whitespace
-          const fuzzyFind=findText.replace(/\s+/g,' ');
-          const fuzzyMD=newMD.replace(/\s+/g,' ');
-          if(!fuzzyMD.includes(fuzzyFind)){
-            changeLog.push('\u26a0 Could not find: "'+findText.substring(0,50)+'..."');
-            continue;
-          }
-          // Find the position in the original using fuzzy match
-          const fuzzyIdx=fuzzyMD.indexOf(fuzzyFind);
-          // Map back to original position (approximate)
-          let origIdx=0,fuzzyPos=0;
-          for(let ci=0;ci<newMD.length&&fuzzyPos<fuzzyIdx;ci++){
-            if(!/\s/.test(newMD[ci])||fuzzyPos===0||!/\s/.test(newMD[ci-1]))fuzzyPos++;
-            origIdx=ci;
-          }
-          // Use a simpler approach — just try with normalized whitespace
-          const lines=newMD.split('\n');
-          let found=false;
-          for(let li=0;li<lines.length;li++){
-            if(lines[li].replace(/\s+/g,' ').includes(fuzzyFind.substring(0,40))){
-              if(action==='DELETE'){
-                lines[li]='';
-              }else if(action==='INSERT_AFTER'){
-                lines.splice(li+1,0,newContent);
-              }else if(action==='INSERT_BEFORE'){
-                lines.splice(li,0,newContent);
-              }else{
-                lines[li]=newContent;
-              }
-              newMD=lines.join('\n');
-              found=true;applied++;
-              changeLog.push('\u2713 '+action+' in '+secMatch[1].trim());
-              break;
-            }
-          }
-          if(!found)changeLog.push('\u26a0 Fuzzy match failed: "'+findText.substring(0,50)+'..."');
-          continue;
-        }
-
-        // Exact match found
-        if(action==='DELETE'){
-          newMD=newMD.replace(findText,'');
-        }else if(action==='INSERT_AFTER'){
-          newMD=newMD.replace(findText,findText+'\n'+newContent);
-        }else if(action==='INSERT_BEFORE'){
-          newMD=newMD.replace(findText,newContent+'\n'+findText);
-        }else{
-          // REPLACE
-          newMD=newMD.replace(findText,newContent);
-        }
-        applied++;
-        changeLog.push('\u2713 '+action+' in '+secMatch[1].trim());
+    if(targetSections.length===1){
+      // Single section rewrite — send only that section, get full rewrite back
+      const sec=extractSection(targetSections[0]);
+      if(!sec){
+        addChatBubble('assistant','Could not find that section in the guide.');
+        chatMessages.push({role:'assistant',content:'Could not find that section.'});
+        showTyping('');btn.disabled=false;return;
       }
 
-      if(applied>0){
-        pendingPreview={md:newMD};
-        // Show change summary — not the full guide
-        let summary='<div style="margin-bottom:8px;font-size:12px;color:var(--tx2)"><strong>Changes to apply:</strong></div>';
-        summary+=changeLog.map(c=>'<div style="font-size:12px;padding:4px 0;color:var(--tx2)">'+c+'</div>').join('');
-        // Show the new/changed content for review
-        for(const block of changeBlocks){
-          const contentMatch2=block.match(/^CONTENT:\n([\s\S]*?)(?:\nEND_CONTENT|$)/m);
-          if(contentMatch2){
-            summary+='<div style="margin:10px 0 4px;font-size:10px;color:var(--tx3);text-transform:uppercase">New content:</div>';
-            summary+='<div style="padding:8px 12px;background:rgba(86,196,144,.08);border-left:3px solid var(--gn);border-radius:4px;font-size:12px;line-height:1.5">'+md2html(contentMatch2[1].trimEnd())+'</div>';
-          }
-        }
-        summary+='<div style="margin-top:10px;font-size:11px;color:var(--tx3)">Click Accept to apply these changes to the full guide.</div>';
-        previewBody.innerHTML=summary;
-        document.getElementById('previewTitle').textContent=applied+' change'+(applied>1?'s':'')+' applied';
-        previewPanel.querySelectorAll('button').forEach(b=>b.style.visibility='visible');
-        document.getElementById('pfoot').textContent=applied+' change'+(applied>1?'s':'')+' \u2014 Accept or Discard';
-      }else{
-        // No changes could be applied — show raw output as response
-        previewPanel.style.display='none';
-        responseEl.innerHTML='<div style="margin-bottom:8px"><strong style="color:var(--am)">\u26a0 Changes could not be applied:</strong></div>'+changeLog.map(c=>'<div style="font-size:11px;color:var(--tx3)">'+c+'</div>').join('')+'<hr style="margin:10px 0;border:none;border-top:1px solid var(--bd)">'+md2html(output);
-        responseEl.style.display='block';
-      }
-    }else{
-      // No SECTION: blocks found — model answered a question or gave free-form response
-      previewPanel.style.display='none';
-      responseEl.innerHTML=md2html(output);
-      responseEl.style.display='block';
+      systemPrompt=`You are a medical-legal consultant editing a litigation review guide for ${drug||'a pharmaceutical/medical product'}.
+
+The user is editing ONE SPECIFIC SECTION of their guide. Here is the current section:
+
+<current_section>
+${sec.text}
+</current_section>
+
+GUIDE SECTION HEADINGS (for context):
+${headings.map((h,i)=>(i+1)+'. '+h).join('\n')}
+
+INSTRUCTIONS:
+- If the user asks a QUESTION: answer it directly. Do NOT output markdown section content.
+- If the user requests CHANGES to this section: output the COMPLETE REVISED SECTION in full markdown.
+  - Start with the # heading
+  - Include ALL existing content that should remain (don't drop anything unless asked to)
+  - Add/modify/remove only what the user asked for
+  - Preserve all existing [Source](URL) citations
+  - Mark new or changed content with **[UPDATED]** at the start of the relevant line
+  - Output the ENTIRE section — do not truncate, summarize, or abbreviate
+  - The section should be AT LEAST as long as the original unless the user asked to shorten it
+
+When outputting a revised section, start your response with REVISED_SECTION: on its own line, then the full section markdown. This marker tells the system to treat your output as a section replacement.`;
+
+      // Build conversation with context
+      const contextMsgs=chatMessages.slice(-6).map(m=>({role:m.role,content:m.content}));
+      // Replace last user message with full version
+      contextMsgs[contextMsgs.length-1]={role:'user',content:msg};
+      userContent=contextMsgs;
+
+    } else {
+      // Multi-section or whole-guide operation
+      systemPrompt=`You are a medical-legal consultant editing a litigation review guide for ${drug||'a pharmaceutical/medical product'}.
+
+Here is the complete guide:
+
+<guide>
+${allMD}
+</guide>
+
+INSTRUCTIONS:
+- If the user asks a QUESTION: answer it directly. Do NOT output markdown.
+- If the user requests CHANGES: identify which section(s) need editing, then output EACH affected section in full.
+
+FORMAT FOR CHANGES:
+For each section you modify, output:
+
+REVISED_SECTION: [exact section heading]
+[complete revised section markdown starting with # heading]
+END_SECTION
+
+You may output multiple REVISED_SECTION blocks if multiple sections are affected.
+
+RULES:
+- Output the COMPLETE section — every paragraph, every bullet, every table
+- Do NOT truncate, summarize, or abbreviate the section
+- Include ALL existing content that should remain
+- Preserve all existing [Source](URL) citations
+- Mark new or changed content with **[UPDATED]**
+- Each revised section should be AT LEAST as long as the original
+- For adding a NEW section: use REVISED_SECTION: NEW — [Section Title]`;
+
+      const contextMsgs=chatMessages.slice(-6).map(m=>({role:m.role,content:m.content}));
+      contextMsgs[contextMsgs.length-1]={role:'user',content:msg};
+      userContent=contextMsgs;
     }
 
-    input.value='';
+    showTyping('Generating response...');
+
+    const resp=await callApi(keys[0],userContent,systemPrompt,{
+      stream:true,maxTok:Math.min(dc.tokPerCall,16000),model:genModel,signal:null,
+      onRetry:m=>showTyping(m)
+    });
+
+    // Stream response
+    const reader=resp.body.getReader(),dec=new TextDecoder();
+    let buf='',fullOutput='',lastRender=0;
+    const streamBubble=document.createElement('div');
+    streamBubble.className='chat-msg assistant';
+    streamBubble.innerHTML='<div class="cm-bubble" id="streamBubble"></div>';
+    document.getElementById('chatMessages').appendChild(streamBubble);
+
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');buf=lines.pop()||'';
+      for(const ln of lines){
+        if(!ln.startsWith('data: '))continue;
+        const d=ln.slice(6).trim();if(d==='[DONE]')continue;
+        try{const ev=JSON.parse(d);if(ev.type==='content_block_delta'&&ev.delta?.text){
+          fullOutput+=ev.delta.text;
+          const now=Date.now();
+          if(now-lastRender>250){
+            document.getElementById('streamBubble').innerHTML=md2html(fullOutput.replace(/^REVISED_SECTION:.*$/gm,'<hr style="border-color:var(--gn)">').replace(/^END_SECTION\s*$/gm,''));
+            const mc=document.getElementById('chatMessages');mc.scrollTop=mc.scrollHeight;
+            lastRender=now;
+          }
+        }}catch(e){}
+      }
+    }
+    showTyping('');
+
+    // ═══ PARSE RESPONSE ═══
+    const hasRevisions=fullOutput.includes('REVISED_SECTION:');
+
+    if(hasRevisions){
+      // Parse out the revised sections
+      const revisions=[];
+
+      if(targetSections.length===1){
+        // Single section mode — everything after REVISED_SECTION: is the new section
+        const revStart=fullOutput.indexOf('REVISED_SECTION:');
+        let sectionMD=fullOutput.substring(revStart).replace(/^REVISED_SECTION:.*\n/,'').replace(/\nEND_SECTION\s*$/,'').trim();
+        // Ensure it starts with # heading
+        if(!sectionMD.startsWith('# '))sectionMD='# '+targetSections[0]+'\n'+sectionMD;
+        revisions.push({heading:targetSections[0],newMD:sectionMD});
+      } else {
+        // Multi-section mode — parse multiple blocks
+        const blocks=fullOutput.split(/(?=REVISED_SECTION:)/g).filter(b=>b.trim().startsWith('REVISED_SECTION:'));
+        for(const block of blocks){
+          const headingMatch=block.match(/^REVISED_SECTION:\s*(?:NEW\s*—\s*)?(.+)/m);
+          if(!headingMatch)continue;
+          let heading=headingMatch[1].trim();
+          let sectionMD=block.replace(/^REVISED_SECTION:.*\n/,'').replace(/\nEND_SECTION\s*$/,'').trim();
+          if(!sectionMD.startsWith('# '))sectionMD='# '+heading+'\n'+sectionMD;
+          // Match heading to existing section
+          const existingHeading=headings.find(h=>h.toLowerCase()===heading.toLowerCase())||heading;
+          revisions.push({heading:existingHeading,newMD:sectionMD,isNew:headingMatch[0].includes('NEW')});
+        }
+      }
+
+      if(revisions.length>0){
+        // Remove stream bubble and show pending changes card
+        streamBubble.remove();
+
+        // Build change summary
+        let summaryParts=[];
+        revisions.forEach(r=>{
+          const existing=extractSection(r.heading);
+          const oldWords=existing?countW(existing.text):0;
+          const newWords=countW(r.newMD);
+          const delta=newWords-oldWords;
+          summaryParts.push((r.isNew?'NEW: ':'')+r.heading+' ('+oldWords+'→'+newWords+' words'+(delta>0?', +'+delta:delta<0?', '+delta:'')+')');
+        });
+
+        pendingChanges={revisions,description:msg};
+
+        const area=document.getElementById('chatPendingArea');
+        area.innerHTML=`<div class="chat-pending">
+          <div class="cp-title">📝 ${revisions.length} section${revisions.length>1?'s':''} revised</div>
+          <div class="cp-changes">${summaryParts.map(s=>'<div class="cp-sec">'+esc(s)+'</div>').join('')}</div>
+          <div class="cp-actions">
+            <button class="cp-accept" onclick="acceptChanges()">✓ Apply Changes</button>
+            <button class="cp-discard" onclick="discardChanges()">✗ Discard</button>
+          </div>
+        </div>`;
+
+        const info='I\'ve prepared '+revisions.length+' section revision'+(revisions.length>1?'s':'')+'. Review the changes below and click Apply to update the guide.';
+        addChatBubble('assistant',info);
+        chatMessages.push({role:'assistant',content:info});
+      } else {
+        // Couldn't parse revisions — show as-is
+        document.getElementById('streamBubble').innerHTML=md2html(fullOutput);
+        chatMessages.push({role:'assistant',content:fullOutput});
+      }
+    } else {
+      // Pure Q&A response — just show it
+      document.getElementById('streamBubble').innerHTML=md2html(fullOutput);
+      chatMessages.push({role:'assistant',content:fullOutput});
+    }
+
+    const mc=document.getElementById('chatMessages');mc.scrollTop=mc.scrollHeight;
+
   }catch(e){
-    if(e.name!=='AbortError'){alert('Failed: '+e.message);console.error(e)}
-    previewPanel.style.display='none';
+    showTyping('');
+    if(e.name!=='AbortError'){
+      const errMsg='Error: '+e.message;
+      addChatBubble('assistant',errMsg);
+      chatMessages.push({role:'assistant',content:errMsg});
+    }
   }finally{
-    btn.disabled=false;btn.textContent='Send';
+    btn.disabled=false;
   }
 }
 
+function acceptChanges(){
+  if(!pendingChanges)return;
+  saveVersion('Before: '+pendingChanges.description);
+
+  let applied=0;
+  for(const rev of pendingChanges.revisions){
+    if(rev.isNew){
+      // Append new section
+      allMD=allMD.trimEnd()+'\n\n---\n\n'+rev.newMD;
+      applied++;
+    } else if(replaceSection(rev.heading,rev.newMD)){
+      applied++;
+    } else {
+      // Try fuzzy match on heading
+      const lines=allMD.split('\n');
+      const headings=lines.filter(l=>l.startsWith('# ')).map(l=>l.replace(/^# /,'').trim());
+      const fuzzy=headings.find(h=>h.toLowerCase().includes(rev.heading.toLowerCase().split(' ')[0]));
+      if(fuzzy&&replaceSection(fuzzy,rev.newMD))applied++;
+    }
+  }
+
+  reRender();populateScopeSelect();saveGuide();
+
+  const reply='Applied '+applied+' change'+(applied>1?'s':'')+' to the guide.';
+  addChatBubble('assistant',reply);
+  chatMessages.push({role:'assistant',content:reply});
+
+  document.getElementById('chatPendingArea').innerHTML='';
+  document.getElementById('pfoot').textContent=applied+' section'+(applied>1?'s':'')+' updated — '+countW(allMD).toLocaleString()+' words';
+  pendingChanges=null;
+}
+
+function discardChanges(){
+  pendingChanges=null;
+  document.getElementById('chatPendingArea').innerHTML='';
+  addChatBubble('assistant','Changes discarded.');
+  chatMessages.push({role:'assistant',content:'Changes discarded.'});
+}
+
+
+// ═══════ KEYBOARD ═══════
+document.addEventListener('DOMContentLoaded',()=>{
+  const el=document.getElementById('chatInput');
+  if(el)el.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();chatSend()}
+  });
+  // Escape to close drawer
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&document.getElementById('chatDrawer').classList.contains('open'))toggleChat();
+  });
+});
 
 function reRender(){
   const gBody=document.getElementById('gBody');
@@ -3118,15 +3469,6 @@ function reRender(){
   splitBatchMD(allMD,allSecIds);
   updWC();buildTOC();showRefineBar();splitOutputIntoSections();
 }
-
-
-// Allow Enter to send (Shift+Enter for newline)
-document.addEventListener('DOMContentLoaded',()=>{
-  const el=document.getElementById('refineInput');
-  if(el)el.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();refine()}
-  });
-});
 
 /* ═══════ COST ESTIMATION ═══════ */
 function estimateCost(){
