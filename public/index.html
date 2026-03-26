@@ -6,7 +6,7 @@
 <title>Litigation Review Guide Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx@9.1.1/build/index.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <style>
 :root{
   --bg:#0c0d12;--sf:#13141c;--sf2:#191b26;--sf3:#1f2230;
@@ -531,7 +531,7 @@ const LIT_TERMS={
   }
 };
 
-function T(){return LIT_TERMS[document.getElementById('litType').value]||LIT_TERMS.pharmaceutical}
+function T(){return LIT_TERMS[$('litType').value]||LIT_TERMS.pharmaceutical}
 
 const SEC_IDS=[
   'product_exposure','injuries_severity','causation_mechanism',
@@ -616,40 +616,13 @@ function sleep(ms,signal){
   });
 }
 
-async function withRetry(fn,{attempts=3,delay=20000,signal,onStatus}={}){
-  for(let i=0;i<attempts;i++){
-    if(i>0){
-      const wait=delay*i;
-      if(onStatus)onStatus('Retry '+(i+1)+'/'+attempts+' in '+(wait/1000|0)+'s...');
-      await sleep(wait,signal);
-    }
-    try{return await fn(i)}
-    catch(e){
-      if(e.name==='AbortError')throw e;
-      if(i===attempts-1)throw e;
-    }
-  }
-}
-
-function getFormData(){
-  return{
-    drug:$('drugName').value.trim(),
-    cond:$('condition').value.trim(),
-    litType:$('litType').value,
-    inj:$('injuries').value.trim(),
-    extra:$('extra').value.trim(),
-    customInstr:$('customInstr').value.trim(),
-    secs:getSecs()
-  };
-}
-
 /* ═══════ KEYS (server-side via Netlify env vars) ═══════ */
 let serverKeyCount=0;
 let keyTestResults={}; // {1:'pass', 2:'fail', 3:'pass'}
 
 async function checkServerKeys(){
-  const panel=document.getElementById('keyTestResults');
-  const testBtn=document.getElementById('keyTestBtn');
+  const panel=$('keyTestResults');
+  const testBtn=$('keyTestBtn');
   try{
     const r=await fetch('/api/anthropic');
     const data=await r.json();
@@ -676,14 +649,14 @@ async function checkServerKeys(){
 }
 
 async function testAllKeys(){
-  const btn=document.getElementById('keyTestBtn');
+  const btn=$('keyTestBtn');
   btn.disabled=true;btn.textContent='Testing...';
   keyTestResults={};
 
   for(let i=1;i<=serverKeyCount;i++){
-    const row=document.getElementById('kt-'+i);
+    const row=$('kt-'+i);
     const dot=row.querySelector('.kt-dot');
-    const detail=document.getElementById('ktd-'+i);
+    const detail=$('ktd-'+i);
     row.className='kt-row';
     dot.className='kt-dot testing';
     detail.textContent='Testing...';
@@ -757,7 +730,7 @@ function getKeys(){
 function updateKeyStatus(states){
   // Update the dot indicators on the test rows during generation
   states.forEach((s,idx)=>{
-    const row=document.getElementById('kt-'+(idx+1));
+    const row=$('kt-'+(idx+1));
     if(!row)return;
     const dot=row.querySelector('.kt-dot');
     if(s==='active'){dot.className='kt-dot testing'}
@@ -792,7 +765,7 @@ function selDepth(el,d){
 
 /* ═══════ SECTIONS ═══════ */
 function initSec(){
-  const grid=document.getElementById('secGrid');
+  const grid=$('secGrid');
   grid.innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">✓</span><span class="sec-label">${s.l}</span></label>`).join('');
   initSidebarDrag();
 }
@@ -800,7 +773,7 @@ function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checke
 function getSecs(){return Array.from(document.querySelectorAll('.stog input:checked')).map(c=>c.parentElement.dataset.id)}
 function getSecOrder(){return Array.from(document.querySelectorAll('.stog')).map(el=>el.dataset.id)}
 function resetSecOrder(){
-  const grid=document.getElementById('secGrid');
+  const grid=$('secGrid');
   const checked=new Set(getSecs());
   grid.innerHTML=SEC.map(s=>{
     const on=checked.has(s.id);
@@ -812,7 +785,7 @@ function resetSecOrder(){
 /* ═══════ SIDEBAR DRAG & DROP ═══════ */
 let sidebarDragEl=null;
 function initSidebarDrag(){
-  const grid=document.getElementById('secGrid');
+  const grid=$('secGrid');
   grid.querySelectorAll('.stog').forEach(el=>{
     el.addEventListener('dragstart',e=>{
       // Only allow drag from the handle
@@ -852,7 +825,7 @@ let outDragEl=null;
 
 function splitOutputIntoSections(){
   // After generation, split the combined output into individual draggable sec-blocks per H1
-  const gBody=document.getElementById('gBody');
+  const gBody=$('gBody');
   const allContent=gBody.innerHTML;
   // Parse current content to find H1 boundaries
   const tmp=document.createElement('div');tmp.innerHTML=allContent;
@@ -939,7 +912,7 @@ function splitOutputIntoSections(){
 }
 
 function initOutputDrag(){
-  const gBody=document.getElementById('gBody');
+  const gBody=$('gBody');
   gBody.querySelectorAll('.sec-block').forEach(block=>{
     block.addEventListener('dragstart',e=>{
       outDragEl=block;block.classList.add('dragging-out');
@@ -974,7 +947,7 @@ function initOutputDrag(){
 }
 
 function rebuildMDFromOutput(){
-  const gBody=document.getElementById('gBody');
+  const gBody=$('gBody');
   const blocks=gBody.querySelectorAll('.sec-block');
   const parts=[];
   blocks.forEach(block=>{
@@ -1025,9 +998,9 @@ function logError(e,context={}){
 }
 
 function renderErrors(){
-  const panel=document.getElementById('errPanel');
-  const body=document.getElementById('errBody');
-  const count=document.getElementById('errCount');
+  const panel=$('errPanel');
+  const body=$('errBody');
+  const count=$('errCount');
   const unresolved=errorLog.filter(e=>!e.resolved);
   if(!errorLog.length){panel.style.display='none';return}
   panel.style.display='block';
@@ -1185,17 +1158,17 @@ async function callApi(keyIndex,msgs,sys,opts={}){
 
 /* ═══════ PROGRESS ═══════ */
 function initProg(steps){
-  const el=document.getElementById('prog');el.style.display='flex';
+  const el=$('prog');el.style.display='flex';
   el.innerHTML=steps.map((s,i)=>`<div class="ps" id="ps${i}"><div class="pi">${i<10?i+1:'✓'}</div><div class="pinfo"><div class="pl">${s.l}</div><div class="pd" id="pd${i}">${s.d||'Queued'}</div></div></div>`).join('');
 }
-function setP(i,cls,d){const el=document.getElementById('ps'+i);if(!el)return;el.className='ps '+cls;if(d)document.getElementById('pd'+i).textContent=d}
+function setP(i,cls,d){const el=$('ps'+i);if(!el)return;el.className='ps '+cls;if(d)$('pd'+i).textContent=d}
 
 /* ═══════ RESEARCH (parallel with key rotation) ═══════ */
 function buildResSys(drug,cond,inj,extra,pass){
   const searchBudget=getBudget().searches;
-  const ci=document.getElementById('customInstr').value.trim();
+  const ci=$('customInstr').value.trim();
   const t=T();
-  return `You are a medical-legal research specialist gathering facts to build a litigation review guide. This is a ${t.product_lc} case (${document.getElementById('litType').value.replace(/_/g,' ')}). Your research must focus on what gets clients paid: EXPOSURE proof, INJURY identification, SEVERITY grading scales, CAUSATION evidence, and CONFOUNDER documentation. Use web search to gather specific facts on the topics below. You have a budget of ${searchBudget} searches for this pass — make each one count. Use precise, targeted queries rather than broad ones.
+  return `You are a medical-legal research specialist gathering facts to build a litigation review guide. This is a ${t.product_lc} case (${$('litType').value.replace(/_/g,' ')}). Your research must focus on what gets clients paid: EXPOSURE proof, INJURY identification, SEVERITY grading scales, CAUSATION evidence, and CONFOUNDER documentation. Use web search to gather specific facts on the topics below. You have a budget of ${searchBudget} searches for this pass — make each one count. Use precise, targeted queries rather than broad ones.
 
 ${t.product.toUpperCase()}: ${drug}
 ${cond?'CONDITION: '+cond:'CONDITION: Discover from research.'}
@@ -1838,7 +1811,7 @@ ${t.product.toUpperCase()}: ${drug}
 ${cond?'CONDITION: '+cond:'(From research)'}
 TYPE: ${litType.replace(/_/g,' ')}
 
-${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED:
+${(()=>{const ci=$('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED:
 The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output.
 - Use markdown link format: [Short Label](URL)
 - If a fact has no source URL in the research notes, do NOT invent one
@@ -1932,7 +1905,7 @@ async function streamToText(resp){
 async function streamTo(resp,el,onChunk){
   const reader=resp.body.getReader(),dec=new TextDecoder();
   let buf='',md='',last=0;
-  const mainPanel=document.getElementById('mainPanel');
+  const mainPanel=$('mainPanel');
   while(true){
     const{done,value}=await reader.read();if(done)break;
     buf+=dec.decode(value,{stream:true});
@@ -1972,13 +1945,13 @@ function md2html(md){
 }
 
 function countW(md){return md.split(/\s+/).filter(w=>w.length>0&&!/^[#*\-|>]$/.test(w)).length}
-function updWC(){document.getElementById('wc').textContent=countW(allMD).toLocaleString()+' words'}
+function updWC(){$('wc').textContent=countW(allMD).toLocaleString()+' words'}
 function buildTOC(){
-  const h1s=document.getElementById('gBody').querySelectorAll('h1');
-  if(!h1s.length){document.getElementById('toc').style.display='none';return}
-  const list=document.getElementById('tocList');list.innerHTML='';
+  const h1s=$('gBody').querySelectorAll('h1');
+  if(!h1s.length){$('toc').style.display='none';return}
+  const list=$('tocList');list.innerHTML='';
   h1s.forEach((h,i)=>{h.id='s'+i;const li=document.createElement('li');const a=document.createElement('a');a.href='#s'+i;a.textContent=h.textContent;li.appendChild(a);list.appendChild(li)});
-  document.getElementById('toc').style.display='block';
+  $('toc').style.display='block';
 }
 
 /* ═══════ SPLIT BATCH MD INTO INDIVIDUAL SECTIONS ═══════ */
@@ -2038,8 +2011,8 @@ function splitBatchMD(grpMD,secIds){
 /* ═══════ SECTION REGEN ═══════ */
 async function regenSec(secId){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured on server.');
-  const drug=document.getElementById('drugName').value.trim();
-  const block=document.getElementById('sb-'+secId);if(!block)return;
+  const drug=$('drugName').value.trim();
+  const block=$('sb-'+secId);if(!block)return;
   block.classList.add('regen');
 
   // Get the existing section content and other section headings for cross-reference
@@ -2095,11 +2068,11 @@ Output ONLY the section Markdown.`;
 /* ═══════ MAIN ═══════ */
 async function run(){
   const keys=getKeys();
-  const drug=document.getElementById('drugName').value.trim();
-  const cond=document.getElementById('condition').value.trim();
-  const litType=document.getElementById('litType').value;
-  const inj=document.getElementById('injuries').value.trim();
-  const extra=document.getElementById('extra').value.trim();
+  const drug=$('drugName').value.trim();
+  const cond=$('condition').value.trim();
+  const litType=$('litType').value;
+  const inj=$('injuries').value.trim();
+  const extra=$('extra').value.trim();
   const secs=getSecs();
 
   if(!keys.length)return alert('No API keys configured on the server. Add ANTHROPIC_KEY_1 to your Netlify environment variables.');
@@ -2110,7 +2083,7 @@ async function run(){
   const est=estimateCost();
   if(!confirm('Estimated cost: $'+est.low+' – $'+est.high+'\n\nProceed with generation?'))return;
 
-  const btn=document.getElementById('btnGo'),stopBtn=document.getElementById('btnStop');
+  const btn=$('btnGo'),stopBtn=$('btnStop');
   btn.disabled=true;btn.textContent='Working...';stopBtn.style.display='block';
 
   const steps=[
@@ -2121,19 +2094,19 @@ async function run(){
   ];
   initProg(steps);
 
-  document.getElementById('emptyState').style.display='none';
-  document.getElementById('outWrap').style.display='block';
-  document.getElementById('rpanel').style.display='none';
-  document.getElementById('vpanel').style.display='none';
-  document.getElementById('errPanel').style.display='none';
+  $('emptyState').style.display='none';
+  $('outWrap').style.display='block';
+  $('rpanel').style.display='none';
+  $('vpanel').style.display='none';
+  $('errPanel').style.display='none';
   errorLog=[];renderErrors();
 
-  const gHead=document.getElementById('gHead');
-  const gBody=document.getElementById('gBody');
+  const gHead=$('gHead');
+  const gBody=$('gBody');
   gHead.innerHTML='<h1>Litigation Review Guide: '+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
   gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+RP.length+' research passes across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(getBudget().parallel)+' parallel, '+(getBudget().stagger)+'s stagger). Auto-retries on rate limits with exponential backoff. This takes 3–8 minutes...</p></div>';
-  document.getElementById('toc').style.display='none';
-  document.getElementById('wc').textContent='';
+  $('toc').style.display='none';
+  $('wc').textContent='';
 
   allMD='';secMD={};allRes={};
   ac=new AbortController();
@@ -2143,22 +2116,22 @@ async function run(){
     // ═══ PHASE 1: PARALLEL RESEARCH ═══
     allRes=await doResearch(keys,drug,cond,inj,extra,ac.signal);
 
-    const rpBody=document.getElementById('rpBody');
+    const rpBody=$('rpBody');
     rpBody.innerHTML=RP.map((p,i)=>{
       const failed=allRes[p.id]?.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
     }).join('');
-    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
-    document.getElementById('rpanel').style.display='block';
+    $('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    $('rpanel').style.display='block';
     // Auto-open if any research failed
     const anyResFailed=Object.values(allRes).some(v=>v.startsWith('[Failed:'));
-    if(anyResFailed)document.getElementById('rpanel').open=true;
+    if(anyResFailed)$('rpanel').open=true;
 
     // Update header if auto-discovered
     if(!cond){
       const all=Object.values(allRes).join(' ');
       const m=all.match(/(?:treats?|indicated for|approved for|used (?:for|to treat)|treatment of)\s+([A-Z][^.;\n]{5,80})/i);
-      if(m){const f=m[1].trim().replace(/[.,]$/,'');document.getElementById('gMeta').innerHTML=f+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+      if(m){const f=m[1].trim().replace(/[.,]$/,'');$('gMeta').innerHTML=f+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
     }
 
     // ═══ PHASE 2: GAP ANALYSIS (always on) ═══
@@ -2172,7 +2145,7 @@ async function run(){
         followUp=gapResult.followUp;
         if(followUp){
           rpBody.innerHTML+='<details class="rp-pass"><summary>Follow-Up Research (Gap Fills)</summary><div class="rp-pass-body">'+followUp+'</div></details>';
-          document.getElementById('rcount').textContent=(Object.values(allRes).join('').length+followUp.length).toLocaleString()+' chars';
+          $('rcount').textContent=(Object.values(allRes).join('').length+followUp.length).toLocaleString()+' chars';
         }
         setP(gapIdx,'done','Found '+(gapResult.gaps.match(/GAP:/gi)||[]).length+' gaps, ran follow-up searches');
       }catch(e){
@@ -2317,8 +2290,8 @@ Output ONLY this section's Markdown.`;
       try{
         const vKey=keys[(keys.length>1)?keys.length-1:0];
         const audit=await verify(vKey,drug,allRes,allMD,ac.signal);
-        document.getElementById('vpBody').innerHTML=md2html(audit);
-        document.getElementById('vpanel').style.display='block';
+        $('vpBody').innerHTML=md2html(audit);
+        $('vpanel').style.display='block';
         const issues=(audit.match(/^- /gm)||[]).length;
         setP(vIdx,'done',issues+' items flagged');
       }catch(e){
@@ -2342,9 +2315,9 @@ Output ONLY this section's Markdown.`;
       let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — ⚠ '+totalFailed+' failure'+(totalFailed>1?'s':'');
       if(failedResearch.length)failMsg+=' ('+failedResearch.length+' research)';
       if(genFailed)failMsg+=' (generation)';
-      document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>';
+      $('pfoot').innerHTML=failMsg+' <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>';
     }else{
-      document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
+      $('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
     }
 
     // Show refinement bar and populate scope dropdown
@@ -2353,12 +2326,12 @@ Output ONLY this section's Markdown.`;
     // Auto-save and show update button
     if(allMD&&countW(allMD)>100){
       saveGuide();
-      document.getElementById('btnUpdate').style.display='block';
+      $('btnUpdate').style.display='block';
     }
 
   }catch(err){
-    if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Stopped';if(allMD)showRefineBar()}
-    else{document.getElementById('pfoot').textContent='Error: '+err.message;if(!allMD)gBody.innerHTML='<div class="gc"><p style="color:var(--rd)">'+err.message+'</p></div>';else showRefineBar()}
+    if(err.name==='AbortError'){$('pfoot').textContent='Stopped';if(allMD)showRefineBar()}
+    else{$('pfoot').textContent='Error: '+err.message;if(!allMD)gBody.innerHTML='<div class="gc"><p style="color:var(--rd)">'+err.message+'</p></div>';else showRefineBar()}
   }finally{
     btn.disabled=false;btn.textContent='Generate Review Guide';stopBtn.style.display='none';ac=null;
     togAll(false); // Deselect all sections after run
@@ -2370,11 +2343,11 @@ function stop(){if(ac)ac.abort()}
 /* ═══════ FAILURE RECOVERY ═══════ */
 async function retryGeneration(){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured.');
-  const drug=document.getElementById('drugName').value.trim();
-  const cond=document.getElementById('condition').value.trim();
-  const litType=document.getElementById('litType').value;
-  const inj=document.getElementById('injuries').value.trim();
-  const extra=document.getElementById('extra').value.trim();
+  const drug=$('drugName').value.trim();
+  const cond=$('condition').value.trim();
+  const litType=$('litType').value;
+  const inj=$('injuries').value.trim();
+  const extra=$('extra').value.trim();
 
   const allSecIds=getSecOrder().filter(id=>{
     // Use all sections that have SP entries
@@ -2382,7 +2355,7 @@ async function retryGeneration(){
   });
   if(!allSecIds.length)return alert('No sections to generate');
 
-  const gBody=document.getElementById('gBody');
+  const gBody=$('gBody');
   gBody.innerHTML='<div class="sec-block" id="sb-gen"><div class="gc"><p style="color:var(--tx3)">Retrying full guide generation...</p></div></div>';
 
   try{
@@ -2411,10 +2384,10 @@ async function retryGeneration(){
 
 async function retryFailedResearch(passId){
   const keys=getKeys();if(!keys.length)return alert('No API keys configured.');
-  const drug=document.getElementById('drugName').value.trim();
-  const cond=document.getElementById('condition').value.trim();
-  const inj=document.getElementById('injuries').value.trim();
-  const extra=document.getElementById('extra').value.trim();
+  const drug=$('drugName').value.trim();
+  const cond=$('condition').value.trim();
+  const inj=$('injuries').value.trim();
+  const extra=$('extra').value.trim();
 
   const pass=RP.find(p=>p.id===passId);
   if(!pass)return alert('Research pass not found');
@@ -2429,12 +2402,12 @@ async function retryFailedResearch(passId){
     allRes[passId]=txt.trim();
 
     // Update research panel
-    const rpBody=document.getElementById('rpBody');
+    const rpBody=$('rpBody');
     rpBody.innerHTML=RP.map((p,i)=>{
       const failed=allRes[p.id]?.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
     }).join('');
-    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    $('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
     // Resolve matching errors
     errorLog.filter(e=>e.step===passId&&!e.resolved).forEach(e=>resolveError(e.id));
     updateFailureSummary();
@@ -2462,29 +2435,30 @@ function updateFailureSummary(){
   const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
   const genFailed=errorLog.some(e=>e.step==='generation'&&!e.resolved);
   const totalFailed=failedResearch.length+(genFailed?1:0);
-  const pfoot=document.getElementById('pfoot');
+  const pfoot=$('pfoot');
   if(totalFailed===0){
     pfoot.textContent=pfoot.textContent.replace(/— ⚠.*/,'').trim()+' — all failures recovered ✓';
   }
 }
 
 /* ═══════ EXPORTS ═══════ */
-function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=document.getElementById('gBody').innerHTML;tmp.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
+function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=$('gBody').innerHTML;tmp.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
 function printGuide(){window.print()}
 function dlPDF(){
-  const drug=document.getElementById('drugName').value.trim()||'Guide';
+  const drug=$('drugName').value.trim()||'Guide';
   const btn=document.querySelector('.toolbar button[onclick="dlPDF()"]');
   btn.textContent='Generating PDF...';btn.disabled=true;
 
   const container=document.createElement('div');
   container.innerHTML=`
-    <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px;max-width:7in;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word">
+    <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px;width:816px;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word">
       <div style="border-bottom:1.5px solid #1a2e6c;padding-bottom:10px;margin-bottom:18px">
-        ${document.getElementById('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:20px;font-weight:bold;margin:0 0 4px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:10px;color:#555"')}
+        ${$('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:20px;font-weight:bold;margin:0 0 4px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:10px;color:#555"')}
       </div>
-      ${document.getElementById('gBody').innerHTML}
+      ${$('gBody').innerHTML}
     </div>`;
 
+  // Style for print
   container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;overflow-wrap:break-word'});
   container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;overflow-wrap:break-word'});
   container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;overflow-wrap:break-word'});
@@ -2505,24 +2479,90 @@ function dlPDF(){
     else el.remove();
   });
 
-  const opt={
-    margin:[0.75,0.65,0.75,0.65],
-    filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
-    image:{type:'jpeg',quality:0.85},
-    html2canvas:{scale:1.5,useCORS:true,width:816},
-    jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
-    pagebreak:{mode:['css','legacy']}
-  };
+  // ═══ MOUNT to measure element positions for page-break spacers ═══
+  container.style.cssText='position:fixed;left:0;top:0;width:816px;visibility:hidden;pointer-events:none;z-index:-1';
+  document.body.appendChild(container);
 
-  html2pdf().set(opt).from(container).save().then(()=>{
-    btn.textContent='📕 .pdf';btn.disabled=false;
-  }).catch(e=>{
-    alert('PDF generation failed: '+e.message);
-    btn.textContent='📕 .pdf';btn.disabled=false;
+  // Wait a frame for layout
+  requestAnimationFrame(()=>{
+    try{
+      const inner=container.firstElementChild;
+      const containerTop=inner.getBoundingClientRect().top;
+      // Page content height in px: letter page = 11in, margins 0.75in top+bottom = 9.5in content
+      // At 816px wide = 8.5in - 2*0.65in margins = 7.2in → 816px/7.2 = 113.3 px/in
+      // So page content height = 9.5 * 113.3 = ~1076px
+      const pxPerIn=816/7.2;
+      const pageH=9.5*pxPerIn; // ~1076px per page content area
+
+      const blocks=inner.querySelectorAll('h1,h2,h3,h4,p,li,table,blockquote,hr');
+      let spacerTotal=0;
+
+      blocks.forEach(el=>{
+        const rect=el.getBoundingClientRect();
+        const elTop=rect.top-containerTop+spacerTotal;
+        const elBot=rect.bottom-containerTop+spacerTotal;
+        const elH=rect.height;
+        const pageEnd=Math.ceil(elTop/pageH)*pageH;
+
+        // Element crosses a page boundary?
+        if(elBot>pageEnd&&elTop<pageEnd){
+          const onCurrentPage=pageEnd-elTop;
+          // Push to next page if element is short (<300px) or less than 30% is on current page
+          if(elH<300||onCurrentPage<elH*0.3){
+            const gap=pageEnd-elTop;
+            const spacer=document.createElement('div');
+            spacer.style.cssText='height:'+gap+'px;width:100%';
+            spacer.className='_pdf_spacer';
+            el.parentNode.insertBefore(spacer,el);
+            spacerTotal+=gap;
+          }
+        }
+
+        // Headings near page bottom — push to next page
+        if(/^H[1-4]$/.test(el.tagName)){
+          const hBot=rect.bottom-containerTop+spacerTotal;
+          const hPageEnd=Math.ceil(hBot/pageH)*pageH;
+          if(hPageEnd-hBot<50){
+            const gap=hPageEnd-elTop-spacerTotal+containerTop-rect.top+spacerTotal;
+            if(gap>0&&gap<pageH&&!el.previousElementSibling?.classList?.contains('_pdf_spacer')){
+              const spacer=document.createElement('div');
+              spacer.style.cssText='height:'+gap+'px;width:100%';
+              spacer.className='_pdf_spacer';
+              el.parentNode.insertBefore(spacer,el);
+              spacerTotal+=gap;
+            }
+          }
+        }
+      });
+
+      // ═══ UNMOUNT, clear positioning, render ═══
+      document.body.removeChild(container);
+      container.style.cssText='';
+
+      const opt={
+        margin:[0.75,0.65,0.75,0.65],
+        filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
+        image:{type:'jpeg',quality:0.85},
+        html2canvas:{scale:1.5,useCORS:true,width:816},
+        jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
+        pagebreak:{mode:['css','legacy']}
+      };
+
+      html2pdf().set(opt).from(container).save().then(()=>{
+        btn.textContent='📕 .pdf';btn.disabled=false;
+      }).catch(e=>{
+        alert('PDF generation failed: '+e.message);
+        btn.textContent='📕 .pdf';btn.disabled=false;
+      });
+    }catch(e){
+      if(container.parentNode)document.body.removeChild(container);
+      alert('PDF generation failed: '+e.message);
+      btn.textContent='📕 .pdf';btn.disabled=false;
+    }
   });
 }
 async function dlDOCX(){
-  const drug=document.getElementById('drugName').value.trim()||'Guide';
+  const drug=$('drugName').value.trim()||'Guide';
   const btn=document.querySelector('.toolbar button[onclick="dlDOCX()"]');
   btn.textContent='Building .docx...';btn.disabled=true;
 
@@ -2532,12 +2572,12 @@ async function dlDOCX(){
       btn.textContent='Loading docx library...';
       await new Promise((resolve,reject)=>{
         const s=document.createElement('script');
-        s.src='https://cdn.jsdelivr.net/npm/docx@9.1.1/build/index.umd.min.js';
+        s.src='https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js';
         s.onload=resolve;
         s.onerror=()=>{
           // Try alternate CDN
           const s2=document.createElement('script');
-          s2.src='https://unpkg.com/docx@9.1.1/build/index.umd.js';
+          s2.src='https://unpkg.com/docx@8.5.0/build/index.umd.js';
           s2.onload=resolve;
           s2.onerror=()=>reject(new Error('Could not load docx library from CDN'));
           document.head.appendChild(s2);
@@ -2721,12 +2761,12 @@ async function dlDOCX(){
 let refineHist=[];
 
 function showRefineBar(){
-  const bar=document.getElementById('refineBar');
+  const bar=$('refineBar');
   bar.classList.add('show');
   // Populate scope dropdown with detected sections
-  const sel=document.getElementById('refineScope');
+  const sel=$('refineScope');
   sel.innerHTML='<option value="full">Entire Guide</option>';
-  const h1s=document.getElementById('gBody').querySelectorAll('h1');
+  const h1s=$('gBody').querySelectorAll('h1');
   h1s.forEach((h,i)=>{
     const text=h.textContent.trim();
     const opt=document.createElement('option');
@@ -2739,19 +2779,19 @@ function showRefineBar(){
 async function refine(){
   const keys=getKeys();
   if(!keys.length)return alert('No API keys configured.');
-  const input=document.getElementById('refineInput');
+  const input=$('refineInput');
   const instruction=input.value.trim();
   if(!instruction)return;
 
-  const scope=document.getElementById('refineScope').value;
-  const btn=document.getElementById('refineBtn');
-  const responseEl=document.getElementById('refineResponse');
+  const scope=$('refineScope').value;
+  const btn=$('refineBtn');
+  const responseEl=$('refineResponse');
   btn.disabled=true;btn.textContent='Working...';
   responseEl.style.display='none';
 
   const scopeLabel=scope==='full'?'Entire Guide':document.querySelector('#refineScope option:checked').textContent;
   refineHist.push({scope:scopeLabel,text:instruction});
-  document.getElementById('refineHistory').innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
+  $('refineHistory').innerHTML=refineHist.map(h=>'<div class="refine-hist-item"><span class="rh-scope">'+h.scope+':</span><span class="rh-text">'+h.text+'</span></div>').join('');
 
   const il=instruction.toLowerCase();
   const researchText=Object.values(allRes).join('\n\n---\n\n').substring(0,15000);
@@ -2800,7 +2840,7 @@ async function refine(){
           while(before.length&&(before[before.length-1].trim()===''||before[before.length-1].trim()==='---'))before.pop();
           allMD=before.join('\n')+'\n\n'+after.join('\n');
           reRender();input.value='';
-          document.getElementById('pfoot').textContent='Removed: '+headings[removeIdx];
+          $('pfoot').textContent='Removed: '+headings[removeIdx];
           saveGuide();btn.disabled=false;btn.textContent='Refine';return;
         }
       }
@@ -2830,7 +2870,7 @@ async function refine(){
           allLines.splice(insertAt,0,...srcBlock);
           allMD=allLines.join('\n');
           reRender();input.value='';
-          document.getElementById('pfoot').textContent='Moved: '+headings[srcIdx]+' '+dir+' '+headings[dstIdx];
+          $('pfoot').textContent='Moved: '+headings[srcIdx]+' '+dir+' '+headings[dstIdx];
           saveGuide();btn.disabled=false;btn.textContent='Refine';return;
         }
       }
@@ -2838,9 +2878,12 @@ async function refine(){
 
     // ═══════════════════════════════════════════
     // INTENT 3: QUESTION — answer in panel, guide untouched
+    // Only routes here if it's CLEARLY a question asking for info, not asking for changes
     // ═══════════════════════════════════════════
-    const isQuestion=instruction.includes('?')||/^(what|why|how|who|when|where|is there|are there|which|does|do|can|should|would|could|tell me|explain|summarize|compare)\b/i.test(instruction);
-    if(isQuestion&&!/\b(add|change|edit|update|expand|remove|rewrite|include|move)\b/i.test(il)){
+    const hasQuestionMark=instruction.includes('?');
+    const isEditWord=/\b(add|change|edit|update|expand|remove|rewrite|include|move|improve|better|deeper|more detail|flesh|strengthen|enrich|elaborate|put|make|write|incorporate|integrate|revise)\b/i.test(il);
+    const isQuestion=hasQuestionMark&&!isEditWord&&/^(what|why|how|who|when|where|is|are|does|do|can|should|would|could|which)\b/i.test(instruction);
+    if(isQuestion){
       btn.textContent='Thinking...';
       const qSys='You are a medical-legal consultant answering a question about a litigation review guide. Be specific and concise.\n\nGUIDE:\n'+allMD.substring(0,40000)+'\n\nRESEARCH:\n'+researchText;
       const qResp=await callApi(keys[0],[{role:'user',content:instruction}],qSys,{
@@ -2878,7 +2921,7 @@ async function refine(){
           allMD+='\n\n---\n\n'+newSec;
         }
         reRender();
-        document.getElementById('pfoot').textContent='Added new section';
+        $('pfoot').textContent='Added new section';
         saveGuide();
       }
       input.value='';btn.disabled=false;btn.textContent='Refine';return;
@@ -2926,11 +2969,12 @@ async function refine(){
     const secTitle=headings[targetIdx];
     btn.textContent='Editing: '+secTitle.substring(0,25)+'...';
 
-    // Token limit based on intent
+    // Token limit: markdown ≈ 1.3-1.5 tokens/word
+    // Must have enough to reproduce the section + room for changes
     const secWords=secText.split(/\s+/).length;
     const maxTok=isExpand
-      ?Math.max(Math.round(secWords*3),4000)
-      :Math.max(Math.round(secWords*1.8),2000);
+      ?Math.max(Math.round(secWords*4),5000)   // expand: room to double the content
+      :Math.max(Math.round(secWords*2.5),3000); // edit: room to reproduce + changes
 
     const sys=`You are editing one section of a litigation review guide.
 
@@ -2942,12 +2986,14 @@ ${secText}
 INSTRUCTION FROM USER: ${instruction}
 
 ${isExpand
-?'APPROACH: EXPAND this section — add depth, detail, specificity. Keep all existing content. Use research for new facts and [Source](URL) citations.'
-:'APPROACH: Make ONLY the change requested. Do not rewrite, rephrase, or reorganize anything the instruction didn\'t mention. Preserve all existing content and citations word-for-word except where the instruction asks for a change.'}
+?'APPROACH: EXPAND this section — add depth, detail, specificity. Keep ALL existing content and add to it. Use research for new facts and [Source](URL) citations.'
+:'APPROACH: Make the change requested. Preserve all existing content and citations except where the instruction asks for a change. Do not rewrite or reorganize text the instruction didn\'t mention.'}
 
-Start with the # heading. Output the revised section.`;
+CRITICAL: You MUST output the COMPLETE section from start to finish — the # heading through the very last line. Do NOT stop early. Do NOT truncate. The output replaces the entire section, so anything you omit is permanently lost.
 
-    const resp=await callApi(keys[0],[{role:'user',content:instruction}],sys,{
+Start with the # heading. Output the full revised section.`;
+
+    const resp=await callApi(keys[0],[{role:'user',content:instruction+'\n\nRemember: output the COMPLETE section from # heading to the last line. Do not stop early.'}],sys,{
       stream:true,maxTok,model:genModel,signal:null,
       onRetry:(msg)=>{btn.textContent=msg}
     });
@@ -2957,9 +3003,21 @@ Start with the # heading. Output the revised section.`;
     document.body.removeChild(tmpEl);
 
     if(newSecMD&&newSecMD.trim().length>50){
-      spliceSection(targetIdx,newSecMD);
-      document.getElementById('pfoot').textContent=(isExpand?'Expanded':'Updated')+': '+secTitle;
-      saveGuide();
+      const origWords=secText.split(/\s+/).length;
+      const newWords=newSecMD.split(/\s+/).length;
+
+      // Truncation check: if not a removal instruction and output is less than 60% of original, likely truncated
+      const isRemovalEdit=/\b(remove|delete|cut|drop|shorten|condense|trim)\b/i.test(il);
+      if(!isRemovalEdit&&newWords<origWords*0.6){
+        // Truncated — don't splice, show warning
+        responseEl.innerHTML='<strong style="color:var(--am)">⚠ The edit appears truncated</strong> ('+newWords+' words vs original '+origWords+'). The guide was NOT modified. Try selecting the specific section from the dropdown and running the edit again, or try a simpler instruction.';
+        responseEl.style.display='block';
+        $('pfoot').textContent='Edit skipped — output was truncated';
+      }else{
+        spliceSection(targetIdx,newSecMD);
+        $('pfoot').textContent=(isExpand?'Expanded':'Updated')+': '+secTitle+' ('+newWords+' words)';
+        saveGuide();
+      }
     }
 
     reRender();input.value='';
@@ -2974,7 +3032,7 @@ Start with the # heading. Output the revised section.`;
 }
 
 function reRender(){
-  const gBody=document.getElementById('gBody');
+  const gBody=$('gBody');
   gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
   const allSecIds=getSecOrder().length?getSecOrder():SEC.map(s=>s.id);
   splitBatchMD(allMD,allSecIds);
@@ -2984,7 +3042,7 @@ function reRender(){
 
 // Allow Enter to send (Shift+Enter for newline)
 document.addEventListener('DOMContentLoaded',()=>{
-  const el=document.getElementById('refineInput');
+  const el=$('refineInput');
   if(el)el.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();refine()}
   });
@@ -3028,7 +3086,7 @@ function estimateCost(){
   const altLow=(altTotal*0.7).toFixed(2);
   const altHigh=(altTotal*1.3).toFixed(2);
 
-  const el=document.getElementById('costEstimate');
+  const el=$('costEstimate');
   el.style.display='block';
   el.innerHTML='<strong style="color:var(--am)">'+(isOpus?'Opus':'Sonnet')+': $'+low+' – $'+high+'</strong>'+
     ' <span style="color:var(--tx3)">('+(isOpus?'Sonnet':'Opus')+': $'+altLow+'–$'+altHigh+')</span>'+
@@ -3051,7 +3109,7 @@ function getSaves(){
 function putSaves(saves){localStorage.setItem(getSaveKey(),JSON.stringify(saves))}
 
 function saveGuide(){
-  const drug=document.getElementById('drugName').value.trim();
+  const drug=$('drugName').value.trim();
   if(!drug||!allMD)return alert('Nothing to save — generate a guide first.');
 
   const id=loadedGuideId||('guide_'+Date.now());
@@ -3061,11 +3119,11 @@ function saveGuide(){
   const entry={
     id,
     name:drug,
-    litType:document.getElementById('litType').value,
-    cond:document.getElementById('condition').value.trim(),
-    injuries:document.getElementById('injuries').value.trim(),
-    extra:document.getElementById('extra').value.trim(),
-    customInstr:document.getElementById('customInstr').value.trim(),
+    litType:$('litType').value,
+    cond:$('condition').value.trim(),
+    injuries:$('injuries').value.trim(),
+    extra:$('extra').value.trim(),
+    customInstr:$('customInstr').value.trim(),
     outputDepth,
     genModel,
     allRes:{...allRes},
@@ -3099,13 +3157,13 @@ function loadGuide(id){
   if(!entry)return alert('Saved guide not found.');
 
   // Populate form fields
-  document.getElementById('drugName').value=entry.name;
-  document.getElementById('litType').value=entry.litType||'pharmaceutical';
+  $('drugName').value=entry.name;
+  $('litType').value=entry.litType||'pharmaceutical';
   SEC=getSEC();initSec(); // Refresh sections for litType
-  document.getElementById('condition').value=entry.cond||'';
-  document.getElementById('injuries').value=entry.injuries||'';
-  document.getElementById('extra').value=entry.extra||'';
-  document.getElementById('customInstr').value=entry.customInstr||'';
+  $('condition').value=entry.cond||'';
+  $('injuries').value=entry.injuries||'';
+  $('extra').value=entry.extra||'';
+  $('customInstr').value=entry.customInstr||'';
 
   // Restore depth
   if(entry.outputDepth){
@@ -3132,26 +3190,26 @@ function loadGuide(id){
   loadedGuideId=id;
 
   // Render the guide
-  document.getElementById('emptyState').style.display='none';
-  document.getElementById('outWrap').style.display='block';
+  $('emptyState').style.display='none';
+  $('outWrap').style.display='block';
 
-  const gHead=document.getElementById('gHead');
+  const gHead=$('gHead');
   gHead.innerHTML='<h1>Litigation Review Guide: '+entry.name+'</h1><div class="meta" id="gMeta">'+(entry.cond||'(auto-discovered)')+' — '+(entry.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Last saved '+new Date(entry.savedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+(entry.updateCount?' (updated '+entry.updateCount+'×)':'')+'</div>';
 
-  const gBody=document.getElementById('gBody');
+  const gBody=$('gBody');
   gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
 
   // Restore research panel
   if(Object.keys(allRes).length){
-    const rpBody=document.getElementById('rpBody');
+    const rpBody=$('rpBody');
     rpBody.innerHTML=RP.map((p,i)=>{
       const data=allRes[p.id];
       if(!data)return '';
       const failed=data.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${data}</div></details>`;
     }).filter(Boolean).join('');
-    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
-    document.getElementById('rpanel').style.display='block';
+    $('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
+    $('rpanel').style.display='block';
   }
 
   updWC();buildTOC();
@@ -3161,9 +3219,9 @@ function loadGuide(id){
   estimateCost();
 
   // Show update button
-  document.getElementById('btnUpdate').style.display='block';
+  $('btnUpdate').style.display='block';
 
-  document.getElementById('pfoot').textContent='Loaded saved guide — '+countW(allMD).toLocaleString()+' words'+(entry.updateCount?' ('+entry.updateCount+' updates)':'');
+  $('pfoot').textContent='Loaded saved guide — '+countW(allMD).toLocaleString()+' words'+(entry.updateCount?' ('+entry.updateCount+' updates)':'');
 }
 
 function deleteGuide(id,e){
@@ -3171,17 +3229,17 @@ function deleteGuide(id,e){
   if(!confirm('Delete this saved guide?'))return;
   const saves=getSaves().filter(s=>s.id!==id);
   putSaves(saves);
-  if(loadedGuideId===id){loadedGuideId=null;document.getElementById('btnUpdate').style.display='none'}
+  if(loadedGuideId===id){loadedGuideId=null;$('btnUpdate').style.display='none'}
   renderSaves();
 }
 
 function renderSaves(){
   const saves=getSaves();
-  const panel=document.getElementById('savesPanel');
-  const list=document.getElementById('savesList');
-  const dashboard=document.getElementById('savedDashboard');
-  const dashCards=document.getElementById('dashCards');
-  const featsBlock=document.getElementById('featsBlock');
+  const panel=$('savesPanel');
+  const list=$('savesList');
+  const dashboard=$('savedDashboard');
+  const dashCards=$('dashCards');
+  const featsBlock=$('featsBlock');
 
   if(!saves.length){
     panel.style.display='none';
@@ -3238,9 +3296,9 @@ let _lastUpdateFindings='';
 
 async function checkForUpdates(){
   const keys=getKeys();
-  const drug=document.getElementById('drugName').value.trim();
-  const cond=document.getElementById('condition').value.trim();
-  const litType=document.getElementById('litType').value;
+  const drug=$('drugName').value.trim();
+  const cond=$('condition').value.trim();
+  const litType=$('litType').value;
 
   if(!keys.length)return alert('No API keys configured.');
   if(!drug)return alert('Enter a product name.');
@@ -3248,13 +3306,13 @@ async function checkForUpdates(){
 
   if(!confirm('Check for new developments (FDA actions, litigation updates, new studies).\n\nThis runs one search — estimated cost ~$0.30.\n\nProceed?'))return;
 
-  const btn=document.getElementById('btnUpdate');
+  const btn=$('btnUpdate');
   btn.disabled=true;btn.textContent='Checking...';
 
   const t=T();
   const steps=[{l:'🔍 Checking for new developments',d:'Running...'}];
   initProg(steps);
-  document.getElementById('btnStop').style.display='block';
+  $('btnStop').style.display='block';
 
   ac=new AbortController();
 
@@ -3308,31 +3366,31 @@ If NOTHING new is found, respond with: "NO NEW DEVELOPMENTS — Guide is current
 
     if(noUpdates){
       setP(0,'done','No new developments found — guide is current');
-      document.getElementById('pfoot').textContent='Update check complete — no changes needed';
-      document.getElementById('updatePanel').style.display='none';
+      $('pfoot').textContent='Update check complete — no changes needed';
+      $('updatePanel').style.display='none';
     }else{
       setP(0,'done','New developments found');
       // Show findings in update panel
-      const updatePanel=document.getElementById('updatePanel');
+      const updatePanel=$('updatePanel');
       updatePanel.style.display='block';
       updatePanel.open=true;
-      document.getElementById('updateDate').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-      document.getElementById('updateBody').innerHTML=md2html(findings);
-      document.getElementById('updateActions').style.display='flex';
+      $('updateDate').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      $('updateBody').innerHTML=md2html(findings);
+      $('updateActions').style.display='flex';
 
       // Store in research
       allRes._update_findings=findings;
       allRes._update_date=new Date().toISOString();
 
-      document.getElementById('pfoot').innerHTML='New developments found — <strong style="color:var(--am)">review findings above</strong> and apply if relevant';
+      $('pfoot').innerHTML='New developments found — <strong style="color:var(--am)">review findings above</strong> and apply if relevant';
     }
 
   }catch(err){
-    if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Check stopped'}
-    else{document.getElementById('pfoot').textContent='Check failed: '+err.message;logError(err,{step:'update_check',stepLabel:'Update Check',type:'update'})}
+    if(err.name==='AbortError'){$('pfoot').textContent='Check stopped'}
+    else{$('pfoot').textContent='Check failed: '+err.message;logError(err,{step:'update_check',stepLabel:'Update Check',type:'update'})}
   }finally{
     btn.disabled=false;btn.textContent='⟳ Check for Updates';
-    document.getElementById('btnStop').style.display='none';
+    $('btnStop').style.display='none';
     ac=null;
   }
 }
@@ -3346,10 +3404,10 @@ async function applyUpdates(){
 
   if(!confirm('Apply findings to affected sections only.\n\nEstimated cost: ~$0.50-2\n\nProceed?'))return;
 
-  const actionsDiv=document.getElementById('updateActions');
+  const actionsDiv=$('updateActions');
   actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px;font-weight:500">Identifying affected sections...</span>';
 
-  const drug=document.getElementById('drugName').value.trim();
+  const drug=$('drugName').value.trim();
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
 
   try{
@@ -3436,19 +3494,19 @@ Output ONLY the revised section Markdown.`;
     }
 
     // Re-render
-    const gBody=document.getElementById('gBody');
+    const gBody=$('gBody');
     gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
     const allSecIds=getSecOrder().length?getSecOrder():SEC_IDS;
     splitBatchMD(allMD,allSecIds);
     updWC();buildTOC();splitOutputIntoSections();showRefineBar();
 
-    const meta=document.getElementById('gMeta');
-    const litType=document.getElementById('litType').value;
-    const cond=document.getElementById('condition').value.trim();
+    const meta=$('gMeta');
+    const litType=$('litType').value;
+    const cond=$('condition').value.trim();
     if(meta)meta.innerHTML=(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Updated '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
     actionsDiv.innerHTML='<span style="color:var(--gn);font-size:12px;font-weight:500">✓ '+modCount+' section'+(modCount!==1?'s':'')+' updated</span>';
-    document.getElementById('pfoot').textContent='Updates applied to '+modCount+' section'+(modCount!==1?'s':'')+' — '+countW(allMD).toLocaleString()+' words';
+    $('pfoot').textContent='Updates applied to '+modCount+' section'+(modCount!==1?'s':'')+' — '+countW(allMD).toLocaleString()+' words';
 
     saveGuide();
 
@@ -3459,9 +3517,9 @@ Output ONLY the revised section Markdown.`;
 }
 
 function dismissUpdates(){
-  document.getElementById('updatePanel').style.display='none';
+  $('updatePanel').style.display='none';
   _lastUpdateFindings='';
-  document.getElementById('pfoot').textContent='Update findings dismissed';
+  $('pfoot').textContent='Update findings dismissed';
 }
 
 initSec();
