@@ -3506,8 +3506,12 @@ RULES:
       }
 
       if(revisions.length>0){
-        // Remove stream bubble and show pending changes card
-        streamBubble.remove();
+        // Clean the stream bubble to show readable revised content (strip markers)
+        const cleanedOutput=fullOutput
+          .replace(/^REVISED_SECTION:.*$/gm,'')
+          .replace(/^END_SECTION\s*$/gm,'')
+          .trim();
+        document.getElementById('streamBubble').innerHTML=md2html(cleanedOutput);
 
         // Build change summary
         let summaryParts=[];
@@ -3531,9 +3535,7 @@ RULES:
           </div>
         </div>`;
 
-        const info='I\'ve prepared '+revisions.length+' section revision'+(revisions.length>1?'s':'')+'. Review the changes below and click Apply to update the guide.';
-        addChatBubble('assistant',info);
-        chatMessages.push({role:'assistant',content:info});
+        chatMessages.push({role:'assistant',content:cleanedOutput});
       } else {
         // Couldn't parse revisions — show as-is
         document.getElementById('streamBubble').innerHTML=md2html(fullOutput);
