@@ -2536,20 +2536,82 @@ function dlPDF(){
     else el.remove();
   });
 
-  const opt={
-    margin:[0.75,0.65,0.75,0.65],
-    filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
-    image:{type:'jpeg',quality:0.85},
-    html2canvas:{scale:1.5,useCORS:true,width:816},
-    jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
-    pagebreak:{mode:['css','legacy']}
-  };
+  // ═══ MOUNT to measure elements for page-break spacers ═══
+  container.style.cssText='position:fixed;left:0;top:0;width:816px;visibility:hidden;pointer-events:none;z-index:-1';
+  document.body.appendChild(container);
 
-  html2pdf().set(opt).from(container).save().then(()=>{
-    btn.textContent='📕 .pdf';btn.disabled=false;
-  }).catch(e=>{
-    alert('PDF generation failed: '+e.message);
-    btn.textContent='📕 .pdf';btn.disabled=false;
+  requestAnimationFrame(()=>{
+    try{
+      const inner=container.firstElementChild;
+      const containerTop=inner.getBoundingClientRect().top;
+      const pxPerIn=816/7.2;
+      const pageH=9.5*pxPerIn;
+
+      const blocks=inner.querySelectorAll('h1,h2,h3,h4,p,li,table,blockquote,hr');
+      let spacerTotal=0;
+
+      blocks.forEach(el=>{
+        const rect=el.getBoundingClientRect();
+        const elTop=rect.top-containerTop+spacerTotal;
+        const elBot=rect.bottom-containerTop+spacerTotal;
+        const elH=rect.height;
+        const pageEnd=Math.ceil(elTop/pageH)*pageH;
+        if(pageEnd===elTop)return; // exactly at page start
+
+        if(elBot>pageEnd&&elTop<pageEnd){
+          const onCurrentPage=pageEnd-elTop;
+          if(elH<300||onCurrentPage<elH*0.3){
+            const gap=pageEnd-elTop;
+            const spacer=document.createElement('div');
+            spacer.style.cssText='height:'+gap+'px;width:100%';
+            spacer.className='_pdf_spacer';
+            el.parentNode.insertBefore(spacer,el);
+            spacerTotal+=gap;
+          }
+        }
+
+        if(/^H[1-4]$/.test(el.tagName)){
+          const hBot=rect.bottom-containerTop+spacerTotal;
+          const hPageEnd=Math.ceil(hBot/pageH)*pageH;
+          if(hPageEnd-hBot<50&&hPageEnd!==hBot){
+            const gap=hPageEnd-(rect.top-containerTop+spacerTotal);
+            if(gap>0&&gap<pageH){
+              const prev=el.previousElementSibling;
+              if(!prev||!prev.classList.contains('_pdf_spacer')){
+                const spacer=document.createElement('div');
+                spacer.style.cssText='height:'+gap+'px;width:100%';
+                spacer.className='_pdf_spacer';
+                el.parentNode.insertBefore(spacer,el);
+                spacerTotal+=gap;
+              }
+            }
+          }
+        }
+      });
+
+      document.body.removeChild(container);
+      container.style.cssText='';
+
+      const opt={
+        margin:[0.75,0.65,0.75,0.65],
+        filename:'Litigation_Review_Guide_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
+        image:{type:'jpeg',quality:0.85},
+        html2canvas:{scale:1.5,useCORS:true,width:816},
+        jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
+        pagebreak:{mode:['css','legacy']}
+      };
+
+      html2pdf().set(opt).from(container).save().then(()=>{
+        btn.textContent='📕 .pdf';btn.disabled=false;
+      }).catch(e=>{
+        alert('PDF generation failed: '+e.message);
+        btn.textContent='📕 .pdf';btn.disabled=false;
+      });
+    }catch(e){
+      if(container.parentNode)document.body.removeChild(container);
+      alert('PDF generation failed: '+e.message);
+      btn.textContent='📕 .pdf';btn.disabled=false;
+    }
   });
 }
 async function dlDOCX(){
