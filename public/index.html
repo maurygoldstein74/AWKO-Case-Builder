@@ -3330,8 +3330,19 @@ async function chatSend(){
         showTyping('');btn.disabled=false;return;
       }
 
+      // If there are pending (unaccepted) changes for this section, use the pending text
+      // so refinements build on top of the previous edit rather than the stale committed version
+      let secText=sec.text;
+      if(pendingChanges){
+        const pendingRev=pendingChanges.revisions.find(r=>r.heading===targetSections[0]||r.heading.toLowerCase()===targetSections[0].toLowerCase());
+        if(pendingRev){
+          // Strip [UPDATED] markers from pending text so the model starts clean
+          secText=pendingRev.newMD.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,'');
+        }
+      }
+
       // Scale token budget: section word count * 2 (for tokens) + 2000 buffer, minimum 4000
-      const secWords=countW(sec.text);
+      const secWords=countW(secText);
       const secMaxTok=Math.max(4000, Math.min(secWords*3+2000, 32000));
 
       systemPrompt=`You are a medical-legal consultant editing a litigation review guide for ${drug||'a pharmaceutical/medical product'}.
@@ -3339,7 +3350,7 @@ async function chatSend(){
 The user is editing ONE SPECIFIC SECTION of their guide. Here is the current section (${secWords} words):
 
 <current_section>
-${sec.text}
+${secText}
 </current_section>
 
 GUIDE SECTION HEADINGS (for context only — do NOT rewrite other sections):
@@ -3365,20 +3376,51 @@ RULES FOR SECTION REWRITES:
 - Mark new or changed lines with **[UPDATED]** prefix
 - Output ONLY this one section — never include content from other sections`;
 
-      // Build conversation with context
-      const contextMsgs=chatMessages.slice(-6).map(m=>({role:m.role,content:m.content}));
+      // Build conversation with context — strip [UPDATED] markers from history so the model doesn't stack old markers
+      const contextMsgs=chatMessages.slice(-6).map(m=>({role:m.role,content:m.role==='assistant'?m.content.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,''):m.content}));
       // Replace last user message with full version
       contextMsgs[contextMsgs.length-1]={role:'user',content:msg};
       userContent=contextMsgs;
 
     } else {
       // Multi-section or whole-guide operation
+      // If there are pending (unaccepted) revisions, overlay them onto the guide text
+      // so refinements build on previous edits
+      let guideMD=allMD;
+      if(pendingChanges){
+        for(const rev of pendingChanges.revisions){
+          const cleanRevMD=rev.newMD.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,'');
+          if(rev.isNew){
+            guideMD=guideMD.trimEnd()+'\n\n---\n\n'+cleanRevMD;
+          } else {
+            // Find the section directly in guideMD (not allMD) so line indices stay correct
+            // after prior iterations may have shifted things
+            const gLines=guideMD.split('\n');
+            const gH1=[];gLines.forEach((l,i)=>{if(l.startsWith('# '))gH1.push(i)});
+            const normalize=s=>s.toLowerCase().replace(/&amp;/g,'&').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+            const revNorm=normalize(rev.heading);
+            let foundIdx=-1;
+            for(let i=0;i<gH1.length;i++){
+              const hText=gLines[gH1[i]].replace(/^# /,'').trim();
+              if(hText===rev.heading||hText.toLowerCase()===rev.heading.toLowerCase()||normalize(hText)===revNorm){foundIdx=i;break}
+            }
+            if(foundIdx>=0){
+              const start=gH1[foundIdx];
+              const end=foundIdx+1<gH1.length?gH1[foundIdx+1]:gLines.length;
+              const before=gLines.slice(0,start).join('\n');
+              const after=gLines.slice(end).join('\n');
+              guideMD=(before?(before+'\n'):'')+cleanRevMD+(after?('\n'+after):'');
+            }
+          }
+        }
+      }
+
       systemPrompt=`You are a medical-legal consultant editing a litigation review guide for ${drug||'a pharmaceutical/medical product'}.
 
 Here is the complete guide:
 
 <guide>
-${allMD}
+${guideMD}
 </guide>
 
 INSTRUCTIONS:
@@ -3403,7 +3445,8 @@ RULES:
 - Each revised section should be AT LEAST as long as the original
 - For adding a NEW section: use REVISED_SECTION: NEW — [Section Title]`;
 
-      const contextMsgs=chatMessages.slice(-6).map(m=>({role:m.role,content:m.content}));
+      // Strip [UPDATED] markers from history so the model doesn't stack old markers
+      const contextMsgs=chatMessages.slice(-6).map(m=>({role:m.role,content:m.role==='assistant'?m.content.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,''):m.content}));
       contextMsgs[contextMsgs.length-1]={role:'user',content:msg};
       userContent=contextMsgs;
     }
@@ -3513,6 +3556,17 @@ RULES:
           .trim();
         document.getElementById('streamBubble').innerHTML=md2html(cleanedOutput);
 
+        // Merge with any existing pending changes:
+        // - New revisions for the same section supersede old ones (model already saw pending text)
+        // - Old pending revisions for OTHER sections are preserved
+        if(pendingChanges){
+          const newHeadings=new Set(revisions.map(r=>r.heading.toLowerCase()));
+          const keptOld=pendingChanges.revisions.filter(r=>!newHeadings.has(r.heading.toLowerCase()));
+          if(keptOld.length>0){
+            revisions.push(...keptOld);
+          }
+        }
+
         // Build change summary
         let summaryParts=[];
         revisions.forEach(r=>{
@@ -3567,6 +3621,8 @@ function acceptChanges(){
 
   let applied=0;
   for(const rev of pendingChanges.revisions){
+    // Strip [UPDATED] markers — useful in chat preview but should not persist in the guide
+    rev.newMD=rev.newMD.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,'');
     console.log('APPLY: trying heading "'+rev.heading+'" (isNew:'+!!rev.isNew+', newMD length:'+rev.newMD.length+')');
     if(rev.isNew){
       // Append new section
@@ -4071,9 +4127,11 @@ Output ONLY the revised section Markdown.`;
       document.body.removeChild(tmpDiv);
 
       if(newMD&&newMD.trim().length>50){
+        // Strip [UPDATED] markers — useful for display but should not persist in the guide
+        const cleanMD=newMD.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,'');
         const before=allLines.slice(0,startLine).join('\n');
         const after=allLines.slice(endLine).join('\n');
-        allMD=(before?(before+'\n'):'')+newMD+(after?('\n'+after):'');
+        allMD=(before?(before+'\n'):'')+cleanMD+(after?('\n'+after):'');
         allLines.length=0;
         allMD.split('\n').forEach(l=>allLines.push(l));
         h1Lines.length=0;
