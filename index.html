@@ -347,7 +347,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 </style>
 </head>
 <body>
-<div class="version-watermark">v1.01</div>
+<div class="version-watermark">v1.02</div>
 <div class="shell">
 <div class="side">
 <div class="side-scroll">
@@ -2101,6 +2101,51 @@ function buildTOC(){
   document.getElementById('toc').style.display='block';
 }
 
+/* ═══════ STRIP UNREQUESTED SECTIONS FROM MARKDOWN ═══════ */
+function filterMDToSections(md,allowedSecIds){
+  // Remove any H1 sections from md that don't match an allowed section ID.
+  // This prevents the model from sneaking in sections the user unchecked.
+  if(!allowedSecIds||!allowedSecIds.length)return md;
+
+  const labels=getSecLabels();
+  const allowedLabels=allowedSecIds.map(id=>(labels[id]||id).toLowerCase());
+
+  const lines=md.split('\n');
+  const h1Lines=[];
+  lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+
+  if(!h1Lines.length)return md;
+
+  // For each H1 section, decide keep or discard
+  const kept=[];
+  for(let i=0;i<h1Lines.length;i++){
+    const hText=lines[h1Lines[i]].replace(/^# /,'').trim().toLowerCase();
+    const start=h1Lines[i];
+    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+
+    // Check if this heading matches any allowed section
+    let isAllowed=false;
+    for(const al of allowedLabels){
+      const alWords=al.split(/[\s&/,]+/).filter(w=>w.length>2);
+      const hWords=hText.split(/[\s&/,]+/).filter(w=>w.length>2);
+      const overlap=alWords.filter(w=>hWords.some(hw=>hw.includes(w)||w.includes(hw))).length;
+      if(alWords.length>0&&overlap/alWords.length>=0.4){isAllowed=true;break}
+    }
+
+    if(isAllowed){
+      kept.push(lines.slice(start,end).join('\n'));
+    }
+  }
+
+  // Also keep any content BEFORE the first H1 (preamble)
+  if(h1Lines[0]>0){
+    const preamble=lines.slice(0,h1Lines[0]).join('\n').trim();
+    if(preamble)kept.unshift(preamble);
+  }
+
+  return kept.join('\n\n---\n\n');
+}
+
 /* ═══════ SPLIT BATCH MD INTO INDIVIDUAL SECTIONS ═══════ */
 function splitBatchMD(grpMD,secIds){
   const lines=grpMD.split('\n');
@@ -2119,6 +2164,7 @@ function splitBatchMD(grpMD,secIds){
   }
   if(current)chunks.push(current);
 
+  // Only match chunks against the provided secIds (checked sections)
   const unmatched=[...secIds];
   chunks.forEach(chunk=>{
     const chunkTitle=chunk.title.toLowerCase();
@@ -2344,6 +2390,9 @@ async function run(){
         const gc=genDiv.querySelector('.gc');
         allMD=await streamTo(resp,gc,()=>updWC());
         if(allMD.trim().length<100){throw new Error('Generation returned empty or too short');}
+        // Filter out any sections the model generated that weren't requested
+        allMD=filterMDToSections(allMD,allSecIds);
+        gc.innerHTML=md2html(allMD);
         splitBatchMD(allMD,allSecIds);
         setP(genIdx,'done',countW(allMD).toLocaleString()+' words');
         genSuccess=true;
@@ -2516,6 +2565,9 @@ async function retryGeneration(){
     const gc=gBody.querySelector('.gc');
     allMD=await streamTo(resp,gc,()=>updWC());
     if(allMD.trim().length<100)throw new Error('Response too short');
+    // Filter out any sections the model generated that weren't requested
+    allMD=filterMDToSections(allMD,allSecIds);
+    gc.innerHTML=md2html(allMD);
     splitBatchMD(allMD,allSecIds);
     updWC();buildTOC();showRefineBar();
     splitOutputIntoSections();
@@ -2678,7 +2730,7 @@ function dlPDF(){
 
       const opt={
         margin:[0.75,0.65,0.75,0.65],
-        filename:'Litigation_Review_Guide_v1.01_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
+        filename:'Litigation_Review_Guide_v1.02_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
         image:{type:'jpeg',quality:0.85},
         html2canvas:{scale:1.5,useCORS:true,width:816},
         jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
@@ -2870,7 +2922,7 @@ async function dlDOCX(){
     const buffer=await Packer.toBlob(doc);
     const a=document.createElement('a');
     a.href=URL.createObjectURL(buffer);
-    a.download='Litigation_Review_Guide_v1.01_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
+    a.download='Litigation_Review_Guide_v1.02_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
     a.click();
 
     btn.textContent='📝 .docx';btn.disabled=false;
