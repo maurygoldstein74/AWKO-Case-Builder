@@ -347,7 +347,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 </style>
 </head>
 <body>
-<div class="version-watermark">v1.03</div>
+<div class="version-watermark">v1.04</div>
 <div class="shell">
 <div class="side">
 <div class="side-scroll">
@@ -967,6 +967,12 @@ let outDragEl=null;
 
 function splitOutputIntoSections(){
   const gBody=document.getElementById('gBody');
+
+  // CRITICAL: Re-render flat from allMD so H1s are direct children of gBody.
+  // Without this, content is nested inside wrapper divs and the parser
+  // treats the entire guide as one indivisible block.
+  gBody.innerHTML=md2html(allMD);
+
   const allContent=gBody.innerHTML;
   const tmp=document.createElement('div');tmp.innerHTML=allContent;
   const children=[...tmp.childNodes];
@@ -2758,7 +2764,7 @@ function dlPDF(){
 
       const opt={
         margin:[0.75,0.65,0.75,0.65],
-        filename:'Litigation_Review_Guide_v1.03_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
+        filename:'Litigation_Review_Guide_v1.04_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
         image:{type:'jpeg',quality:0.85},
         html2canvas:{scale:1.5,useCORS:true,width:816},
         jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
@@ -2950,7 +2956,7 @@ async function dlDOCX(){
     const buffer=await Packer.toBlob(doc);
     const a=document.createElement('a');
     a.href=URL.createObjectURL(buffer);
-    a.download='Litigation_Review_Guide_v1.03_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
+    a.download='Litigation_Review_Guide_v1.04_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
     a.click();
 
     btn.textContent='📝 .docx';btn.disabled=false;
