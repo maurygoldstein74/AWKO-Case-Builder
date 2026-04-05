@@ -347,7 +347,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 </style>
 </head>
 <body>
-<div class="version-watermark">v1.02</div>
+<div class="version-watermark">v1.03</div>
 <div class="shell">
 <div class="side">
 <div class="side-scroll">
@@ -716,6 +716,9 @@ For EACH alleged injury, search for its grading/staging/classification system:
 ];
 
 let ac=null,allRes={},secMD={},allMD='',genModel='claude-sonnet-4-20250514';
+// The section IDs the user actually selected for this generation run.
+// Set at the start of run(), used everywhere downstream to hard-filter output.
+let activeSelectedSecs=[];
 
 const DEPTH_CONFIG={
   brief:    {totalWords:3000,  tokPerCall:8000,   label:'~3k words'},
@@ -1006,7 +1009,16 @@ function splitOutputIntoSections(){
     }
   });
   matched.sort((a,b)=>(a._sidebarIdx<0?999:a._sidebarIdx)-(b._sidebarIdx<0?999:b._sidebarIdx));
-  const ordered=[...matched,...unmatched];
+
+  // HARD FILTER: If we have activeSelectedSecs, only render sections that match them.
+  // Drop unmatched sections entirely — they were not requested by the user.
+  let ordered;
+  if(activeSelectedSecs&&activeSelectedSecs.length>0){
+    ordered=matched.filter(sec=>activeSelectedSecs.includes(sec._matchId));
+  }else{
+    // Fallback for loaded guides where activeSelectedSecs may not be set
+    ordered=[...matched,...unmatched];
+  }
 
   ordered.forEach((sec,i)=>{
     const block=document.createElement('div');
@@ -2103,44 +2115,55 @@ function buildTOC(){
 
 /* ═══════ STRIP UNREQUESTED SECTIONS FROM MARKDOWN ═══════ */
 function filterMDToSections(md,allowedSecIds){
-  // Remove any H1 sections from md that don't match an allowed section ID.
-  // This prevents the model from sneaking in sections the user unchecked.
+  // Hard filter: scan every H1, identify which SEC ID it belongs to,
+  // and REMOVE it unless that ID is in allowedSecIds.
+  // Headings that don't match ANY known section are also removed.
   if(!allowedSecIds||!allowedSecIds.length)return md;
-
-  const labels=getSecLabels();
-  const allowedLabels=allowedSecIds.map(id=>(labels[id]||id).toLowerCase());
 
   const lines=md.split('\n');
   const h1Lines=[];
   lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-
   if(!h1Lines.length)return md;
 
-  // For each H1 section, decide keep or discard
-  const kept=[];
-  for(let i=0;i<h1Lines.length;i++){
-    const hText=lines[h1Lines[i]].replace(/^# /,'').trim().toLowerCase();
-    const start=h1Lines[i];
-    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+  // Build lookup: for each SEC entry, generate match keywords from label
+  const secLookup=SEC.map(s=>{
+    const words=s.l.toLowerCase().split(/[\s&/,]+/).filter(w=>w.length>2);
+    return{id:s.id,words};
+  });
 
-    // Check if this heading matches any allowed section
-    let isAllowed=false;
-    for(const al of allowedLabels){
-      const alWords=al.split(/[\s&/,]+/).filter(w=>w.length>2);
-      const hWords=hText.split(/[\s&/,]+/).filter(w=>w.length>2);
-      const overlap=alWords.filter(w=>hWords.some(hw=>hw.includes(w)||w.includes(hw))).length;
-      if(alWords.length>0&&overlap/alWords.length>=0.4){isAllowed=true;break}
+  function identifySection(headingText){
+    // Returns the SEC id this heading belongs to, or null
+    const ht=headingText.toLowerCase();
+    const hWords=ht.split(/[\s&/,]+/).filter(w=>w.length>2);
+    let bestId=null,bestScore=0;
+    for(const entry of secLookup){
+      // Score: how many of the SEC label words appear in the heading?
+      const overlap=entry.words.filter(w=>hWords.some(hw=>hw.includes(w)||w.includes(hw))).length;
+      const score=entry.words.length>0?overlap/entry.words.length:0;
+      if(score>bestScore){bestScore=score;bestId=entry.id}
     }
-
-    if(isAllowed){
-      kept.push(lines.slice(start,end).join('\n'));
-    }
+    return bestScore>=0.35?bestId:null;
   }
 
-  // Also keep any content BEFORE the first H1 (preamble)
+  const kept=[];
+
+  // Keep preamble (content before first H1)
   if(h1Lines[0]>0){
     const preamble=lines.slice(0,h1Lines[0]).join('\n').trim();
-    if(preamble)kept.unshift(preamble);
+    if(preamble)kept.push(preamble);
+  }
+
+  for(let i=0;i<h1Lines.length;i++){
+    const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+    const start=h1Lines[i];
+    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+    const secId=identifySection(hText);
+
+    // Only keep if we identified which section it is AND it's in the allowed list
+    if(secId&&allowedSecIds.includes(secId)){
+      kept.push(lines.slice(start,end).join('\n'));
+    }
+    // Everything else is silently dropped
   }
 
   return kept.join('\n\n---\n\n');
@@ -2283,6 +2306,10 @@ async function run(){
   if(!keys.length)return alert('No API keys configured on the server. Add ANTHROPIC_KEY_1 to your Netlify environment variables.');
   if(!drug)return alert('Enter a drug or device name.');
   if(!secs.length)return alert('Select at least one section.');
+
+  // Lock in the user's selection — this is the single source of truth for
+  // which sections should appear in the output, used by every downstream function.
+  activeSelectedSecs=[...secs];
 
   const est=estimateCost();
   if(!confirm('Estimated cost: $'+est.low+' – $'+est.high+'\n\nProceed with generation?'))return;
@@ -2551,6 +2578,7 @@ async function retryGeneration(){
   // FIX: Use checked sections, not all sections with SP entries
   const allSecIds=getCheckedSecOrder().filter(id=>getSP()[id]);
   if(!allSecIds.length)return alert('No sections selected to generate');
+  activeSelectedSecs=[...allSecIds];
 
   const gBody=document.getElementById('gBody');
   gBody.innerHTML='<div class="sec-block" id="sb-gen"><div class="gc"><p style="color:var(--tx3)">Retrying full guide generation...</p></div></div>';
@@ -2730,7 +2758,7 @@ function dlPDF(){
 
       const opt={
         margin:[0.75,0.65,0.75,0.65],
-        filename:'Litigation_Review_Guide_v1.02_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
+        filename:'Litigation_Review_Guide_v1.03_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
         image:{type:'jpeg',quality:0.85},
         html2canvas:{scale:1.5,useCORS:true,width:816},
         jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
@@ -2922,7 +2950,7 @@ async function dlDOCX(){
     const buffer=await Packer.toBlob(doc);
     const a=document.createElement('a');
     a.href=URL.createObjectURL(buffer);
-    a.download='Litigation_Review_Guide_v1.02_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
+    a.download='Litigation_Review_Guide_v1.03_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
     a.click();
 
     btn.textContent='📝 .docx';btn.disabled=false;
@@ -3734,6 +3762,7 @@ function loadGuide(id){
   allMD=entry.allMD||'';
   secMD=entry.secMD||{};
   loadedGuideId=id;
+  activeSelectedSecs=[]; // Clear — loaded guides show all their sections
 
   document.getElementById('emptyState').style.display='none';
   document.getElementById('outWrap').style.display='block';
