@@ -983,8 +983,8 @@ function initSidebarDrag(){
 let outDragEl=null;
 
 function splitOutputIntoSections(){
-  // WHITELIST approach: iterate allowed section IDs, claim best-matching H1 block
-  // for each. Unchecked sections can never leak through.
+  // HARD CAP + POSITIONAL approach: the Nth H1 block = the Nth allowed section.
+  // No fuzzy matching. Impossible for unchecked sections to appear.
   const gBody=document.getElementById('gBody');
   gBody.innerHTML='';
   if(!allMD||!allMD.trim())return;
@@ -1009,78 +1009,36 @@ function splitOutputIntoSections(){
   }
   if(curHeading!==null)blocks.push({heading:curHeading,md:curLines.join('\n')});
 
-  // 3. Determine which sections to show
+  // 3. Separate Works Cited from content blocks
+  const contentBlocks=[];
+  let worksCitedBlock=null;
+  for(const b of blocks){
+    if(b.heading.replace(/\{\{CITE:\d+:[^}]+\}\}/g,'').trim()==='Works Cited'){
+      worksCitedBlock=b;
+    }else{
+      contentBlocks.push(b);
+    }
+  }
+
+  // 4. Determine which sections to show
   const showAll=!activeSelectedSecs||activeSelectedSecs.length===0;
   const allowedIds=showAll?SEC.map(s=>s.id):[...activeSelectedSecs];
 
-  // 4. Whitelist match: for each allowed ID, claim best block
-  const secLabels={};
-  SEC.forEach(s=>{secLabels[s.id]=s.l});
-  const usedBlocks=new Set();
-  const matched=[]; // [{secId, md, heading}]
-
-  // Strip CITE markers from heading text for matching purposes
-  function cleanHeading(h){return h.replace(/\{\{CITE:\d+:[^}]+\}\}/g,'').trim()}
-
-  for(const secId of allowedIds){
-    const label=secLabels[secId];
-    if(!label)continue;
-    const labelLower=label.toLowerCase().trim();
-    let bestIdx=-1;
-
-    // TIER 1: Exact match
-    for(let i=0;i<blocks.length;i++){
-      if(usedBlocks.has(i))continue;
-      if(cleanHeading(blocks[i].heading).toLowerCase().trim()===labelLower){bestIdx=i;break}
-    }
-    // TIER 2: Contains
-    if(bestIdx<0){
-      for(let i=0;i<blocks.length;i++){
-        if(usedBlocks.has(i))continue;
-        const hLower=cleanHeading(blocks[i].heading).toLowerCase().trim();
-        if(hLower.includes(labelLower)||labelLower.includes(hLower)){bestIdx=i;break}
-      }
-    }
-    // TIER 3: Fuzzy (threshold 0.5)
-    if(bestIdx<0){
-      const labelWords=labelLower.split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-      if(labelWords.length){
-        let bestScore=0;
-        for(let i=0;i<blocks.length;i++){
-          if(usedBlocks.has(i))continue;
-          const hWords=cleanHeading(blocks[i].heading).toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-          const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
-          const score=overlap/labelWords.length;
-          if(score>bestScore){bestScore=score;bestIdx=i}
-        }
-        if(bestIdx<0||bestScore<0.5)bestIdx=-1;
-      }
-    }
-
-    if(bestIdx>=0){
-      matched.push({secId,md:blocks[bestIdx].md,heading:blocks[bestIdx].heading});
-      usedBlocks.add(bestIdx);
-    }
+  // 5. POSITIONAL ASSIGNMENT: Nth content block = Nth allowed section ID.
+  //    Hard cap: never show more sections than allowedIds.length.
+  const maxSections=allowedIds.length;
+  const matched=[];
+  for(let i=0;i<contentBlocks.length&&i<maxSections;i++){
+    matched.push({
+      secId:allowedIds[i],
+      md:contentBlocks[i].md,
+      heading:contentBlocks[i].heading
+    });
   }
 
-  // 5. Find the Works Cited block (always include if citations exist)
-  let worksCitedBlock=null;
-  for(let i=0;i<blocks.length;i++){
-    if(!usedBlocks.has(i)&&blocks[i].heading==='Works Cited'){
-      worksCitedBlock=blocks[i];
-      break;
-    }
-  }
+  console.log('[split] '+matched.length+' sections shown (allowed: '+maxSections+', content blocks: '+contentBlocks.length+', works cited: '+(worksCitedBlock?'yes':'no')+')');
 
-  // 6. Sort by sidebar order
-  const sidebarOrder=getSecOrder();
-  matched.sort((a,b)=>{
-    const ai=sidebarOrder.indexOf(a.secId);
-    const bi=sidebarOrder.indexOf(b.secId);
-    return (ai<0?999:ai)-(bi<0?999:bi);
-  });
-
-  // 7. Build DOM — use md2html (not renderWithCitations) since citations already converted
+  // 6. Build DOM — use md2html (not renderWithCitations) since citations already converted
   matched.forEach((sec,i)=>{
     const block=document.createElement('div');
     block.className='sec-block';
@@ -1104,7 +1062,7 @@ function splitOutputIntoSections(){
     gBody.appendChild(block);
   });
 
-  // 8. Append Works Cited as a non-draggable, non-regennable block at the end
+  // 7. Append Works Cited as a non-draggable block at the end
   if(worksCitedBlock){
     const wcBlock=document.createElement('div');
     wcBlock.className='sec-block';
@@ -2252,7 +2210,8 @@ function updWC(){
   }
 }
 function buildTOC(){
-  const h1s=document.getElementById('gBody').querySelectorAll('h1');
+  // Only include content section h1s, not Works Cited
+  const h1s=[...document.getElementById('gBody').querySelectorAll('.sec-block:not(#sb-works-cited) h1')];
   if(!h1s.length){document.getElementById('toc').style.display='none';return}
   const list=document.getElementById('tocList');list.innerHTML='';
   h1s.forEach((h,i)=>{h.id='s'+i;const li=document.createElement('li');const a=document.createElement('a');a.href='#s'+i;a.textContent=h.textContent;li.appendChild(a);list.appendChild(li)});
@@ -2261,14 +2220,15 @@ function buildTOC(){
 
 /* ═══════ STRIP UNREQUESTED SECTIONS FROM MARKDOWN ═══════ */
 function filterMDToSections(md,allowedSecIds){
-  // STRICT WHITELIST approach: only keep H1 blocks that match an allowed section.
-  // Three-tier matching: exact label → contains label → fuzzy word overlap.
-  // Unchecked sections can NEVER appear in output.
+  // HARD CAP approach: keep at most N H1 blocks where N = allowedSecIds.length.
+  // The prompt tells Claude to write sections in the exact order of allowedSecIds,
+  // so the Nth H1 block = the Nth allowed section. No fuzzy matching needed.
+  // This makes it IMPOSSIBLE for unchecked sections to appear.
   if(!allowedSecIds||!allowedSecIds.length)return md;
 
   const lines=md.split('\n');
   const h1Lines=[];
-  lines.forEach((l,i)=>{if(l.startsWith('# ')&&!l.startsWith('## '))h1Lines.push(i)});
+  lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
   if(!h1Lines.length)return md;
 
   // Build H1 blocks
@@ -2278,74 +2238,21 @@ function filterMDToSections(md,allowedSecIds){
     return{heading,text:lines.slice(start,end).join('\n'),start};
   });
 
-  // Build label lookup from SEC
-  const secLabels={};
-  SEC.forEach(s=>{secLabels[s.id]=s.l});
+  const maxSections=allowedSecIds.length;
 
+  // Keep exactly the first N blocks (N = number of allowed sections).
+  // Claude writes them in the order we request, so position = section.
   const kept=[];
-  const usedBlocks=new Set();
-
-  // For each allowed section, find and claim the best-matching block
-  // using THREE matching tiers for reliability:
-  for(const secId of allowedSecIds){
-    const label=secLabels[secId];
-    if(!label)continue;
-    const labelLower=label.toLowerCase().trim();
-
-    let bestIdx=-1;
-
-    // TIER 1: Exact match (case-insensitive) — most reliable
-    for(let i=0;i<blocks.length;i++){
-      if(usedBlocks.has(i))continue;
-      if(blocks[i].heading.toLowerCase().trim()===labelLower){
-        bestIdx=i;
-        console.log('[filter] EXACT match: "'+blocks[i].heading+'" → '+secId);
-        break;
-      }
-    }
-
-    // TIER 2: Heading contains the label or label contains the heading
-    if(bestIdx<0){
-      for(let i=0;i<blocks.length;i++){
-        if(usedBlocks.has(i))continue;
-        const hLower=blocks[i].heading.toLowerCase().trim();
-        if(hLower.includes(labelLower)||labelLower.includes(hLower)){
-          bestIdx=i;
-          console.log('[filter] CONTAINS match: "'+blocks[i].heading+'" → '+secId);
-          break;
-        }
-      }
-    }
-
-    // TIER 3: Fuzzy word overlap (threshold 0.5 — stricter than before)
-    if(bestIdx<0){
-      const labelWords=labelLower.split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-      if(labelWords.length){
-        let bestScore=0;
-        for(let i=0;i<blocks.length;i++){
-          if(usedBlocks.has(i))continue;
-          const hWords=blocks[i].heading.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-          const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
-          const score=overlap/labelWords.length;
-          if(score>bestScore){bestScore=score;bestIdx=i}
-        }
-        if(bestIdx>=0&&bestScore>=0.5){
-          console.log('[filter] FUZZY match: "'+blocks[bestIdx].heading+'" → '+secId+' (score '+bestScore.toFixed(2)+')');
-        }else{
-          console.log('[filter] No match for: '+secId+' (label="'+label+'", best fuzzy='+bestScore.toFixed(2)+')');
-          bestIdx=-1;
-        }
-      }
-    }
-
-    if(bestIdx>=0){
-      kept.push(blocks[bestIdx].text);
-      usedBlocks.add(bestIdx);
-    }
+  for(let i=0;i<blocks.length&&kept.length<maxSections;i++){
+    kept.push(blocks[i].text);
+    console.log('[filter] KEPT block '+i+': "'+blocks[i].heading+'" → '+allowedSecIds[kept.length-1]);
   }
 
-  // Log dropped blocks
-  blocks.forEach((b,i)=>{if(!usedBlocks.has(i))console.log('[filter] DROPPED: "'+b.heading+'"')});
+  // Log any dropped blocks
+  for(let i=kept.length;i<blocks.length;i++){
+    console.log('[filter] DROPPED block '+i+': "'+blocks[i].heading+'"');
+  }
+  console.log('[filter] Result: '+kept.length+' of '+blocks.length+' blocks kept (allowed: '+maxSections+')');
 
   return kept.join('\n\n---\n\n');
 }
@@ -2607,7 +2514,7 @@ async function run(){
         if(allMD.trim().length<100){throw new Error('Generation returned empty or too short');}
         // Filter out any sections the model generated that weren't requested
         allMD=filterMDToSections(allMD,allSecIds);
-        gc.innerHTML=renderWithCitations(allMD);
+        gc.innerHTML=md2html(allMD);
         splitBatchMD(allMD,allSecIds);
         setP(genIdx,'done',countW(allMD).toLocaleString()+' words');
         genSuccess=true;
@@ -2685,7 +2592,7 @@ Output ONLY this section's Markdown.`;
               allMD+='\n\n---\n\n'+recoveredMD;
               secMD[missing.id]=recoveredMD;
               const gc=genDiv.querySelector('.gc');
-              gc.innerHTML=renderWithCitations(allMD);
+              gc.innerHTML=md2html(allMD);
               updWC();buildTOC();
             }
             if(missingSections.indexOf(missing)<missingSections.length-1)await sleep(3000,ac.signal);
@@ -2736,16 +2643,17 @@ Output ONLY this section's Markdown.`;
       document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
     }
 
-    // Post-generation filter: ensure only checked sections remain
+    // Post-generation display: splitOutputIntoSections already enforces hard cap
+    // so no second filter needed. Just re-render and check completeness.
     if(allMD&&activeSelectedSecs&&activeSelectedSecs.length>0){
-      allMD=filterMDToSections(allMD,activeSelectedSecs);
       splitOutputIntoSections();
       updWC();
-      console.log('[run] Post-filter done. Sections in output:',
-        document.getElementById('gBody').querySelectorAll('h1').length);
+      console.log('[run] Final render done. Sections in output:',
+        document.getElementById('gBody').querySelectorAll('h1').length,
+        'allowed:',activeSelectedSecs.length);
 
-      // Section completeness check
-      const outputH1s=[...document.getElementById('gBody').querySelectorAll('h1')].length;
+      // Section completeness check — count only content sections, not Works Cited
+      const outputH1s=[...document.getElementById('gBody').querySelectorAll('.sec-block:not(#sb-works-cited) h1')].length;
       const requested=activeSelectedSecs.length;
       if(outputH1s<requested){
         const missing=requested-outputH1s;
@@ -2802,7 +2710,7 @@ async function retryGeneration(){
     if(allMD.trim().length<100)throw new Error('Response too short');
     // Filter out any sections the model generated that weren't requested
     allMD=filterMDToSections(allMD,allSecIds);
-    gc.innerHTML=renderWithCitations(allMD);
+    gc.innerHTML=md2html(allMD);
     splitBatchMD(allMD,allSecIds);
     updWC();buildTOC();showRefineBar();
     splitOutputIntoSections();
@@ -4039,7 +3947,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 function reRender(){
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML='<div class="gc">'+renderWithCitations(allMD)+'</div>';
+  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
   // Use checked sections for splitBatchMD context, fall back to all SEC_IDS for loaded guides
   const checkedIds=getCheckedSecOrder();
   const allSecIds=checkedIds.length?checkedIds:SEC.map(s=>s.id);
@@ -4203,7 +4111,7 @@ function loadGuide(id){
   gHead.innerHTML='<h1>Litigation Review Guide: '+entry.name+'</h1><div class="meta" id="gMeta">'+(entry.cond||'(auto-discovered)')+' — '+(entry.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Last saved '+new Date(entry.savedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+(entry.updateCount?' (updated '+entry.updateCount+'×)':'')+'</div>';
 
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML='<div class="gc">'+renderWithCitations(allMD)+'</div>';
+  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
 
   if(Object.keys(allRes).length){
     const rpBody=document.getElementById('rpBody');
@@ -4491,7 +4399,7 @@ Output ONLY the revised section Markdown.`;
     }
 
     const gBody=document.getElementById('gBody');
-    gBody.innerHTML='<div class="gc">'+renderWithCitations(allMD)+'</div>';
+    gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
     const checkedIds=getCheckedSecOrder();
     const allSecIds=checkedIds.length?checkedIds:SEC_IDS;
     splitBatchMD(allMD,allSecIds);
