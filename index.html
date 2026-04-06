@@ -924,10 +924,22 @@ function selDepth(el,d){
 /* ═══════ SECTIONS ═══════ */
 function initSec(){
   const grid=document.getElementById('secGrid');
-  grid.innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">✓</span><span class="sec-label">${s.l}</span></label>`).join('');
+  grid.innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':'';onSecToggle()"><span class="ck">✓</span><span class="sec-label">${s.l}</span></label>`).join('');
   initSidebarDrag();
 }
-function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checked=v;c.parentElement.classList.toggle('on',v);c.parentElement.querySelector('.ck').textContent=v?'✓':''})}
+function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checked=v;c.parentElement.classList.toggle('on',v);c.parentElement.querySelector('.ck').textContent=v?'✓':''});onSecToggle()}
+/* When any section checkbox changes, update activeSelectedSecs and re-render if output exists */
+function onSecToggle(){
+  const checked=getSecs();
+  if(checked.length>0)activeSelectedSecs=[...checked];
+  estimateCost();
+  // Re-render output if it exists (live filtering)
+  const gBody=document.getElementById('gBody');
+  if(gBody&&gBody.children.length>0&&Object.values(secMD).some(v=>v&&v.trim())){
+    splitOutputIntoSections();
+    updWC();buildTOC();
+  }
+}
 function getSecs(){return Array.from(document.querySelectorAll('.stog input:checked')).map(c=>c.parentElement.dataset.id)}
 function getSecOrder(){return Array.from(document.querySelectorAll('.stog')).map(el=>el.dataset.id)}
 /* Return only checked section IDs in sidebar order */
@@ -937,7 +949,7 @@ function resetSecOrder(){
   const checked=new Set(getSecs());
   grid.innerHTML=SEC.map(s=>{
     const on=checked.has(s.id);
-    return `<label class="stog${on?' on':''}" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox"${on?' checked':''} onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">${on?'✓':''}</span><span class="sec-label">${s.l}</span></label>`;
+    return `<label class="stog${on?' on':''}" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox"${on?' checked':''} onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':'';onSecToggle()"><span class="ck">${on?'✓':''}</span><span class="sec-label">${s.l}</span></label>`;
   }).join('');
   initSidebarDrag();
 }
@@ -982,20 +994,86 @@ function initSidebarDrag(){
 /* ═══════ OUTPUT SECTION REORDER ═══════ */
 let outDragEl=null;
 
+/* ═══════ ENSURE secMD IS POPULATED ═══════ */
+/* If secMD is empty (e.g., loaded an old guide), parse allMD into secMD by matching
+   H1 headings to known section IDs. This is a one-time migration for backward compat. */
+function ensureSecMD(){
+  const hasContent=Object.values(secMD).some(v=>v&&v.trim().length>50);
+  if(hasContent)return; // already populated
+  if(!allMD||!allMD.trim())return;
+
+  const lines=allMD.split('\n');
+  const chunks=[];
+  let current=null;
+  for(const line of lines){
+    if(line.startsWith('# ')){
+      if(current)chunks.push(current);
+      current={title:line.replace(/^# /,'').trim(),lines:[line]};
+    }else if(current){
+      current.lines.push(line);
+    }
+  }
+  if(current)chunks.push(current);
+
+  const labels=getSecLabels();
+  const used=new Set();
+  for(const id of SEC_IDS){
+    const label=(labels[id]||'').toLowerCase();
+    const labelWords=label.split(/[\s&/,]+/).filter(w=>w.length>2);
+    if(!labelWords.length)continue;
+    let bestIdx=-1,bestScore=0;
+    for(let ci=0;ci<chunks.length;ci++){
+      if(used.has(ci))continue;
+      const heading=chunks[ci].title.toLowerCase();
+      const score=labelWords.filter(w=>heading.includes(w)).length;
+      if(score>bestScore){bestScore=score;bestIdx=ci}
+    }
+    if(bestIdx>=0&&bestScore>=Math.ceil(labelWords.length*0.3)){
+      secMD[id]=chunks[bestIdx].lines.join('\n');
+      used.add(bestIdx);
+    }
+  }
+  console.log('[ensureSecMD] Parsed allMD into secMD:',Object.keys(secMD).filter(k=>secMD[k]).length,'sections');
+}
+
+/* ═══════ GET ALLOWED SECTION IDS ═══════ */
+/* Single source of truth for which sections to display.
+   Priority: 1) Current checkbox state, 2) activeSelectedSecs, 3) whatever has content in secMD */
+function getAllowedSectionIds(){
+  const checked=getSecs();
+  if(checked.length>0)return checked;
+  if(activeSelectedSecs&&activeSelectedSecs.length>0)return[...activeSelectedSecs];
+  // Last resort: sections that have content
+  return SEC_IDS.filter(id=>secMD[id]&&secMD[id].trim().length>0);
+}
+
 function splitOutputIntoSections(){
-  // HARD CAP + POSITIONAL approach: the Nth H1 block = the Nth allowed section.
-  // No fuzzy matching. Impossible for unchecked sections to appear.
+  // RENDERS FROM secMD KEYED BY ID — no positional matching, no fuzzy matching.
+  // Only sections whose ID is in getAllowedSectionIds() AND has content in secMD are shown.
   try{
   const gBody=document.getElementById('gBody');
   gBody.innerHTML='';
-  if(!allMD||!allMD.trim())return;
 
-  // 1. Convert citations globally ONCE (produces {{CITE:N:url}} markers + Works Cited)
-  const cited=convertToNumericalCitations(allMD);
+  // 1. Ensure secMD is populated (backward compat for loaded guides)
+  ensureSecMD();
+
+  // 2. Determine which sections to show — ALWAYS filtered
+  const allowedIds=getAllowedSectionIds();
+  if(!allowedIds.length)return;
+
+  // 3. Collect markdown ONLY for allowed sections that have content
+  const sectionsToShow=allowedIds.filter(id=>secMD[id]&&secMD[id].trim().length>0);
+  if(!sectionsToShow.length)return;
+
+  // 4. Build combined markdown from ONLY allowed sections (for global citation numbering)
+  const combinedMD=sectionsToShow.map(id=>secMD[id]).join('\n\n---\n\n');
+
+  // 5. Convert citations globally ONCE (produces {{CITE:N:url}} markers + Works Cited)
+  const cited=convertToNumericalCitations(combinedMD);
   lastCitationMap=cited.citations;
   const citedMD=cited.md;
 
-  // 2. Parse the CITED markdown into H1 blocks
+  // 6. Parse the CITED markdown into H1 blocks
   const lines=citedMD.split('\n');
   const blocks=[];
   let curHeading=null,curLines=[];
@@ -1010,7 +1088,7 @@ function splitOutputIntoSections(){
   }
   if(curHeading!==null)blocks.push({heading:curHeading,md:curLines.join('\n')});
 
-  // 3. Separate Works Cited from content blocks
+  // 7. Separate Works Cited from content blocks
   const contentBlocks=[];
   let worksCitedBlock=null;
   for(const b of blocks){
@@ -1021,31 +1099,19 @@ function splitOutputIntoSections(){
     }
   }
 
-  // 4. Determine which sections to show
-  const showAll=!activeSelectedSecs||activeSelectedSecs.length===0;
-  const allowedIds=showAll?SEC.map(s=>s.id):[...activeSelectedSecs];
+  // 8. Render content blocks — one per allowed section ID (positional is safe here
+  //    because combinedMD was built from sectionsToShow in order)
+  const maxBlocks=Math.min(contentBlocks.length,sectionsToShow.length);
+  console.log('[split] Rendering '+maxBlocks+' sections (allowed: '+sectionsToShow.length+', checked: '+getSecs().length+')');
 
-  // 5. POSITIONAL ASSIGNMENT: Nth content block = Nth allowed section ID.
-  //    Hard cap: never show more sections than allowedIds.length.
-  const maxSections=allowedIds.length;
-  const matched=[];
-  for(let i=0;i<contentBlocks.length&&i<maxSections;i++){
-    matched.push({
-      secId:allowedIds[i],
-      md:contentBlocks[i].md,
-      heading:contentBlocks[i].heading
-    });
-  }
+  for(let i=0;i<maxBlocks;i++){
+    const secId=sectionsToShow[i];
 
-  console.log('[split] '+matched.length+' sections shown (allowed: '+maxSections+', content blocks: '+contentBlocks.length+', works cited: '+(worksCitedBlock?'yes':'no')+')');
-
-  // 6. Build DOM — use md2html (not renderWithCitations) since citations already converted
-  matched.forEach((sec,i)=>{
     const block=document.createElement('div');
     block.className='sec-block';
     block.draggable=true;
     block.dataset.secIdx=i;
-    block.id='sb-'+sec.secId;
+    block.id='sb-'+secId;
 
     const handle=document.createElement('div');
     handle.className='out-drag-h';handle.textContent='⠿';handle.title='Drag to reorder';
@@ -1053,17 +1119,17 @@ function splitOutputIntoSections(){
 
     const rbtn=document.createElement('button');
     rbtn.className='regen-btn';rbtn.textContent='↻ Regenerate';
-    rbtn.onclick=()=>regenSec(sec.secId);
+    rbtn.onclick=()=>regenSec(secId);
     block.appendChild(rbtn);
 
     const gc=document.createElement('div');gc.className='gc';
-    gc.innerHTML=md2html(sec.md);
+    gc.innerHTML=md2html(contentBlocks[i].md);
     block.appendChild(gc);
 
     gBody.appendChild(block);
-  });
+  }
 
-  // 7. Append Works Cited as a non-draggable block at the end
+  // 9. Append Works Cited as a non-draggable block at the end
   if(worksCitedBlock){
     const wcBlock=document.createElement('div');
     wcBlock.className='sec-block';
@@ -1080,15 +1146,15 @@ function splitOutputIntoSections(){
   }catch(e){console.error('[splitOutputIntoSections] CRASHED:',e);alert('Section rendering error: '+e.message)}
 }
 
-/* ═══════ NUCLEAR SAFEGUARD ═══════ */
-/* Called after every render. Counts H1s in gBody. If more than activeSelectedSecs,
-   strips extra .sec-block elements from the DOM. This is the last line of defense. */
+/* ═══════ SECTION CAP SAFEGUARD ═══════ */
+/* Called after every render. Uses getAllowedSectionIds() — never no-ops. */
 function enforceSectionCap(){
-  if(!activeSelectedSecs||!activeSelectedSecs.length)return; // no cap when showing all
+  const allowed=getAllowedSectionIds();
+  if(!allowed.length)return;
   const gBody=document.getElementById('gBody');
   if(!gBody)return;
   const blocks=[...gBody.querySelectorAll('.sec-block:not(#sb-works-cited)')];
-  const max=activeSelectedSecs.length;
+  const max=allowed.length;
   if(blocks.length>max){
     console.warn('[SAFEGUARD] Removing '+(blocks.length-max)+' extra section blocks (had '+blocks.length+', allowed '+max+')');
     for(let i=max;i<blocks.length;i++){
@@ -1132,36 +1198,10 @@ function initOutputDrag(){
 }
 
 function rebuildMDFromOutput(){
-  const gBody=document.getElementById('gBody');
-  const blocks=gBody.querySelectorAll('.sec-block');
-  const parts=[];
-  blocks.forEach(block=>{
-    const gc=block.querySelector('.gc');
-    if(!gc)return;
-    const id=block.id?.replace('sb-','');
-    if(id&&secMD[id]){
-      parts.push(secMD[id]);
-    }else{
-      const h1=gc.querySelector('h1');
-      if(h1){
-        const heading=h1.textContent.trim();
-        const lines=allMD.split('\n');
-        const h1Lines=[];lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-        let found=false;
-        for(let i=0;i<h1Lines.length;i++){
-          const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
-          if(hText===heading||hText.toLowerCase().includes(heading.toLowerCase().split(' ')[0])){
-            const start=h1Lines[i];
-            const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
-            parts.push(lines.slice(start,end).join('\n').trim());
-            found=true;break;
-          }
-        }
-        if(!found)parts.push('# '+heading);
-      }
-    }
-  });
-  allMD=parts.join('\n\n---\n\n');
+  // Rebuild allMD from secMD for currently allowed sections only
+  const allowed=getAllowedSectionIds();
+  const parts=allowed.map(id=>secMD[id]).filter(m=>m&&m.trim());
+  if(parts.length)allMD=parts.join('\n\n---\n\n');
   updWC();
 }
 
@@ -2454,6 +2494,9 @@ function splitBatchMD(grpMD,secIds){
 
 /* ═══════ SECTION REGEN ═══════ */
 async function regenSec(secId){
+  // Verify section is currently checked/allowed
+  const allowed=getAllowedSectionIds();
+  if(!allowed.includes(secId)){console.warn('[regenSec] Section '+secId+' is not checked — skipping');return}
   const keys=getKeys();if(!keys.length)return alert('No API keys configured on server.');
   const drug=document.getElementById('drugName').value.trim();
   const block=document.getElementById('sb-'+secId);if(!block)return;
@@ -2920,8 +2963,11 @@ function dlPDF(){
     var h1Entries=[];
     var tocPageNumSlots=[];
 
-    /* --- Convert to numerical citations for PDF --- */
-    var cited=getCitedMD(allMD||'');
+    /* --- Build PDF markdown from ONLY allowed sections --- */
+    var allowedPDF=getAllowedSectionIds();
+    var pdfSourceMD=allowedPDF.map(function(id){return secMD[id]}).filter(function(m){return m&&m.trim()}).join('\n\n---\n\n');
+    if(!pdfSourceMD)pdfSourceMD=allMD||'';
+    var cited=getCitedMD(pdfSourceMD);
     var md=cited.md;
     var pdfCitations=cited.citations; /* [{num,label,url}] */
     var mLines=md.split('\n');
@@ -3510,6 +3556,7 @@ function restoreVersion(id){
 
   allMD=v.allMD;
   secMD=v.secMD||{};
+  ensureSecMD();
   reRender();
   saveGuide();
   document.getElementById('pfoot').textContent='Restored version: '+v.description;
@@ -4016,9 +4063,11 @@ function acceptChanges(){
   saveVersion('Before: '+pendingChanges.description);
 
   let applied=0;
+  const allowed=getAllowedSectionIds();
   for(const rev of pendingChanges.revisions){
     rev.newMD=rev.newMD.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,'');
     if(rev.isNew){
+      // Only add new sections if they match an allowed section ID
       allMD=allMD.trimEnd()+'\n\n---\n\n'+rev.newMD;
       applied++;
     } else if(replaceSection(rev.heading,rev.newMD)){
@@ -4040,6 +4089,8 @@ function acceptChanges(){
     }
   }
 
+  // Re-parse allMD into secMD after changes, then reRender (which filters by checkboxes)
+  secMD={};ensureSecMD();
   reRender();populateScopeSelect();saveGuide();
 
   const reply='Applied '+applied+' change'+(applied>1?'s':'')+' to the guide.';
@@ -4071,13 +4122,13 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 function reRender(){
-  const gBody=document.getElementById('gBody');
-  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
-  // Use checked sections for splitBatchMD context, fall back to all SEC_IDS for loaded guides
-  const checkedIds=getCheckedSecOrder();
-  const allSecIds=checkedIds.length?checkedIds:SEC.map(s=>s.id);
-  splitBatchMD(allMD,allSecIds);
-  updWC();buildTOC();showRefineBar();splitOutputIntoSections();enforceSectionCap();
+  ensureSecMD();
+  // Rebuild allMD from secMD for allowed sections to keep it in sync
+  const allowed=getAllowedSectionIds();
+  const parts=allowed.map(id=>secMD[id]).filter(m=>m&&m.trim());
+  if(parts.length)allMD=parts.join('\n\n---\n\n');
+  splitBatchMD(allMD,allowed);
+  updWC();buildTOC();showRefineBar();splitOutputIntoSections();
 }
 
 /* ═══════ COST ESTIMATION ═══════ */
@@ -4230,7 +4281,23 @@ function loadGuide(id){
   allMD=entry.allMD||'';
   secMD=entry.secMD||{};
   loadedGuideId=id;
-  activeSelectedSecs=[]; // Clear — loaded guides show all their sections
+
+  // Populate secMD from allMD if it's empty (old saved guides)
+  ensureSecMD();
+
+  // Set activeSelectedSecs to sections that have content
+  const loadedSecIds=SEC_IDS.filter(id2=>secMD[id2]&&secMD[id2].trim().length>0);
+  activeSelectedSecs=loadedSecIds.length>0?loadedSecIds:[...SEC_IDS];
+
+  // Sync checkboxes to match loaded sections
+  document.querySelectorAll('.stog').forEach(label=>{
+    const sid=label.dataset.id;
+    const cb=label.querySelector('input');
+    const hasContent=secMD[sid]&&secMD[sid].trim().length>0;
+    cb.checked=hasContent;
+    label.classList.toggle('on',hasContent);
+    label.querySelector('.ck').textContent=hasContent?'✓':'';
+  });
 
   document.getElementById('emptyState').style.display='none';
   document.getElementById('outWrap').style.display='block';
@@ -4526,12 +4593,11 @@ Output ONLY the revised section Markdown.`;
       if(secIndices.indexOf(si)<secIndices.length-1)await new Promise(r=>setTimeout(r,2000));
     }
 
-    const gBody=document.getElementById('gBody');
-    gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
-    const checkedIds=getCheckedSecOrder();
-    const allSecIds=checkedIds.length?checkedIds:SEC_IDS;
-    splitBatchMD(allMD,allSecIds);
-    updWC();buildTOC();splitOutputIntoSections();enforceSectionCap();showRefineBar();
+    // Re-parse allMD into secMD after updates, then render filtered by checkboxes
+    secMD={};ensureSecMD();
+    const allowed=getAllowedSectionIds();
+    splitBatchMD(allMD,allowed);
+    updWC();buildTOC();splitOutputIntoSections();showRefineBar();
 
     const meta=document.getElementById('gMeta');
     const litType=document.getElementById('litType').value;
