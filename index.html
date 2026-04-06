@@ -985,6 +985,7 @@ let outDragEl=null;
 function splitOutputIntoSections(){
   // HARD CAP + POSITIONAL approach: the Nth H1 block = the Nth allowed section.
   // No fuzzy matching. Impossible for unchecked sections to appear.
+  try{
   const gBody=document.getElementById('gBody');
   gBody.innerHTML='';
   if(!allMD||!allMD.trim())return;
@@ -1076,6 +1077,24 @@ function splitOutputIntoSections(){
 
   initOutputDrag();
   buildTOC();
+  }catch(e){console.error('[splitOutputIntoSections] CRASHED:',e);alert('Section rendering error: '+e.message)}
+}
+
+/* ═══════ NUCLEAR SAFEGUARD ═══════ */
+/* Called after every render. Counts H1s in gBody. If more than activeSelectedSecs,
+   strips extra .sec-block elements from the DOM. This is the last line of defense. */
+function enforceSectionCap(){
+  if(!activeSelectedSecs||!activeSelectedSecs.length)return; // no cap when showing all
+  const gBody=document.getElementById('gBody');
+  if(!gBody)return;
+  const blocks=[...gBody.querySelectorAll('.sec-block:not(#sb-works-cited)')];
+  const max=activeSelectedSecs.length;
+  if(blocks.length>max){
+    console.warn('[SAFEGUARD] Removing '+(blocks.length-max)+' extra section blocks (had '+blocks.length+', allowed '+max+')');
+    for(let i=max;i<blocks.length;i++){
+      blocks[i].remove();
+    }
+  }
 }
 
 function initOutputDrag(){
@@ -2027,6 +2046,88 @@ ${secInstr}
 Output ONLY Markdown. No preamble. No closing. Start with first # heading.`;
 }
 
+function buildSectionSys(drug,cond,litType,research,followUp,userInj,extra,secId,allSecIds,priorSectionsMD){
+  const sp=getSP()[secId];
+  if(!sp)return '';
+  const t=T();
+  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+
+  // Calculate word budget for this section using same weighting as buildGenSys
+  const numSecs=allSecIds.length;
+  const heavyW=Math.round(dc.totalWords*0.22);
+  const guideW=Math.round(dc.totalWords*0.15);
+  const checklistW=Math.round(dc.totalWords*0.15);
+  const remaining=dc.totalWords-heavyW*2-guideW-checklistW;
+  const otherCount=Math.max(numSecs-4,1);
+  const otherW=Math.round(remaining/otherCount);
+
+  let wordBudget;
+  if(secId==='injuries_severity')wordBudget=heavyW;
+  else if(secId==='confounders_defense')wordBudget=heavyW;
+  else if(secId==='review_guide_notes')wordBudget=guideW;
+  else if(secId==='reviewer_checklist')wordBudget=checklistW;
+  else wordBudget=otherW;
+
+  // Only include research passes relevant to this section
+  const relevantPassIds=SEC_TO_RESEARCH[secId]||[];
+  const researchText=relevantPassIds.map(rpId=>research[rpId]||'').filter(t=>t.trim()).join('\n\n---\n\n');
+
+  // Prior sections context for cross-referencing (headings + abbreviated content)
+  const priorHeadings=priorSectionsMD?priorSectionsMD.split('\n').filter(l=>l.startsWith('# ')).join('\n'):'';
+  const priorContext=priorSectionsMD?`
+SECTIONS ALREADY WRITTEN (do NOT repeat their content — cross-reference instead):
+${priorHeadings}
+
+ABBREVIATED PRIOR CONTENT (for cross-reference):
+<prior>
+${priorSectionsMD.substring(0,15000)}
+</prior>`:'';
+
+  return `You are a senior medical-legal consultant writing ONE section of a Litigation Review Guide — a practical tool for nurse reviewers and paralegals who review medical records to BUILD CASES THAT GET CLIENTS PAID.
+
+LITIGATION TYPE: ${litType.replace(/_/g,' ')} — adapt all terminology accordingly. This is a ${t.product_lc} case, NOT necessarily a pharmaceutical drug case. Use "${t.product}" instead of "drug" throughout. Refer to exposure as "${t.exposure}" and records as "${t.exposure_records}."
+
+This is NOT a medical education document. Every sentence must serve one of these five litigation elements:
+1. EXPOSURE — proving the client ${t.exposure_verb} the ${t.product_lc}
+2. INJURY — proving the client has the alleged injury
+3. SEVERITY — grading the injury using medical scales
+4. CAUSATION — connecting ${t.product_lc} to injury
+5. CONFOUNDERS — anticipating defense arguments
+
+If something doesn't help the reviewer find, document, or prove one of these five elements, leave it out.
+
+RESEARCH NOTES (specific to this section):
+<research>
+${researchText||'(No specific research available — use your expertise and cross-reference prior sections)'}
+</research>
+
+${followUp?'FOLLOW-UP RESEARCH:\n<followup>\n'+followUp+'\n</followup>':''}
+${extra?'USER CONTEXT: '+extra:''}
+${userInj?'USER-SPECIFIED INJURIES: '+userInj:''}
+
+${t.product.toUpperCase()}: ${drug}
+${cond?'CONDITION: '+cond:'(From research)'}
+TYPE: ${litType.replace(/_/g,' ')}
+${priorContext}
+
+${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED:
+The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output.
+- Use markdown link format: [Short Label](URL)
+- If a fact has no source URL in the research notes, do NOT invent one
+- When the research notes have multiple sources for the same fact, prefer medical literature over attorney pages
+
+FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key terms first use. Bullets for lists. Tables for lab values.
+
+WORD BUDGET: ~${wordBudget} words for this section. Track your word count.
+${secId==='reviewer_checklist'?'This is the MOST IMPORTANT section of the entire guide. Write it COMPLETELY — every field, every checkbox, every extraction prompt. Do NOT cut short.':''}
+${secId==='review_guide_notes'?'This is a critical section. MUST include the ICD-10 table and chart navigation reference.':''}
+
+SECTION TO WRITE:
+${sp}
+
+Output ONLY this section's Markdown. Start with the # heading. No preamble, no closing, no summary.`;
+}
+
 /* ═══════ VERIFICATION ═══════ */
 async function verify(key,drug,research,guide,sig){
   const researchText=Object.values(research).join('\n\n').substring(0,40000);
@@ -2220,39 +2321,84 @@ function buildTOC(){
 
 /* ═══════ STRIP UNREQUESTED SECTIONS FROM MARKDOWN ═══════ */
 function filterMDToSections(md,allowedSecIds){
-  // HARD CAP approach: keep at most N H1 blocks where N = allowedSecIds.length.
-  // The prompt tells Claude to write sections in the exact order of allowedSecIds,
-  // so the Nth H1 block = the Nth allowed section. No fuzzy matching needed.
-  // This makes it IMPOSSIBLE for unchecked sections to appear.
-  if(!allowedSecIds||!allowedSecIds.length)return md;
+  // HYBRID approach:
+  // 1. Match blocks to allowed sections by label (exact → contains)
+  // 2. Hard cap: NEVER return more blocks than allowedSecIds.length
+  // This handles both cases: Claude writes only checked (positional) AND
+  // Claude writes extras (matching filters to the right ones).
+  console.log('%c[filterMDToSections] Called with '+((allowedSecIds&&allowedSecIds.length)||0)+' allowed IDs: '+JSON.stringify(allowedSecIds),'color:cyan;font-weight:bold');
+  if(!allowedSecIds||!allowedSecIds.length){console.log('[filter] No allowed IDs — returning full MD');return md}
 
   const lines=md.split('\n');
   const h1Lines=[];
   lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-  if(!h1Lines.length)return md;
+  if(!h1Lines.length){console.log('[filter] No H1 lines found — returning full MD');return md}
 
-  // Build H1 blocks
   const blocks=h1Lines.map((start,i)=>{
     const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
     const heading=lines[start].replace(/^# /,'').trim();
     return{heading,text:lines.slice(start,end).join('\n'),start};
   });
+  console.log('[filter] Found '+blocks.length+' H1 blocks: '+blocks.map(b=>'"'+b.heading+'"').join(', '));
 
   const maxSections=allowedSecIds.length;
+  const secLabels={};
+  SEC.forEach(s=>{secLabels[s.id]=s.l});
 
-  // Keep exactly the first N blocks (N = number of allowed sections).
-  // Claude writes them in the order we request, so position = section.
-  const kept=[];
-  for(let i=0;i<blocks.length&&kept.length<maxSections;i++){
-    kept.push(blocks[i].text);
-    console.log('[filter] KEPT block '+i+': "'+blocks[i].heading+'" → '+allowedSecIds[kept.length-1]);
+  // STEP 1: Try to match each allowed section to a block by label
+  const usedBlocks=new Set();
+  const matchedByLabel=[]; // [{secId, blockIdx}]
+  for(const secId of allowedSecIds){
+    const label=(secLabels[secId]||'').toLowerCase().trim();
+    if(!label)continue;
+    let found=-1;
+    // Exact match
+    for(let i=0;i<blocks.length;i++){
+      if(usedBlocks.has(i))continue;
+      if(blocks[i].heading.toLowerCase().trim()===label){found=i;break}
+    }
+    // Contains match
+    if(found<0){
+      for(let i=0;i<blocks.length;i++){
+        if(usedBlocks.has(i))continue;
+        const h=blocks[i].heading.toLowerCase().trim();
+        if(h.includes(label)||label.includes(h)){found=i;break}
+      }
+    }
+    if(found>=0){
+      matchedByLabel.push({secId,blockIdx:found});
+      usedBlocks.add(found);
+      console.log('[filter] LABEL MATCH: "'+blocks[found].heading+'" → '+secId);
+    }
   }
 
-  // Log any dropped blocks
-  for(let i=kept.length;i<blocks.length;i++){
-    console.log('[filter] DROPPED block '+i+': "'+blocks[i].heading+'"');
+  let kept;
+  if(matchedByLabel.length===maxSections){
+    // All sections matched by label — use those (sorted by block order)
+    matchedByLabel.sort((a,b)=>a.blockIdx-b.blockIdx);
+    kept=matchedByLabel.map(m=>blocks[m.blockIdx].text);
+    console.log('[filter] All '+maxSections+' sections matched by label');
+  }else{
+    // Fallback: take first N blocks (positional) — Claude wrote them in order
+    console.log('[filter] Only '+matchedByLabel.length+'/'+maxSections+' matched by label — using positional fallback');
+    kept=[];
+    for(let i=0;i<blocks.length&&kept.length<maxSections;i++){
+      kept.push(blocks[i].text);
+      console.log('[filter] POSITIONAL KEEP block '+i+': "'+blocks[i].heading+'"');
+    }
   }
-  console.log('[filter] Result: '+kept.length+' of '+blocks.length+' blocks kept (allowed: '+maxSections+')');
+
+  // HARD CAP: never return more than maxSections
+  if(kept.length>maxSections)kept=kept.slice(0,maxSections);
+
+  // Log dropped
+  const keptCount=kept.length;
+  for(let i=0;i<blocks.length;i++){
+    if(!usedBlocks.has(i)&&matchedByLabel.length===maxSections){
+      console.log('[filter] DROPPED: "'+blocks[i].heading+'"');
+    }
+  }
+  console.log('%c[filter] Result: '+keptCount+' kept, '+(blocks.length-keptCount)+' dropped (max: '+maxSections+')','color:cyan;font-weight:bold');
 
   return kept.join('\n\n---\n\n');
 }
@@ -2390,6 +2536,7 @@ async function run(){
   const inj=document.getElementById('injuries').value.trim();
   const extra=document.getElementById('extra').value.trim();
   const secs=getSecs();
+  console.log('%c[run] CHECKED SECTIONS: '+secs.length+' → '+JSON.stringify(secs),'color:lime;font-weight:bold;font-size:14px');
 
   if(!keys.length)return alert('No API keys configured on the server. Add ANTHROPIC_KEY_1 to your Netlify environment variables.');
   if(!drug)return alert('Enter a drug or device name.');
@@ -2412,10 +2559,11 @@ async function run(){
   const btn=document.getElementById('btnGo'),stopBtn=document.getElementById('btnStop');
   btn.disabled=true;btn.textContent='Working...';stopBtn.style.display='block';
 
+  const secLabels=getSecLabels();
   const steps=[
     ...activeRP.map(p=>({l:'🔍 '+p.l,d:'Queued'})),
     {l:'🔎 Gap Analysis + Follow-Up',d:'Queued'},
-    {l:'✍ Writing Full Guide ('+secs.length+' sections)',d:'Queued'},
+    ...secs.map(id=>({l:'✍ '+(secLabels[id]||id),d:'Queued'})),
     {l:'✓ Verification Audit',d:'Queued'}
   ];
   initProg(steps);
@@ -2430,7 +2578,7 @@ async function run(){
   const gHead=document.getElementById('gHead');
   const gBody=document.getElementById('gBody');
   gHead.innerHTML='<h1>Litigation Review Guide: '+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
-  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+RP.length+' research passes across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(getBudget().parallel)+' parallel, '+(getBudget().stagger)+'s stagger). Auto-retries on rate limits with exponential backoff. This takes 3–8 minutes...</p></div>';
+  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+activeRP.length+' research passes + '+secs.length+' section generations across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(getBudget().parallel)+' parallel). This takes 3–8 minutes...</p></div>';
   document.getElementById('toc').style.display='none';
   document.getElementById('wc').textContent='';
 
@@ -2462,7 +2610,7 @@ async function run(){
     let gapStepCount=1;
     let followUp='';
     {
-      const gapIdx=RP.length;
+      const gapIdx=activeRP.length;
       setP(gapIdx,'run','Analyzing research gaps...');
       try{
         const gapResult=await gapAnalysis(keys[keys.length>1?1:0],drug,allRes,ac.signal);
@@ -2481,134 +2629,91 @@ async function run(){
 
     await sleep(10000,ac.signal);
 
-    // ═══ PHASE 3: GENERATION (single call, all sections) ═══
+    // ═══ PHASE 3: PER-SECTION GENERATION ═══
+    // Each checked section gets its own API call with ONLY its relevant research.
+    // No filtering needed — each call produces exactly one section.
     gBody.innerHTML='';
-    const genIdx=RP.length+gapStepCount;
-    const genKey=keys[0];
-    setP(genIdx,'run','Writing full guide with '+(genModel.includes('opus')?'Opus':'Sonnet')+'...');
+    let priorSectionsMD='';
+    let genSuccess=true;
+    let sectionsWritten=0;
+    const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
 
-    const genDiv=document.createElement('div');genDiv.className='sec-block';genDiv.id='sb-gen';
-    genDiv.innerHTML='<div class="gc"></div>';
-    gBody.appendChild(genDiv);
+    for(let si=0;si<secs.length;si++){
+      const secId=secs[si];
+      const secLabel=(getSecLabels()[secId])||secId;
+      const genIdx=activeRP.length+gapStepCount+si;
+      const genKey=keys[si%keys.length];
 
-    let genSuccess=false;
-    for(let genAttempt=0;genAttempt<3&&!genSuccess;genAttempt++){
-      if(genAttempt>0){
-        const retryWait=20000*genAttempt;
-        setP(genIdx,'par','Generation failed — retry '+(genAttempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
-        await sleep(retryWait,ac.signal);
-        setP(genIdx,'run','Retrying generation (attempt '+(genAttempt+1)+')...');
-        genDiv.querySelector('.gc').innerHTML='';
+      // Cooldown between section API calls (skip before first)
+      if(si>0){
+        setP(genIdx,'par','Cooling down before next section...');
+        await sleep(5000,ac.signal);
       }
-      try{
-        const allSecIds=secs;
-        const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,allSecIds);
-        const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE litigation review guide — all '+allSecIds.length+' sections. Target ~'+dc.totalWords+' words. The Review Guide & Notes and Reviewer Extraction Checklist are the MOST IMPORTANT sections — write both in full. If running long, compress earlier sections. Include [Source](URL) citations. Output only Markdown.'}],sys,{
-          stream:true,maxTok:dc.tokPerCall,model:genModel,signal:ac.signal,
-          onRetry:(msg)=>setP(genIdx,'par',msg)
-        });
 
-        const gc=genDiv.querySelector('.gc');
-        allMD=await streamTo(resp,gc,()=>updWC());
-        if(allMD.trim().length<100){throw new Error('Generation returned empty or too short');}
-        // Filter out any sections the model generated that weren't requested
-        allMD=filterMDToSections(allMD,allSecIds);
-        gc.innerHTML=md2html(allMD);
-        splitBatchMD(allMD,allSecIds);
-        setP(genIdx,'done',countW(allMD).toLocaleString()+' words');
-        genSuccess=true;
-      }catch(e){
-        if(e.name==='AbortError')throw e;
-        if(genAttempt===2){
-          setP(genIdx,'err','Failed after 3 attempts: '+e.message);
-          const gc=genDiv.querySelector('.gc');
-          gc.innerHTML='<p style="color:var(--rd)">⚠ Generation failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Generation</button>';
-          logError(e,{
-            step:'generation',
-            stepLabel:'Guide Generation',
-            type:'generation',
-            keyIndex:genKey,
-            retryAttempts:3,
-            retryFn:"retryGeneration()",
-          });
+      setP(genIdx,'run','Writing '+secLabel+' with '+(genModel.includes('opus')?'Opus':'Sonnet')+'...');
+
+      // Create DOM block for this section
+      const secDiv=document.createElement('div');
+      secDiv.className='sec-block';
+      secDiv.id='sb-'+secId;
+      secDiv.innerHTML='<div class="gc"></div>';
+      gBody.appendChild(secDiv);
+
+      let secSuccess=false;
+      for(let attempt=0;attempt<3&&!secSuccess;attempt++){
+        if(attempt>0){
+          const retryWait=15000*attempt;
+          setP(genIdx,'par',secLabel+' failed — retry '+(attempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
+          await sleep(retryWait,ac.signal);
+          setP(genIdx,'run','Retrying '+secLabel+' (attempt '+(attempt+1)+')...');
+          secDiv.querySelector('.gc').innerHTML='';
         }
-      }
-    }
+        try{
+          const sys=buildSectionSys(drug,cond,litType,allRes,followUp,inj,extra,secId,secs,priorSectionsMD);
+          const secTok=Math.min(dc.tokPerCall,8000);
+          const resp=await callApi(genKey,[{role:'user',content:'Write the complete '+secLabel+' section now. Include [Source](URL) citations from the research notes. Output only Markdown.'}],sys,{
+            stream:true,maxTok:secTok,model:genModel,signal:ac.signal,
+            onRetry:(msg)=>setP(genIdx,'par',msg)
+          });
 
-    updWC();buildTOC();
+          const gc=secDiv.querySelector('.gc');
+          const sectionMD=await streamTo(resp,gc,()=>updWC());
+          if(sectionMD.trim().length<50){throw new Error(secLabel+' returned empty or too short');}
 
-    // ═══ COMPLETION CHECK: Recover missing SELECTED sections only ═══
-    if(genSuccess&&allMD){
-      const labels=getSecLabels();
-      // FIX: Only check sections the user actually selected, not all sections
-      const selectedSecIds=secs;
-      const missingSections=[];
+          // Store this section's markdown
+          secMD[secId]=sectionMD;
+          priorSectionsMD+=(priorSectionsMD?'\n\n---\n\n':'')+sectionMD;
+          allMD=priorSectionsMD;
 
-      for(const id of selectedSecIds){
-        const label=labels[id]||id;
-        const headingWords=label.split(/\s+/).filter(w=>w.length>3);
-        const found=allMD.split('\n').some(line=>{
-          if(!line.startsWith('# '))return false;
-          const lineLower=line.toLowerCase();
-          return headingWords.filter(w=>lineLower.includes(w.toLowerCase())).length>=Math.ceil(headingWords.length*0.5);
-        });
-        if(!found)missingSections.push({id,label});
-      }
-
-      if(missingSections.length>0){
-        setP(genIdx,'par',missingSections.length+' section'+(missingSections.length>1?'s':'')+' missing — recovering...');
-
-        for(const missing of missingSections){
-          setP(genIdx,'par','Recovering: '+missing.label+'...');
-          try{
-            await sleep(3000,ac.signal);
-            const sp=getSP()[missing.id];
-            if(!sp)continue;
-
-            const recoverSys=`You are a senior medical-legal consultant. Write ONE section of a litigation review guide. The guide already has these sections written — do NOT duplicate their content:
-
-${allMD.split('\n').filter(l=>l.startsWith('# ')).join('\n')}
-
-GUIDE CONTEXT (abbreviated):
-<guide>
-${allMD.substring(0,20000)}
-</guide>
-
-SECTION TO WRITE:
-${sp}
-
-Write the COMPLETE section. Start with the # heading. Match the style and depth of the existing sections.
-
-Output ONLY this section's Markdown.`;
-            const recResp=await callApi(genKey,[{role:'user',content:'Write the complete '+missing.label+' section now.'}],recoverSys,{
-              stream:true,maxTok:4000,model:genModel,signal:ac.signal
+          gc.innerHTML=md2html(sectionMD);
+          updWC();
+          sectionsWritten++;
+          setP(genIdx,'done',countW(sectionMD).toLocaleString()+' words');
+          secSuccess=true;
+        }catch(e){
+          if(e.name==='AbortError')throw e;
+          if(attempt===2){
+            setP(genIdx,'err',secLabel+' failed after 3 attempts: '+e.message);
+            genSuccess=false;
+            logError(e,{
+              step:'generation',
+              stepLabel:secLabel+' Generation',
+              type:'generation',
+              keyIndex:genKey,
+              retryAttempts:3,
+              retryFn:"retryGeneration()",
             });
-            const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
-            const recoveredMD=await streamTo(recResp,tmpEl);
-            document.body.removeChild(tmpEl);
-
-            if(recoveredMD&&recoveredMD.trim().length>100){
-              allMD+='\n\n---\n\n'+recoveredMD;
-              secMD[missing.id]=recoveredMD;
-              const gc=genDiv.querySelector('.gc');
-              gc.innerHTML=md2html(allMD);
-              updWC();buildTOC();
-            }
-            if(missingSections.indexOf(missing)<missingSections.length-1)await sleep(3000,ac.signal);
-          }catch(e){
-            if(e.name==='AbortError')throw e;
-            setP(genIdx,'par',missing.label+' recovery failed — use Refine to add it');
-            logError(e,{step:'section_recovery',stepLabel:missing.label+' Recovery',type:'generation'});
           }
         }
-        setP(genIdx,'done',countW(allMD).toLocaleString()+' words ('+missingSections.length+' section'+(missingSections.length>1?'s':'')+' recovered)');
       }
     }
+
+    console.log('[run] Per-section generation complete: '+sectionsWritten+'/'+secs.length+' sections written');
+    updWC();buildTOC();
 
     // ═══ PHASE 4: VERIFICATION (mandatory) ═══
     {
-      const vIdx=genIdx+1;
+      const vIdx=activeRP.length+gapStepCount+secs.length;
       setP(vIdx,'run','Cooling before verification...');
       await sleep(10000,ac.signal);
       setP(vIdx,'run','Cross-checking guide against research...');
@@ -2626,42 +2731,22 @@ Output ONLY this section's Markdown.`;
       }
     }
 
+    // Final render with numerical citations
     splitOutputIntoSections();
 
     const elapsed=((Date.now()-t0)/1000/60).toFixed(1);
 
     const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
-    const genFailed=!genSuccess;
-    const totalFailed=failedResearch.length+(genFailed?1:0);
+    const failedSections=secs.length-sectionsWritten;
+    const totalFailed=failedResearch.length+failedSections;
 
     if(totalFailed>0){
-      let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — ⚠ '+totalFailed+' failure'+(totalFailed>1?'s':'');
-      if(failedResearch.length)failMsg+=' ('+failedResearch.length+' research)';
-      if(genFailed)failMsg+=' (generation)';
-      document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>';
+      let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — '+sectionsWritten+'/'+secs.length+' sections';
+      if(failedResearch.length)failMsg+=' — ⚠ '+failedResearch.length+' research failure'+(failedResearch.length>1?'s':'');
+      if(failedSections>0)failMsg+=' — ⚠ '+failedSections+' section'+(failedSections>1?'s':'')+' failed';
+      document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryGeneration()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry Failed Sections</button>';
     }else{
-      document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
-    }
-
-    // Post-generation display: splitOutputIntoSections already enforces hard cap
-    // so no second filter needed. Just re-render and check completeness.
-    if(allMD&&activeSelectedSecs&&activeSelectedSecs.length>0){
-      splitOutputIntoSections();
-      updWC();
-      console.log('[run] Final render done. Sections in output:',
-        document.getElementById('gBody').querySelectorAll('h1').length,
-        'allowed:',activeSelectedSecs.length);
-
-      // Section completeness check — count only content sections, not Works Cited
-      const outputH1s=[...document.getElementById('gBody').querySelectorAll('.sec-block:not(#sb-works-cited) h1')].length;
-      const requested=activeSelectedSecs.length;
-      if(outputH1s<requested){
-        const missing=requested-outputH1s;
-        const pfoot=document.getElementById('pfoot');
-        pfoot.innerHTML=(pfoot.textContent||'')+
-          ' <span style="color:var(--am)">⚠ '+missing+' of '+requested+' section'+(missing>1?'s':'')+' missing</span>'+
-          ' <button onclick="retryGeneration()" style="margin-left:4px;padding:3px 10px;background:var(--ambg);color:var(--am);border:1px solid var(--ambd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Regenerate</button>';
-      }
+      document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — '+sectionsWritten+'/'+secs.length+' sections';
     }
 
     showRefineBar();
@@ -2696,30 +2781,70 @@ async function retryGeneration(){
   activeSelectedSecs=[...allSecIds];
 
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML='<div class="sec-block" id="sb-gen"><div class="gc"><p style="color:var(--tx3)">Retrying full guide generation...</p></div></div>';
+  gBody.innerHTML='<p style="color:var(--tx3);padding:16px">Retrying generation — '+allSecIds.length+' sections...</p>';
+
+  // Determine which sections need regeneration (missing from secMD or failed)
+  const secsToRetry=allSecIds.filter(id=>!secMD[id]||secMD[id].trim().length<50);
+  const secsToKeep=allSecIds.filter(id=>secMD[id]&&secMD[id].trim().length>=50);
+
+  // If all sections already exist, retry all of them (user explicitly clicked retry)
+  const targetSecs=secsToRetry.length>0?secsToRetry:allSecIds;
+
+  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+  let priorSectionsMD=secsToKeep.map(id=>secMD[id]).join('\n\n---\n\n');
+
+  gBody.innerHTML='';
+
+  // First, re-render any kept sections
+  for(const id of secsToKeep){
+    const secDiv=document.createElement('div');
+    secDiv.className='sec-block';secDiv.id='sb-'+id;
+    secDiv.innerHTML='<div class="gc">'+md2html(secMD[id])+'</div>';
+    gBody.appendChild(secDiv);
+  }
 
   try{
-    const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,allSecIds);
-    const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-    const resp=await callApi(keys[0],[{role:'user',content:'Write the COMPLETE litigation review guide now — all '+allSecIds.length+' sections as one cohesive document. Target ~'+dc.totalWords+' words. Include [Source](URL) citations. Output only Markdown.'}],sys,{
-      stream:true,maxTok:dc.tokPerCall,model:genModel,signal:null
-    });
+    for(let si=0;si<targetSecs.length;si++){
+      const secId=targetSecs[si];
+      const secLabel=(getSecLabels()[secId])||secId;
 
-    const gc=gBody.querySelector('.gc');
-    allMD=await streamTo(resp,gc,()=>updWC());
-    if(allMD.trim().length<100)throw new Error('Response too short');
-    // Filter out any sections the model generated that weren't requested
-    allMD=filterMDToSections(allMD,allSecIds);
-    gc.innerHTML=md2html(allMD);
-    splitBatchMD(allMD,allSecIds);
+      if(si>0)await new Promise(r=>setTimeout(r,5000));
+
+      const secDiv=document.createElement('div');
+      secDiv.className='sec-block';secDiv.id='sb-'+secId;
+      secDiv.innerHTML='<div class="gc"><p style="color:var(--tx3)">Writing '+secLabel+'...</p></div>';
+      gBody.appendChild(secDiv);
+
+      const sys=buildSectionSys(drug,cond,litType,allRes,'',inj,extra,secId,allSecIds,priorSectionsMD);
+      const secTok=Math.min(dc.tokPerCall,8000);
+      const resp=await callApi(keys[si%keys.length],[{role:'user',content:'Write the complete '+secLabel+' section now. Include [Source](URL) citations. Output only Markdown.'}],sys,{
+        stream:true,maxTok:secTok,model:genModel,signal:null
+      });
+
+      const gc=secDiv.querySelector('.gc');
+      const sectionMD=await streamTo(resp,gc,()=>updWC());
+      if(sectionMD.trim().length<50)throw new Error(secLabel+' returned empty or too short');
+
+      secMD[secId]=sectionMD;
+      priorSectionsMD+=(priorSectionsMD?'\n\n---\n\n':'')+sectionMD;
+      gc.innerHTML=md2html(sectionMD);
+      updWC();
+    }
+
+    // Rebuild allMD from secMD in correct order
+    allMD=allSecIds.map(id=>secMD[id]||'').filter(m=>m.trim()).join('\n\n---\n\n');
     updWC();buildTOC();showRefineBar();
     splitOutputIntoSections();
 
     errorLog.filter(e=>e.step==='generation'&&!e.resolved).forEach(e=>resolveError(e.id));
     updateFailureSummary();
   }catch(e){
-    const gc=gBody.querySelector('.gc');
-    if(gc)gc.innerHTML='<p style="color:var(--rd)">⚠ Retry failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Again</button>';
+    // Rebuild allMD from whatever we have
+    allMD=allSecIds.map(id=>secMD[id]||'').filter(m=>m.trim()).join('\n\n---\n\n');
+    updWC();buildTOC();
+    const errDiv=document.createElement('div');
+    errDiv.innerHTML='<p style="color:var(--rd);padding:16px">⚠ Retry failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Again</button>';
+    gBody.appendChild(errDiv);
     logError(e,{step:'generation',stepLabel:'Retry Guide Generation',type:'generation',retryAttempts:1,retryFn:"retryGeneration()"});
   }
 }
@@ -3952,7 +4077,7 @@ function reRender(){
   const checkedIds=getCheckedSecOrder();
   const allSecIds=checkedIds.length?checkedIds:SEC.map(s=>s.id);
   splitBatchMD(allMD,allSecIds);
-  updWC();buildTOC();showRefineBar();splitOutputIntoSections();
+  updWC();buildTOC();showRefineBar();splitOutputIntoSections();enforceSectionCap();
 }
 
 /* ═══════ COST ESTIMATION ═══════ */
@@ -3972,8 +4097,11 @@ function estimateCost(){
 
   const genInRate=isOpus?15:3;
   const genOutRate=isOpus?75:15;
-  const genInputTok=researchInputTok+20000;
-  const genOutputTok=Math.round(dc.tokPerCall*0.8);
+  // Per-section generation: each section gets its own API call with relevant research only
+  const perSecInputTok=Math.round((researchInputTok/4)+10000); // avg research per section + context
+  const perSecOutputTok=Math.min(Math.round(dc.tokPerCall*0.8/numSecs),8000);
+  const genInputTok=perSecInputTok*numSecs;
+  const genOutputTok=perSecOutputTok*numSecs;
   const genCost=(genInputTok/1e6)*genInRate+(genOutputTok/1e6)*genOutRate;
 
   const verifyCost=(50000/1e6)*3+(4000/1e6)*15;
@@ -3993,7 +4121,7 @@ function estimateCost(){
   el.style.display='block';
   el.innerHTML='<strong style="color:var(--am)">'+(isOpus?'Opus':'Sonnet')+': $'+low+' – $'+high+'</strong>'+
     ' <span style="color:var(--tx3)">('+(isOpus?'Sonnet':'Opus')+': $'+altLow+'–$'+altHigh+')</span>'+
-    '<br><span style="font-size:10px;color:var(--tx3)">'+researchSearches+' searches, gap analysis, '+dc.label+', verification</span>';
+    '<br><span style="font-size:10px;color:var(--tx3)">'+researchSearches+' searches, gap analysis, '+numSecs+' section calls, '+dc.label+', verification</span>';
 
   // Show research pass count when not all sections are selected
   const secs=getSecs(),needed={};
@@ -4126,7 +4254,7 @@ function loadGuide(id){
   }
 
   updWC();buildTOC();
-  splitOutputIntoSections();
+  splitOutputIntoSections();enforceSectionCap();
   showRefineBar();
   renderSaves();
   estimateCost();
@@ -4403,7 +4531,7 @@ Output ONLY the revised section Markdown.`;
     const checkedIds=getCheckedSecOrder();
     const allSecIds=checkedIds.length?checkedIds:SEC_IDS;
     splitBatchMD(allMD,allSecIds);
-    updWC();buildTOC();splitOutputIntoSections();showRefineBar();
+    updWC();buildTOC();splitOutputIntoSections();enforceSectionCap();showRefineBar();
 
     const meta=document.getElementById('gMeta');
     const litType=document.getElementById('litType').value;
