@@ -471,6 +471,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
     <button onclick="printGuide()">🖨 Print</button>
     <button onclick="dlPDF()">📕 .pdf</button>
     <button onclick="dlDOCX()">📝 .docx</button>
+    <button onclick="validateCitations()" id="btnValidateCite" title="Check if citation URLs are reachable">🔗 Validate Citations</button>
     <div class="wc" id="wc"></div>
   </div>
 
@@ -982,84 +983,82 @@ function initSidebarDrag(){
 let outDragEl=null;
 
 function splitOutputIntoSections(){
-  // COMPLETE REWRITE: Parse allMD as a STRING, not the DOM.
-  // Previous versions tried to parse gBody.innerHTML but content was always
-  // wrapped inside nested divs, making the parser see one giant block.
-  // This version works purely from the allMD string — no DOM parsing at all.
-
+  // WHITELIST approach: Same as filterMDToSections — iterate allowed section IDs,
+  // claim best-matching H1 block for each. Unchecked sections can never leak through.
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML=''; // Clear completely
+  gBody.innerHTML='';
+  if(!allMD||!allMD.trim())return;
 
-  // 1. Split allMD into sections by # headings (string-level, zero DOM)
+  // 1. Parse allMD into H1 blocks
   const lines=allMD.split('\n');
-  const parsedSections=[]; // [{heading, md, secId}]
+  const blocks=[];
   let curHeading=null,curLines=[];
-
   for(const line of lines){
     if(line.startsWith('# ')){
-      if(curHeading!==null){
-        parsedSections.push({heading:curHeading,md:curLines.join('\n')});
-      }
+      if(curHeading!==null)blocks.push({heading:curHeading,md:curLines.join('\n')});
       curHeading=line.replace(/^# /,'').trim();
       curLines=[line];
     }else if(curHeading!==null){
       curLines.push(line);
     }
-    // Content before first # heading is silently dropped
   }
-  if(curHeading!==null){
-    parsedSections.push({heading:curHeading,md:curLines.join('\n')});
-  }
+  if(curHeading!==null)blocks.push({heading:curHeading,md:curLines.join('\n')});
 
-  // 2. Match each section to a SEC ID using keyword overlap
-  parsedSections.forEach(sec=>{
-    const hWords=sec.heading.toLowerCase().split(/[\s&/,\-–—]+/).filter(w=>w.length>2);
-    let bestId=null,bestScore=0;
-    SEC.forEach(s=>{
-      const labelWords=s.l.toLowerCase().split(/[\s&/,\-–—]+/).filter(w=>w.length>2);
+  // 2. Determine which sections to show
+  const showAll=!activeSelectedSecs||activeSelectedSecs.length===0;
+  const allowedIds=showAll?SEC.map(s=>s.id):[...activeSelectedSecs];
+
+  // 3. Whitelist match: for each allowed ID, claim best block
+  const secLabels={};
+  SEC.forEach(s=>{secLabels[s.id]=s.l});
+  const usedBlocks=new Set();
+  const matched=[]; // [{secId, md, heading}]
+
+  for(const secId of allowedIds){
+    const label=secLabels[secId];
+    if(!label)continue;
+    const labelWords=label.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
+    if(!labelWords.length)continue;
+
+    let bestIdx=-1,bestScore=0;
+    for(let i=0;i<blocks.length;i++){
+      if(usedBlocks.has(i))continue;
+      const hWords=blocks[i].heading.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
       const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
       const score=labelWords.length>0?overlap/labelWords.length:0;
-      if(score>bestScore){bestScore=score;bestId=s.id}
-    });
-    sec.secId=(bestScore>=0.3)?bestId:null;
-  });
+      if(score>bestScore){bestScore=score;bestIdx=i}
+    }
 
-  // 3. HARD FILTER: Only keep sections the user checked.
-  //    activeSelectedSecs is set at the start of run() and retryGeneration().
-  //    For loaded guides it's empty, so we show everything.
-  let filtered;
-  if(activeSelectedSecs&&activeSelectedSecs.length>0){
-    filtered=parsedSections.filter(sec=>sec.secId&&activeSelectedSecs.includes(sec.secId));
-  }else{
-    filtered=parsedSections; // Loaded guides — show all
+    if(bestIdx>=0&&bestScore>=0.3){
+      matched.push({secId,md:blocks[bestIdx].md,heading:blocks[bestIdx].heading});
+      usedBlocks.add(bestIdx);
+    }
   }
 
   // 4. Sort by sidebar order
   const sidebarOrder=getSecOrder();
-  filtered.sort((a,b)=>{
-    const ai=a.secId?sidebarOrder.indexOf(a.secId):-1;
-    const bi=b.secId?sidebarOrder.indexOf(b.secId):-1;
+  matched.sort((a,b)=>{
+    const ai=sidebarOrder.indexOf(a.secId);
+    const bi=sidebarOrder.indexOf(b.secId);
     return (ai<0?999:ai)-(bi<0?999:bi);
   });
 
-  // 5. Build DOM — each section gets its own sec-block > gc wrapper
-  filtered.forEach((sec,i)=>{
+  // 5. Build DOM
+  matched.forEach((sec,i)=>{
     const block=document.createElement('div');
     block.className='sec-block';
     block.draggable=true;
     block.dataset.secIdx=i;
-    if(sec.secId)block.id='sb-'+sec.secId;
+    block.id='sb-'+sec.secId;
 
     const handle=document.createElement('div');
     handle.className='out-drag-h';handle.textContent='⠿';handle.title='Drag to reorder';
     block.appendChild(handle);
 
-    if(sec.secId){
-      const rbtn=document.createElement('button');
-      rbtn.className='regen-btn';rbtn.textContent='↻ Regenerate';
-      rbtn.onclick=()=>regenSec(sec.secId);
-      block.appendChild(rbtn);
-    }
+    const rbtn=document.createElement('button');
+    rbtn.className='regen-btn';rbtn.textContent='↻ Regenerate';
+    rbtn.onclick=()=>regenSec(sec.secId);
+    block.appendChild(rbtn);
 
     const gc=document.createElement('div');gc.className='gc';
     gc.innerHTML=md2html(sec.md);
@@ -1069,7 +1068,6 @@ function splitOutputIntoSections(){
   });
 
   initOutputDrag();
-  // Rebuild TOC from the filtered sections now in the DOM
   buildTOC();
 }
 
@@ -2154,9 +2152,9 @@ function buildTOC(){
 
 /* ═══════ STRIP UNREQUESTED SECTIONS FROM MARKDOWN ═══════ */
 function filterMDToSections(md,allowedSecIds){
-  // Hard filter: scan every H1, identify which SEC ID it belongs to,
-  // and REMOVE it unless that ID is in allowedSecIds.
-  // Headings that don't match ANY known section are also removed.
+  // WHITELIST approach: iterate over ALLOWED section IDs and claim the best
+  // matching H1 block for each. This guarantees output sections ≤ allowed sections.
+  // Unchecked sections can NEVER leak through regardless of heading wording.
   if(!allowedSecIds||!allowedSecIds.length)return md;
 
   const lines=md.split('\n');
@@ -2164,46 +2162,47 @@ function filterMDToSections(md,allowedSecIds){
   lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
   if(!h1Lines.length)return md;
 
-  // Build lookup: for each SEC entry, generate match keywords from label
-  const secLookup=SEC.map(s=>{
-    const words=s.l.toLowerCase().split(/[\s&/,]+/).filter(w=>w.length>2);
-    return{id:s.id,words};
+  // Build H1 blocks
+  const blocks=h1Lines.map((start,i)=>{
+    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+    const heading=lines[start].replace(/^# /,'').trim();
+    return{heading,text:lines.slice(start,end).join('\n'),start};
   });
 
-  function identifySection(headingText){
-    // Returns the SEC id this heading belongs to, or null
-    const ht=headingText.toLowerCase();
-    const hWords=ht.split(/[\s&/,]+/).filter(w=>w.length>2);
-    let bestId=null,bestScore=0;
-    for(const entry of secLookup){
-      // Score: how many of the SEC label words appear in the heading?
-      const overlap=entry.words.filter(w=>hWords.some(hw=>hw.includes(w)||w.includes(hw))).length;
-      const score=entry.words.length>0?overlap/entry.words.length:0;
-      if(score>bestScore){bestScore=score;bestId=entry.id}
-    }
-    return bestScore>=0.3?bestId:null;
-  }
+  // Build label lookup from SEC
+  const secLabels={};
+  SEC.forEach(s=>{secLabels[s.id]=s.l});
 
   const kept=[];
+  const usedBlocks=new Set();
 
-  // Keep preamble (content before first H1)
-  if(h1Lines[0]>0){
-    const preamble=lines.slice(0,h1Lines[0]).join('\n').trim();
-    if(preamble)kept.push(preamble);
-  }
+  // For each allowed section, find and claim the best-matching block
+  for(const secId of allowedSecIds){
+    const label=secLabels[secId];
+    if(!label)continue;
+    const labelWords=label.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
+    if(!labelWords.length)continue;
 
-  for(let i=0;i<h1Lines.length;i++){
-    const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
-    const start=h1Lines[i];
-    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
-    const secId=identifySection(hText);
-
-    // Only keep if we identified which section it is AND it's in the allowed list
-    if(secId&&allowedSecIds.includes(secId)){
-      kept.push(lines.slice(start,end).join('\n'));
+    let bestIdx=-1,bestScore=0;
+    for(let i=0;i<blocks.length;i++){
+      if(usedBlocks.has(i))continue;
+      const hWords=blocks[i].heading.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
+      const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
+      const score=overlap/labelWords.length;
+      if(score>bestScore){bestScore=score;bestIdx=i}
     }
-    // Everything else is silently dropped
+
+    if(bestIdx>=0&&bestScore>=0.3){
+      kept.push(blocks[bestIdx].text);
+      usedBlocks.add(bestIdx);
+      console.log('[filter] Matched "'+blocks[bestIdx].heading+'" → '+secId+' (score '+bestScore.toFixed(2)+')');
+    }else{
+      console.log('[filter] No match found for section: '+secId+' (best score '+bestScore.toFixed(2)+')');
+    }
   }
+
+  // Log any blocks that were dropped
+  blocks.forEach((b,i)=>{if(!usedBlocks.has(i))console.log('[filter] Dropped unmatched block: "'+b.heading+'"')});
 
   return kept.join('\n\n---\n\n');
 }
@@ -2740,7 +2739,23 @@ function dlPDF(){
     var JP=(window.jspdf&&window.jspdf.jsPDF);
     if(!JP)throw new Error('jsPDF not loaded');
     var doc=new JP({orientation:'portrait',unit:'pt',format:'letter'});
-    var PW=612,PH=792,ML=54,MR=54,MT=54,MB=54,CW=PW-ML-MR,y=MT;
+    var PW=612,PH=792,ML=54,MR=54,MT=60,MB=58,CW=PW-ML-MR,y=MT;
+    var dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    var h1Entries=[];
+    var tocPageNumSlots=[];
+
+    /* --- Pre-scan markdown for H1 titles --- */
+    var md=allMD||'';
+    var mLines=md.split('\n');
+    var h1Titles=[];
+    for(var si=0;si<mLines.length;si++){
+      if(mLines[si].indexOf('# ')===0&&mLines[si].indexOf('## ')!==0){
+        var scanRaw=mLines[si].substring(2);
+        h1Titles.push(scanRaw.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1'));
+      }
+    }
+
+    /* --- Helper functions --- */
     function np(h){if(y+h>PH-MB){doc.addPage();y=MT}}
     function ss(sz,st,c){doc.setFontSize(sz);doc.setFont('helvetica',st||'normal');doc.setTextColor(c?c[0]:26,c?c[1]:26,c?c[2]:46)}
     function strip(t){return t.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')}
@@ -2776,30 +2791,63 @@ function dlPDF(){
       }
       if(line)emit(line,xOff+(first&&indent?indent:0))
     }
-    var md=allMD||'';
-    var mLines=md.split('\n');var mi=0;
+
+    /* ========== PAGE 1: TITLE PAGE ========== */
+    y=MT;
     ss(22,'bold',[26,46,108]);
     doc.text('Litigation Review Guide',ML,y);y+=14;
     ss(10,'normal',[100,100,120]);
-    doc.text(drug+' \u2014 Generated '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}),ML,y);y+=10;
+    doc.text(drug+' \u2014 Generated '+dateStr,ML,y);y+=10;
     doc.setDrawColor(26,46,108);doc.setLineWidth(1.5);doc.line(ML,y,PW-MR,y);y+=22;
+
+    /* ========== PAGE 2: TABLE OF CONTENTS ========== */
+    doc.addPage();y=MT;
+    ss(18,'bold',[26,46,108]);
+    doc.text('Table of Contents',ML,y);y+=8;
+    doc.setDrawColor(26,46,108);doc.setLineWidth(1);doc.line(ML,y,ML+160,y);y+=20;
+    var tocLH=18;
+    for(var tci=0;tci<h1Titles.length;tci++){
+      np(tocLH);
+      ss(10,'normal',[26,26,46]);
+      var tocTitle=h1Titles[tci];
+      var tocTitleW=doc.getTextWidth(tocTitle);
+      doc.text(tocTitle,ML,y);
+      /* dotted leader */
+      var dotStart=ML+tocTitleW+4;
+      var dotEnd=PW-MR-30;
+      ss(10,'normal',[160,160,170]);
+      if(dotEnd>dotStart){
+        var dots='';
+        doc.setFontSize(10);
+        while(doc.getTextWidth(dots+'.')<(dotEnd-dotStart))dots+='.';
+        doc.text(dots,dotStart,y);
+      }
+      tocPageNumSlots.push({title:tocTitle,yPos:y});
+      y+=tocLH;
+    }
+
+    /* ========== PAGES 3+: MAIN CONTENT ========== */
+    doc.addPage();y=MT;
+    var mi=0;
     while(mi<mLines.length){
       var ln=mLines[mi];
-      if(ln.indexOf('# ')===0){np(38);y+=8;ss(18,'bold',[26,46,108]);
-        var rawH1=ln.substring(2);var ht=strip(rawH1);doc.text(ht,ML,y);aHL(rawH1,ML,y);y+=6;
+      if(ln.indexOf('# ')===0&&ln.indexOf('## ')!==0){np(38);y+=8;ss(18,'bold',[26,46,108]);
+        var rawH1=ln.substring(2);var ht=strip(rawH1);doc.text(ht,ML,y);aHL(rawH1,ML,y);
+        h1Entries.push({title:ht,pageNum:doc.internal.getNumberOfPages()});
+        y+=6;
         doc.setDrawColor(139,123,245);doc.setLineWidth(0.8);doc.line(ML,y,ML+Math.min(doc.getTextWidth(ht)+12,CW),y);y+=14;mi++;continue}
-      if(ln.indexOf('## ')===0){np(28);y+=6;ss(14,'bold',[139,123,245]);
+      if(ln.indexOf('## ')===0&&ln.indexOf('### ')!==0){np(28);y+=6;ss(14,'bold',[139,123,245]);
         var rawH2=ln.substring(3);doc.text(strip(rawH2),ML,y);aHL(rawH2,ML,y);y+=16;mi++;continue}
       if(ln.indexOf('### ')===0){np(22);y+=4;ss(11,'bold',[60,60,80]);
         var rawH3=ln.substring(4);var h3t=strip(rawH3).toUpperCase();doc.text(h3t,ML,y);aHL(rawH3,ML,y);y+=14;mi++;continue}
       if(ln.indexOf('---')===0){np(12);doc.setDrawColor(200,200,210);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;mi++;continue}
       if(ln.indexOf('|')===0){
-        var tRows=[],ti=mi;
-        while(ti<mLines.length&&mLines[ti].indexOf('|')===0){
-          if(mLines[ti].replace(/[|\-\s:]/g,'').length>0)
-            tRows.push(mLines[ti].split('|').filter(function(c){return c.trim()!==''}));
-          ti++}
-        mi=ti;
+        var tRows=[],tii=mi;
+        while(tii<mLines.length&&mLines[tii].indexOf('|')===0){
+          if(mLines[tii].replace(/[|\-\s:]/g,'').length>0)
+            tRows.push(mLines[tii].split('|').filter(function(c){return c.trim()!==''}));
+          tii++}
+        mi=tii;
         if(!tRows.length)continue;
         var nCols=tRows[0].length;var cW2=CW/nCols;var rH=16;
         np(rH+4);doc.setFillColor(30,33,52);doc.rect(ML,y-10,CW,rH,'F');
@@ -2818,6 +2866,44 @@ function dlPDF(){
       if(!ln.trim()){y+=5;mi++;continue}
       rT(ln,ML,CW,9.5,'normal',[26,26,46]);y+=2;mi++;
     }
+
+    /* ========== FILL IN TOC PAGE NUMBERS + CLICKABLE LINKS ========== */
+    var totalPages=doc.internal.getNumberOfPages();
+    doc.setPage(2);
+    for(var ei=0;ei<tocPageNumSlots.length;ei++){
+      var slot=tocPageNumSlots[ei];
+      var matchedPage='';
+      for(var hi=0;hi<h1Entries.length;hi++){
+        if(h1Entries[hi].title===slot.title){matchedPage=''+h1Entries[hi].pageNum;break}
+      }
+      if(matchedPage){
+        ss(10,'normal',[26,46,108]);
+        doc.text(matchedPage,PW-MR-doc.getTextWidth(matchedPage),slot.yPos);
+        doc.link(ML,slot.yPos-10,CW,14,{pageNumber:parseInt(matchedPage,10)});
+      }
+    }
+
+    /* ========== ADD HEADERS & FOOTERS TO ALL PAGES ========== */
+    var headerTitle='Litigation Review Guide \u2014 '+drug;
+    for(var p=1;p<=totalPages;p++){
+      doc.setPage(p);
+      /* --- Footer on every page --- */
+      doc.setDrawColor(180,180,190);doc.setLineWidth(0.3);
+      doc.line(ML,PH-42,PW-MR,PH-42);
+      ss(7,'normal',[130,130,140]);
+      doc.text('Confidential \u2014 Attorney Work Product',ML,PH-32);
+      var pgTxt='Page '+p+' of '+totalPages;
+      doc.text(pgTxt,PW-MR-doc.getTextWidth(pgTxt),PH-32);
+      /* --- Header on pages 2+ (skip title page) --- */
+      if(p>=2){
+        ss(8,'normal',[130,130,140]);
+        doc.text(headerTitle,ML,30);
+        doc.text(dateStr,PW-MR-doc.getTextWidth(dateStr),30);
+        doc.setDrawColor(180,180,190);doc.setLineWidth(0.3);
+        doc.line(ML,36,PW-MR,36);
+      }
+    }
+
     doc.save('Litigation_Review_Guide_v2.00_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf');
     btn.textContent='\ud83d\udcd5 .pdf';btn.disabled=false;
   }catch(e){
@@ -3006,6 +3092,134 @@ async function dlDOCX(){
     console.error('DOCX error:',e);
     btn.textContent='📝 .docx';btn.disabled=false;
   }
+}
+
+/* ═══════ CITATION VALIDATION ═══════ */
+
+async function validateCitations(){
+  const md = allMD || '';
+  const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+  const urlMap = new Map(); // url -> {labels:[], status:'pending'}
+  let m;
+  while((m = re.exec(md)) !== null){
+    const label = m[1], url = m[2];
+    if(!urlMap.has(url)) urlMap.set(url, {labels:[], status:'pending'});
+    urlMap.get(url).labels.push(label);
+  }
+  if(urlMap.size === 0){ alert('No citation URLs found in output.'); return; }
+
+  // Build modal
+  const overlay = document.createElement('div');
+  overlay.id = 'citeValOverlay';
+  Object.assign(overlay.style, {
+    position:'fixed',top:'0',left:'0',width:'100vw',height:'100vh',
+    background:'rgba(0,0,0,.65)',zIndex:'9999',display:'flex',
+    alignItems:'center',justifyContent:'center',fontFamily:"'Outfit',sans-serif"
+  });
+  const panel = document.createElement('div');
+  Object.assign(panel.style, {
+    background:'var(--sf,#1a1a2e)',border:'1px solid var(--bd,#333)',borderRadius:'12px',
+    padding:'24px',width:'560px',maxWidth:'90vw',maxHeight:'80vh',
+    overflowY:'auto',color:'var(--tx,#e0e0e0)',boxShadow:'0 8px 32px rgba(0,0,0,.5)'
+  });
+  panel.innerHTML = '<h3 style="margin:0 0 6px;font-size:16px;color:var(--tx,#fff)">🔗 Citation Validation</h3>'
+    + '<p id="citeValStatus" style="margin:0 0 14px;font-size:13px;color:var(--tx3,#999)">Checking ' + urlMap.size + ' unique URLs...</p>'
+    + '<div id="citeValProgress" style="height:4px;background:var(--sf2,#222);border-radius:2px;margin-bottom:16px;overflow:hidden">'
+    + '<div id="citeValBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--ac,#8b5cf6),#7b6be5);transition:width .2s"></div></div>'
+    + '<div id="citeValResults" style="font-size:12px"></div>'
+    + '<div id="citeValActions" style="display:none;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"></div>';
+  overlay.appendChild(panel);
+  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+
+  const statusEl = document.getElementById('citeValStatus');
+  const barEl = document.getElementById('citeValBar');
+  const resultsEl = document.getElementById('citeValResults');
+  const actionsEl = document.getElementById('citeValActions');
+  actionsEl.style.display = 'none';
+
+  // Validate in batches of 5
+  const timeout = 8000;
+  let done = 0;
+  const urls = [...urlMap.keys()];
+
+  for(let i = 0; i < urls.length; i += 5){
+    const batch = urls.slice(i, i + 5);
+    await Promise.all(batch.map(async url => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeout);
+        await fetch(url, {method:'HEAD', mode:'no-cors', signal:ctrl.signal});
+        clearTimeout(timer);
+        urlMap.get(url).status = 'reachable';
+      } catch(e) {
+        urlMap.get(url).status = 'unreachable';
+      }
+      done++;
+      barEl.style.width = Math.round((done / urls.length) * 100) + '%';
+      statusEl.textContent = 'Checked ' + done + ' of ' + urls.length + ' URLs...';
+    }));
+  }
+
+  // Tally results
+  let reachable = 0, unreachable = 0;
+  const unreachableList = [];
+  urlMap.forEach((info, url) => {
+    if(info.status === 'reachable') reachable++;
+    else { unreachable++; unreachableList.push({url, labels: info.labels}); }
+  });
+
+  statusEl.innerHTML = '<span style="color:var(--gn,#56c490)">✅ ' + reachable + ' reachable</span>'
+    + ' &nbsp;·&nbsp; <span style="color:var(--rd,#e74c5f)">❌ ' + unreachable + ' unreachable</span>'
+    + ' &nbsp;·&nbsp; ' + urlMap.size + ' total unique URLs';
+
+  // Build results list
+  let html = '';
+  if(unreachableList.length > 0){
+    html += '<div style="margin-top:8px"><strong style="color:var(--rd,#e74c5f);font-size:12px">Unreachable URLs:</strong></div>';
+    unreachableList.forEach(item => {
+      const labelStr = item.labels.map(l => '"' + l.replace(/</g,'&lt;') + '"').join(', ');
+      html += '<div style="margin:6px 0;padding:8px 10px;background:var(--sf2,#111);border:1px solid rgba(231,76,95,.25);border-radius:6px">'
+        + '<div style="color:var(--rd,#e74c5f);word-break:break-all;font-size:11.5px">❌ ' + item.url.replace(/</g,'&lt;') + '</div>'
+        + '<div style="color:var(--tx3,#888);font-size:11px;margin-top:3px">Labels: ' + labelStr + '</div></div>';
+    });
+  }
+  if(reachable > 0){
+    html += '<div style="margin-top:10px"><strong style="color:var(--gn,#56c490);font-size:12px">Reachable URLs (' + reachable + '):</strong></div>';
+    let shown = 0;
+    urlMap.forEach((info, url) => {
+      if(info.status !== 'reachable') return;
+      if(shown >= 20){ if(shown === 20) html += '<div style="color:var(--tx3,#888);font-size:11px;margin-top:4px">...and ' + (reachable - 20) + ' more</div>'; shown++; return; }
+      html += '<div style="margin:3px 0;padding:4px 8px;font-size:11px;color:var(--tx3,#999);word-break:break-all">✅ ' + url.replace(/</g,'&lt;') + '</div>';
+      shown++;
+    });
+  }
+  resultsEl.innerHTML = html;
+
+  // Action buttons
+  actionsEl.style.display = 'flex';
+  actionsEl.innerHTML = '';
+  if(unreachableList.length > 0){
+    const copyBtn = document.createElement('button');
+    Object.assign(copyBtn.style, {
+      padding:'7px 14px',background:'var(--sf2,#222)',border:'1px solid var(--bd,#333)',
+      borderRadius:'6px',color:'var(--tx2,#bbb)',fontSize:'11.5px',cursor:'pointer',fontFamily:"'Outfit',sans-serif"
+    });
+    copyBtn.textContent = '📋 Copy Unreachable';
+    copyBtn.onclick = () => {
+      const text = unreachableList.map(item => item.url + '  (labels: ' + item.labels.join(', ') + ')').join('\n');
+      navigator.clipboard.writeText(text).then(() => { copyBtn.textContent = '✓ Copied!'; setTimeout(() => copyBtn.textContent = '📋 Copy Unreachable', 2000); });
+    };
+    actionsEl.appendChild(copyBtn);
+  }
+  const closeBtn = document.createElement('button');
+  Object.assign(closeBtn.style, {
+    padding:'7px 14px',background:'var(--ac,#8b5cf6)',border:'none',
+    borderRadius:'6px',color:'#fff',fontSize:'11.5px',cursor:'pointer',fontWeight:'600',fontFamily:"'Outfit',sans-serif"
+  });
+  closeBtn.textContent = 'Close';
+  closeBtn.onclick = () => overlay.remove();
+  actionsEl.appendChild(closeBtn);
 }
 
 /* ═══════ REFINEMENT ═══════ */
