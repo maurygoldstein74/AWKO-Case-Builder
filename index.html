@@ -983,14 +983,19 @@ function initSidebarDrag(){
 let outDragEl=null;
 
 function splitOutputIntoSections(){
-  // WHITELIST approach: Same as filterMDToSections — iterate allowed section IDs,
-  // claim best-matching H1 block for each. Unchecked sections can never leak through.
+  // WHITELIST approach: iterate allowed section IDs, claim best-matching H1 block
+  // for each. Unchecked sections can never leak through.
   const gBody=document.getElementById('gBody');
   gBody.innerHTML='';
   if(!allMD||!allMD.trim())return;
 
-  // 1. Parse allMD into H1 blocks
-  const lines=allMD.split('\n');
+  // 1. Convert citations globally ONCE (produces {{CITE:N:url}} markers + Works Cited)
+  const cited=convertToNumericalCitations(allMD);
+  lastCitationMap=cited.citations;
+  const citedMD=cited.md;
+
+  // 2. Parse the CITED markdown into H1 blocks
+  const lines=citedMD.split('\n');
   const blocks=[];
   let curHeading=null,curLines=[];
   for(const line of lines){
@@ -1004,38 +1009,70 @@ function splitOutputIntoSections(){
   }
   if(curHeading!==null)blocks.push({heading:curHeading,md:curLines.join('\n')});
 
-  // 2. Determine which sections to show
+  // 3. Determine which sections to show
   const showAll=!activeSelectedSecs||activeSelectedSecs.length===0;
   const allowedIds=showAll?SEC.map(s=>s.id):[...activeSelectedSecs];
 
-  // 3. Whitelist match: for each allowed ID, claim best block
+  // 4. Whitelist match: for each allowed ID, claim best block
   const secLabels={};
   SEC.forEach(s=>{secLabels[s.id]=s.l});
   const usedBlocks=new Set();
   const matched=[]; // [{secId, md, heading}]
 
+  // Strip CITE markers from heading text for matching purposes
+  function cleanHeading(h){return h.replace(/\{\{CITE:\d+:[^}]+\}\}/g,'').trim()}
+
   for(const secId of allowedIds){
     const label=secLabels[secId];
     if(!label)continue;
-    const labelWords=label.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-    if(!labelWords.length)continue;
+    const labelLower=label.toLowerCase().trim();
+    let bestIdx=-1;
 
-    let bestIdx=-1,bestScore=0;
+    // TIER 1: Exact match
     for(let i=0;i<blocks.length;i++){
       if(usedBlocks.has(i))continue;
-      const hWords=blocks[i].heading.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-      const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
-      const score=labelWords.length>0?overlap/labelWords.length:0;
-      if(score>bestScore){bestScore=score;bestIdx=i}
+      if(cleanHeading(blocks[i].heading).toLowerCase().trim()===labelLower){bestIdx=i;break}
+    }
+    // TIER 2: Contains
+    if(bestIdx<0){
+      for(let i=0;i<blocks.length;i++){
+        if(usedBlocks.has(i))continue;
+        const hLower=cleanHeading(blocks[i].heading).toLowerCase().trim();
+        if(hLower.includes(labelLower)||labelLower.includes(hLower)){bestIdx=i;break}
+      }
+    }
+    // TIER 3: Fuzzy (threshold 0.5)
+    if(bestIdx<0){
+      const labelWords=labelLower.split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
+      if(labelWords.length){
+        let bestScore=0;
+        for(let i=0;i<blocks.length;i++){
+          if(usedBlocks.has(i))continue;
+          const hWords=cleanHeading(blocks[i].heading).toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
+          const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
+          const score=overlap/labelWords.length;
+          if(score>bestScore){bestScore=score;bestIdx=i}
+        }
+        if(bestIdx<0||bestScore<0.5)bestIdx=-1;
+      }
     }
 
-    if(bestIdx>=0&&bestScore>=0.3){
+    if(bestIdx>=0){
       matched.push({secId,md:blocks[bestIdx].md,heading:blocks[bestIdx].heading});
       usedBlocks.add(bestIdx);
     }
   }
 
-  // 4. Sort by sidebar order
+  // 5. Find the Works Cited block (always include if citations exist)
+  let worksCitedBlock=null;
+  for(let i=0;i<blocks.length;i++){
+    if(!usedBlocks.has(i)&&blocks[i].heading==='Works Cited'){
+      worksCitedBlock=blocks[i];
+      break;
+    }
+  }
+
+  // 6. Sort by sidebar order
   const sidebarOrder=getSecOrder();
   matched.sort((a,b)=>{
     const ai=sidebarOrder.indexOf(a.secId);
@@ -1043,7 +1080,7 @@ function splitOutputIntoSections(){
     return (ai<0?999:ai)-(bi<0?999:bi);
   });
 
-  // 5. Build DOM
+  // 7. Build DOM — use md2html (not renderWithCitations) since citations already converted
   matched.forEach((sec,i)=>{
     const block=document.createElement('div');
     block.className='sec-block';
@@ -1066,6 +1103,18 @@ function splitOutputIntoSections(){
 
     gBody.appendChild(block);
   });
+
+  // 8. Append Works Cited as a non-draggable, non-regennable block at the end
+  if(worksCitedBlock){
+    const wcBlock=document.createElement('div');
+    wcBlock.className='sec-block';
+    wcBlock.id='sb-works-cited';
+    wcBlock.style.borderTop='2px solid var(--bd)';
+    const wcGc=document.createElement('div');wcGc.className='gc';
+    wcGc.innerHTML=md2html(worksCitedBlock.md);
+    wcBlock.appendChild(wcGc);
+    gBody.appendChild(wcBlock);
+  }
 
   initOutputDrag();
   buildTOC();
@@ -2106,9 +2155,68 @@ async function streamTo(resp,el,onChunk){
   el.innerHTML=md2html(md);if(mainPanel)mainPanel.scrollTop=mainPanel.scrollHeight;if(onChunk)onChunk(md);return md;
 }
 
+/* ═══════ NUMERICAL CITATIONS ═══════ */
+/* Converts [label](url) inline citations to numbered references [1], [2], etc.
+   Appends a "Works Cited" section at the end. Returns {md, citations} where
+   citations is an array of {num, label, url}. The raw allMD is kept with
+   original [label](url) format for Claude interactions and regeneration. */
+function convertToNumericalCitations(md){
+  if(!md)return{md:'',citations:[]};
+  const re=/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+  const citations=[];
+  const urlIndex={};
+  let m;
+  // First pass: collect unique URLs and assign numbers
+  const tempMd=md;
+  while((m=re.exec(tempMd))!==null){
+    const label=m[1],url=m[2];
+    if(!urlIndex[url]){
+      const num=citations.length+1;
+      urlIndex[url]={num,label,url};
+      citations.push({num,label,url});
+    }
+  }
+  if(!citations.length)return{md,citations:[]};
+  // Second pass: replace inline citations with [N] markers
+  // Use a special format that md2html can detect: {{CITE:N:url}}
+  let converted=md.replace(re,(match,label,url)=>{
+    const entry=urlIndex[url];
+    if(!entry)return match;
+    return '{{CITE:'+entry.num+':'+url+'}}';
+  });
+  // Append Works Cited section
+  converted+='\n\n---\n\n# Works Cited\n\n';
+  for(const c of citations){
+    converted+='**['+c.num+']** '+c.label+' — ['+c.url+']('+c.url+')\n\n';
+  }
+  return{md:converted,citations};
+}
+
+/* Global: last-computed citation map for PDF/export use */
+let lastCitationMap=[];
+
+/* Render markdown with numerical citations for display.
+   Converts [label](url) → [N] superscripts + Works Cited, then runs md2html.
+   Use for final display only, NOT during streaming. */
+function renderWithCitations(md){
+  const result=convertToNumericalCitations(md);
+  lastCitationMap=result.citations;
+  return md2html(result.md);
+}
+
+/* Get numerically-cited markdown (for PDF export etc.) */
+function getCitedMD(md){
+  const result=convertToNumericalCitations(md);
+  lastCitationMap=result.citations;
+  return result;
+}
+
 /* ═══════ MD→HTML ═══════ */
-function md2html(md){
+function md2html(md,raw){
   let h=md;
+  // Convert {{CITE:N:url}} markers to clickable superscript numbers
+  h=h.replace(/\{\{CITE:(\d+):(https?:\/\/[^\s}]+)\}\}/g,
+    '<a href="$2" target="_blank" rel="noopener" class="cite-num" style="color:var(--cy);font-size:0.7em;vertical-align:super;text-decoration:none;font-weight:700;cursor:pointer" title="Citation [$1] — click to view source">[$1]</a>');
   h=h.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm,(m,hd,sp,bd)=>{
     const ths=hd.split('|').filter(c=>c.trim()).map(c=>'<th>'+c.trim()+'</th>').join('');
     const trs=bd.trim().split('\n').map(r=>'<tr>'+r.split('|').filter(c=>c.trim()).map(c=>'<td>'+c.trim()+'</td>').join('')+'</tr>').join('');
@@ -2123,6 +2231,7 @@ function md2html(md){
   h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
   h=h.replace(/(?<![*\\])\*([^*\n]+?)\*(?!\*)/g,'<em>$1</em>');
   h=h.replace(/__(.+?)__/g,'<u>$1</u>');
+  // Standard markdown links (any remaining, e.g. in Works Cited URLs)
   h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--cy);text-decoration:underline;text-underline-offset:2px">$1</a>');
   h=h.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
   h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
@@ -2152,14 +2261,14 @@ function buildTOC(){
 
 /* ═══════ STRIP UNREQUESTED SECTIONS FROM MARKDOWN ═══════ */
 function filterMDToSections(md,allowedSecIds){
-  // WHITELIST approach: iterate over ALLOWED section IDs and claim the best
-  // matching H1 block for each. This guarantees output sections ≤ allowed sections.
-  // Unchecked sections can NEVER leak through regardless of heading wording.
+  // STRICT WHITELIST approach: only keep H1 blocks that match an allowed section.
+  // Three-tier matching: exact label → contains label → fuzzy word overlap.
+  // Unchecked sections can NEVER appear in output.
   if(!allowedSecIds||!allowedSecIds.length)return md;
 
   const lines=md.split('\n');
   const h1Lines=[];
-  lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+  lines.forEach((l,i)=>{if(l.startsWith('# ')&&!l.startsWith('## '))h1Lines.push(i)});
   if(!h1Lines.length)return md;
 
   // Build H1 blocks
@@ -2177,32 +2286,66 @@ function filterMDToSections(md,allowedSecIds){
   const usedBlocks=new Set();
 
   // For each allowed section, find and claim the best-matching block
+  // using THREE matching tiers for reliability:
   for(const secId of allowedSecIds){
     const label=secLabels[secId];
     if(!label)continue;
-    const labelWords=label.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-    if(!labelWords.length)continue;
+    const labelLower=label.toLowerCase().trim();
 
-    let bestIdx=-1,bestScore=0;
+    let bestIdx=-1;
+
+    // TIER 1: Exact match (case-insensitive) — most reliable
     for(let i=0;i<blocks.length;i++){
       if(usedBlocks.has(i))continue;
-      const hWords=blocks[i].heading.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
-      const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
-      const score=overlap/labelWords.length;
-      if(score>bestScore){bestScore=score;bestIdx=i}
+      if(blocks[i].heading.toLowerCase().trim()===labelLower){
+        bestIdx=i;
+        console.log('[filter] EXACT match: "'+blocks[i].heading+'" → '+secId);
+        break;
+      }
     }
 
-    if(bestIdx>=0&&bestScore>=0.3){
+    // TIER 2: Heading contains the label or label contains the heading
+    if(bestIdx<0){
+      for(let i=0;i<blocks.length;i++){
+        if(usedBlocks.has(i))continue;
+        const hLower=blocks[i].heading.toLowerCase().trim();
+        if(hLower.includes(labelLower)||labelLower.includes(hLower)){
+          bestIdx=i;
+          console.log('[filter] CONTAINS match: "'+blocks[i].heading+'" → '+secId);
+          break;
+        }
+      }
+    }
+
+    // TIER 3: Fuzzy word overlap (threshold 0.5 — stricter than before)
+    if(bestIdx<0){
+      const labelWords=labelLower.split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
+      if(labelWords.length){
+        let bestScore=0;
+        for(let i=0;i<blocks.length;i++){
+          if(usedBlocks.has(i))continue;
+          const hWords=blocks[i].heading.toLowerCase().split(/[\s&/,\-\u2013\u2014:()]+/).filter(w=>w.length>2);
+          const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
+          const score=overlap/labelWords.length;
+          if(score>bestScore){bestScore=score;bestIdx=i}
+        }
+        if(bestIdx>=0&&bestScore>=0.5){
+          console.log('[filter] FUZZY match: "'+blocks[bestIdx].heading+'" → '+secId+' (score '+bestScore.toFixed(2)+')');
+        }else{
+          console.log('[filter] No match for: '+secId+' (label="'+label+'", best fuzzy='+bestScore.toFixed(2)+')');
+          bestIdx=-1;
+        }
+      }
+    }
+
+    if(bestIdx>=0){
       kept.push(blocks[bestIdx].text);
       usedBlocks.add(bestIdx);
-      console.log('[filter] Matched "'+blocks[bestIdx].heading+'" → '+secId+' (score '+bestScore.toFixed(2)+')');
-    }else{
-      console.log('[filter] No match found for section: '+secId+' (best score '+bestScore.toFixed(2)+')');
     }
   }
 
-  // Log any blocks that were dropped
-  blocks.forEach((b,i)=>{if(!usedBlocks.has(i))console.log('[filter] Dropped unmatched block: "'+b.heading+'"')});
+  // Log dropped blocks
+  blocks.forEach((b,i)=>{if(!usedBlocks.has(i))console.log('[filter] DROPPED: "'+b.heading+'"')});
 
   return kept.join('\n\n---\n\n');
 }
@@ -2464,7 +2607,7 @@ async function run(){
         if(allMD.trim().length<100){throw new Error('Generation returned empty or too short');}
         // Filter out any sections the model generated that weren't requested
         allMD=filterMDToSections(allMD,allSecIds);
-        gc.innerHTML=md2html(allMD);
+        gc.innerHTML=renderWithCitations(allMD);
         splitBatchMD(allMD,allSecIds);
         setP(genIdx,'done',countW(allMD).toLocaleString()+' words');
         genSuccess=true;
@@ -2542,7 +2685,7 @@ Output ONLY this section's Markdown.`;
               allMD+='\n\n---\n\n'+recoveredMD;
               secMD[missing.id]=recoveredMD;
               const gc=genDiv.querySelector('.gc');
-              gc.innerHTML=md2html(allMD);
+              gc.innerHTML=renderWithCitations(allMD);
               updWC();buildTOC();
             }
             if(missingSections.indexOf(missing)<missingSections.length-1)await sleep(3000,ac.signal);
@@ -2659,7 +2802,7 @@ async function retryGeneration(){
     if(allMD.trim().length<100)throw new Error('Response too short');
     // Filter out any sections the model generated that weren't requested
     allMD=filterMDToSections(allMD,allSecIds);
-    gc.innerHTML=md2html(allMD);
+    gc.innerHTML=renderWithCitations(allMD);
     splitBatchMD(allMD,allSecIds);
     updWC();buildTOC();showRefineBar();
     splitOutputIntoSections();
@@ -2744,22 +2887,24 @@ function dlPDF(){
     var h1Entries=[];
     var tocPageNumSlots=[];
 
-    /* --- Pre-scan markdown for H1 titles --- */
-    var md=allMD||'';
+    /* --- Convert to numerical citations for PDF --- */
+    var cited=getCitedMD(allMD||'');
+    var md=cited.md;
+    var pdfCitations=cited.citations; /* [{num,label,url}] */
     var mLines=md.split('\n');
     var h1Titles=[];
     for(var si=0;si<mLines.length;si++){
       if(mLines[si].indexOf('# ')===0&&mLines[si].indexOf('## ')!==0){
         var scanRaw=mLines[si].substring(2);
-        h1Titles.push(scanRaw.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1'));
+        h1Titles.push(scanRaw.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/\{\{CITE:\d+:[^}]+\}\}/g,''));
       }
     }
 
     /* --- Helper functions --- */
     function np(h){if(y+h>PH-MB){doc.addPage();y=MT}}
     function ss(sz,st,c){doc.setFontSize(sz);doc.setFont('helvetica',st||'normal');doc.setTextColor(c?c[0]:26,c?c[1]:26,c?c[2]:46)}
-    function strip(t){return t.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')}
-    function gL(t){var links=[];var re=/\[([^\]]+)\]\(([^)]+)\)/g;var m;while((m=re.exec(t))!==null)links.push({lb:m[1],url:m[2]});return links}
+    function strip(t){return t.replace(/\{\{CITE:(\d+):[^}]+\}\}/g,'[$1]').replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')}
+    function gL(t){var links=[];var re=/\[([^\]]+)\]\(([^)]+)\)/g;var m;while((m=re.exec(t))!==null)links.push({lb:m[1],url:m[2]});var cre=/\{\{CITE:(\d+):(https?:\/\/[^}]+)\}\}/g;while((m=cre.exec(t))!==null)links.push({lb:'['+m[1]+']',url:m[2]});return links}
     function aHL(raw,x,atY){var ht=strip(raw),hl=gL(raw),sf=0;for(var i=0;i<hl.length;i++){var idx=ht.indexOf(hl[i].lb,sf);if(idx>=0){doc.link(x+doc.getTextWidth(ht.substring(0,idx)),atY-8,doc.getTextWidth(hl[i].lb),11,{url:hl[i].url});sf=idx+hl[i].lb.length}}}
     function rT(txt,xOff,maxW,sz,st,c,indent){
       ss(sz||9.5,st||'normal',c||[26,26,46]);
@@ -3894,7 +4039,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 function reRender(){
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+  gBody.innerHTML='<div class="gc">'+renderWithCitations(allMD)+'</div>';
   // Use checked sections for splitBatchMD context, fall back to all SEC_IDS for loaded guides
   const checkedIds=getCheckedSecOrder();
   const allSecIds=checkedIds.length?checkedIds:SEC.map(s=>s.id);
@@ -4058,7 +4203,7 @@ function loadGuide(id){
   gHead.innerHTML='<h1>Litigation Review Guide: '+entry.name+'</h1><div class="meta" id="gMeta">'+(entry.cond||'(auto-discovered)')+' — '+(entry.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Last saved '+new Date(entry.savedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+(entry.updateCount?' (updated '+entry.updateCount+'×)':'')+'</div>';
 
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+  gBody.innerHTML='<div class="gc">'+renderWithCitations(allMD)+'</div>';
 
   if(Object.keys(allRes).length){
     const rpBody=document.getElementById('rpBody');
@@ -4346,7 +4491,7 @@ Output ONLY the revised section Markdown.`;
     }
 
     const gBody=document.getElementById('gBody');
-    gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+    gBody.innerHTML='<div class="gc">'+renderWithCitations(allMD)+'</div>';
     const checkedIds=getCheckedSecOrder();
     const allSecIds=checkedIds.length?checkedIds:SEC_IDS;
     splitBatchMD(allMD,allSecIds);
