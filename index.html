@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Litigation Review Guide Builder</title>
+<title>Mass Tort Viability Research Memo</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -351,7 +352,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 <div class="shell">
 <div class="side">
 <div class="side-scroll">
-  <div class="brand"><div class="brand-mark">§</div><h1>Review Guide Builder</h1></div>
+  <div class="brand"><div class="brand-mark">§</div><h1>Mass Tort Viability Memo</h1></div>
   <div class="brand-sub">Pharmaceutical, Medical Device &amp; Product Litigation</div>
 
   <div class="saves" id="savesPanel">
@@ -391,7 +392,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
   </div>
   <div class="fg">
     <label>Custom Instructions <span class="tag">optional</span></label>
-    <textarea id="customInstr" placeholder="e.g., Focus heavily on the VOC controversy and mechanism of action dispute. Our cases involve pediatric patients ages 4-12 so emphasize that population. Include ICD-10 codes for every injury. Be extra thorough on confounders because defense will argue pre-existing conditions." style="min-height:90px"></textarea>
+    <textarea id="customInstr" placeholder="e.g., Focus on pending Daubert motion in the current MDL and the PMA preemption exposure. Treat the Johnson meta-analysis as dispositive on general causation. We are evaluating whether to enter this docket early — prioritize per-case value tiers, PSC composition, and current intake posture." style="min-height:90px"></textarea>
     <div class="note">Shapes both research and writing. Tell it what to emphasize, what your case theory is, what the defense argues, what your reviewers struggle with, tone preferences, etc.</div>
   </div>
 
@@ -435,7 +436,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 </div>
 
 <div class="side-foot">
-  <button class="btn-go" id="btnGo" onclick="run()">Generate Review Guide</button>
+  <button class="btn-go" id="btnGo" onclick="run()">Generate Viability Memo</button>
   <button class="btn-update" id="btnUpdate" style="display:none" onclick="checkForUpdates()">⟳ Check for Updates</button>
   <button class="btn-stop" id="btnStop" style="display:none" onclick="stop()">Stop</button>
   <div class="prog" id="prog" style="display:none"></div>
@@ -446,8 +447,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 <div class="main" id="mainPanel">
 <div class="empty" id="emptyState">
   <div class="ei">§</div>
-  <h2>Litigation Review Guide Builder</h2>
-  <p>Enter a product name — drug, device, or consumer product. The tool researches injuries, severity grading, causation evidence, and confounder defenses — everything your reviewers need to build the case.</p>
+  <h2>Mass Tort Viability Research Memo</h2>
+  <p>Enter a pharmaceutical, medical device, or product name. The tool compiles a partner-level research memorandum — scientific and epidemiologic evidence, regulatory history, MDL and Daubert posture, preemption and SOL exposure, case economics, and an intake-ready Go / No-Go recommendation — to inform the firm's decision to pursue a new litigation.</p>
 
   <div id="savedDashboard" style="display:none;width:100%;max-width:640px;margin-top:24px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -457,10 +458,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
   </div>
 
   <div id="featsBlock" class="feats" style="margin-top:24px">
-    <div class="feat"><strong>4 Targeted Research Passes</strong><span>Exposure proof, injuries & severity grading, mechanism & clinical data, confounders & defenses — with source citations.</span></div>
-    <div class="feat"><strong>7 Consolidated Sections</strong><span>No overlap, no redundancy. Each section serves a specific element of the case. One cohesive document.</span></div>
-    <div class="feat"><strong>Built-In Verification</strong><span>Every guide runs through a mandatory second-pass audit. Hallucinations, missing data, and severity grading gaps get flagged.</span></div>
-    <div class="feat"><strong>Adapts to Case Type</strong><span>Pharmaceutical, medical device, mass tort, or product liability — terminology and prompts adjust automatically.</span></div>
+    <div class="feat"><strong>4 Partner-Level Research Passes</strong><span>Product and defendants, peer-reviewed scientific literature, regulatory and safety history, MDL / Daubert / preemption / SOL landscape — all cited.</span></div>
+    <div class="feat"><strong>8 Integrated Memo Sections</strong><span>Executive summary through intake criteria. Sections cross-reference rather than repeat. Written as flowing analytic prose, not bullet dumps.</span></div>
+    <div class="feat"><strong>Viability Scorecard & Go/No-Go</strong><span>Every memo ends with a five-element viability scorecard and a partner-level recommendation — Pursue, Monitor, or Decline.</span></div>
+    <div class="feat"><strong>Second-Pass Accuracy Audit</strong><span>An independent audit checks for unsourced claims, Daubert/preemption accuracy, and missing scientific literature before the memo is finalized.</span></div>
   </div>
 </div>
 
@@ -471,7 +472,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
     <button onclick="printGuide()">🖨 Print</button>
     <button onclick="dlPDF()">📕 .pdf</button>
     <button onclick="dlDOCX()">📝 .docx</button>
-    <button onclick="validateCitations()" id="btnValidateCite" title="Check if citation URLs are reachable">🔗 Validate Citations</button>
     <div class="wc" id="wc"></div>
   </div>
 
@@ -541,10 +541,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
         <div class="ce-icon">💬</div>
         <p>Ask questions, request changes, add content, or remove sections. Claude will rewrite full sections — no more truncated snippets.</p>
         <div class="ce-hints">
-          <button class="ce-hint" onclick="insertHint('Expand the confounders section with more detail on cardiac conditions')">Expand the confounders section with more detail...</button>
-          <button class="ce-hint" onclick="insertHint('Add ICD-10 codes to every injury in the severity section')">Add ICD-10 codes to every injury...</button>
-          <button class="ce-hint" onclick="insertHint('What is the strongest defense argument in this guide?')">What is the strongest defense argument?</button>
-          <button class="ce-hint" onclick="insertHint('Remove the treatment section')">Remove the treatment section</button>
+          <button class="ce-hint" onclick="insertHint('Expand the Legal Landscape section with more detail on the current MDL bellwether schedule and Daubert history')">Expand the MDL and Daubert analysis...</button>
+          <button class="ce-hint" onclick="insertHint('Deepen the Scientific & Medical Literature section — add named epidemiologic studies with effect sizes and CIs')">Add named studies with effect sizes...</button>
+          <button class="ce-hint" onclick="insertHint('What is the single strongest reason to decline this litigation?')">Strongest reason to decline?</button>
+          <button class="ce-hint" onclick="insertHint('Sharpen the preemption analysis in the Legal Landscape section')">Sharpen the preemption analysis...</button>
         </div>
       </div>
     </div>
@@ -655,21 +655,21 @@ const LIT_TERMS={
 function T(){return LIT_TERMS[document.getElementById('litType').value]||LIT_TERMS.pharmaceutical}
 
 const SEC_IDS=[
-  'product_exposure','injuries_severity','causation_mechanism',
-  'medical_context','confounders_defense','treatment_soc','review_guide_notes','reviewer_checklist'
+  'exec_summary','product_market','scientific_evidence','regulatory_signals',
+  'causation_analysis','legal_landscape','case_economics','intake_verdict'
 ];
 
 function getSecLabels(){
   const t=T();
   return {
-    product_exposure:t.product+' & Exposure',
-    injuries_severity:'Injuries & Severity Grading',
-    causation_mechanism:t.mechanism+' & Causation',
-    medical_context:'Medical Context & Monitoring',
-    confounders_defense:'Confounders & Defense Arguments',
-    treatment_soc:'Treatment & Standard of Care',
-    review_guide_notes:'Review Guide & Notes',
-    reviewer_checklist:'Reviewer Extraction Checklist',
+    exec_summary:'Executive Summary & Preliminary Recommendation',
+    product_market:t.product+', Manufacturer & Market Profile',
+    scientific_evidence:'Scientific & Medical Literature',
+    regulatory_signals:'Regulatory Signals & Safety History',
+    causation_analysis:'Causation Theory & Biologic Plausibility',
+    legal_landscape:'Legal Landscape — MDL, Daubert, Preemption & SOL',
+    case_economics:'Case Economics & Defendant Profile',
+    intake_verdict:'Intake Criteria & Go / No-Go Recommendation',
   };
 }
 
@@ -681,39 +681,34 @@ function getSEC(){
 let SEC=getSEC();
 
 const RP=[
-  {id:'product_exposure_reg',l:'Product Identity, Exposure & Regulatory',q:`
-1. PRODUCT IDENTITY: Full names (brand, generic, model numbers), ALL manufacturers past+present, corporate acquisition history, product class/category, all formulations/models/versions, route/method of exposure.
-2. EXPOSURE DOCUMENTATION: What records prove the client was exposed? Search for prescribing information, product documentation, usage patterns. What records would a reviewer find — prescription records, surgical logs, purchase records, product registration, administration records? How is the product typically administered/used?
-3. REGULATORY HISTORY: Search for regulatory approvals, clearances, safety communications, recalls, warnings, withdrawals. For each action: exact date, what injury/risk triggered it, exact regulatory language. This establishes manufacturer KNOWLEDGE of risk.
-4. LITIGATION STATUS: Search for litigation, MDL, lawsuits. Plaintiff allegations, legal theories, MDL status/number, case count, key rulings, settlements. What injuries are alleged? What is the causation theory?`},
+  {id:'product_market_research',l:'Product, Manufacturer & Market Footprint',q:`
+1. PRODUCT IDENTITY: Full brand and generic names, model numbers, formulations, chemical class / device category, mechanism at a high level, indications, route of administration or method of use, typical dosing or implant protocol, peak and current sales figures, and the clinical/engineering problem the product was designed to solve.
+2. MANUFACTURER & CORPORATE HISTORY: Every manufacturer past and present. Parent companies, subsidiaries, successor entities, licensing deals, acquisitions, divestitures, and spin-offs. Identify viable defendants and flag any successor-liability or corporate-separateness issues. Note non-US affiliates that could be joined. Collect publicly reported revenue and insurance signals where available; flag any bankruptcy, restructuring, or solvency concerns.
+3. MARKET FOOTPRINT & EXPOSED POPULATION: US prescribing/implantation volumes, market share, international distribution, typical patient/user profile, off-label use patterns, and promotional/marketing conduct. This frames both the docket ceiling and potential failure-to-warn and marketing theories.
+4. PRODUCT DEVELOPMENT HISTORY: Pivotal pre-market studies, clinical development milestones, and the approval pathway at a high level (full regulatory chronology goes to the regulatory pass). Note any early signals of concern in development.`},
 
-  {id:'injury_severity_dx',l:'Injuries, Severity Grading & Diagnosis',q:`
-5. ALL ALLEGED INJURIES — EXHAUSTIVE: Search for adverse events, injuries alleged, safety signals, FAERS/MDR data, clinical trial adverse event rates. For EACH injury: full medical name, ALL synonyms/alternate names in medical records, ICD-10 codes, clinical presentation.
-6. SEVERITY GRADING — THIS DIRECTLY DETERMINES DAMAGES:
-For EACH alleged injury, search for its grading/staging/classification system:
-  - CTCAE Grade 1-5, NYHA Class I-IV, CKD Stage 1-5, Child-Pugh A-C, MELD, NIHSS, mRS 0-6, Wells/Geneva scores, Hunt & Hess, Ranson/BISAP — whichever applies
-  - For EACH grade: specific clinical findings, lab values, symptoms, functional limitations that define that grade
-  - What is MINIMUM documentation needed to assign each grade
-  - Grade 1-2 = minimal damages. Grade 4-5 = potentially millions. Accurate grading is everything.
-7. DIAGNOSTIC CRITERIA: For each injury, formal diagnostic criteria (KDIGO, Framingham, Berlin, etc.). Specific lab thresholds, imaging findings, clinical criteria. What documentation confirms the diagnosis vs. merely suggests it.
-8. CAUSATION TIMELINE: Expected time from exposure to injury onset. Dose/duration dependence. Dechallenge/rechallenge data. Published temporal relationship evidence.`},
+  {id:'scientific_literature',l:'Peer-Reviewed Scientific & Epidemiologic Literature',q:`
+5. PRINCIPAL EPIDEMIOLOGIC STUDIES: Identify the most important peer-reviewed studies, meta-analyses, and systematic reviews linking the product to alleged injuries. For EACH key study: authors, journal, year, design, population, exposure and outcome definitions, effect sizes (RR/OR/HR) with confidence intervals, and methodological strengths and limitations. Prioritize NEJM, JAMA, Lancet, BMJ, Cochrane, and major specialty journals.
+6. STRENGTH, CONSISTENCY & ROBUSTNESS: Across studies, is the association strong and consistent? Is it robust across populations, exposure definitions, and outcome ascertainment methods? Are effect sizes large enough to support general causation?
+7. OPPOSING & NULL LITERATURE: The best-designed studies finding no association or attributing the signal to confounding/detection bias. How have plaintiff experts reconciled or critiqued these studies? What is the defense's strongest literature?
+8. MECHANISM OF HARM: Peer-reviewed mechanistic literature — molecular target, pharmacokinetics, engineering/material failure mode, biomechanical cascade. Sophisticated enough to support a general-causation expert.
+9. DOSE-RESPONSE & TEMPORALITY: Published dose-response gradients, latency distributions, dechallenge/rechallenge data. Bradford Hill factor evidence.
+10. SIGNAL INJURY CATALOG: All injuries alleged or plausibly linked to the product, tiered by strength of scientific support (strong peer-reviewed / emerging or contested / speculative). Leading sources for each tier.`},
 
-  {id:'mechanism_clinical',l:'Mechanism of Harm & Clinical Data',q:`
-9. MECHANISM OF HARM: How does the product cause the alleged injuries? Scientific/mechanical/chemical pathway. Published research supporting causation. Any evidence the mechanism is controversial — search for debate/criticism. This is the core causation argument.
-10. CLINICAL/EPIDEMIOLOGICAL DATA: Pivotal studies, clinical trials, epidemiological studies. Injury rates in exposed vs. unexposed populations. Death rates. Post-marketing data. Search for specific study names, results, and adverse event rates.
-11. UNDERLYING CONDITION: What condition led to product use? Natural history — what complications occur WITHOUT the product? This is critical because defense will argue injuries are from the condition, not the product. What does the condition look like vs. what product injury looks like.
-12. LAB VALUES & MONITORING: For each injury, what labs confirm/track it? Normal ranges vs. injury thresholds. What baseline values should exist BEFORE exposure? What changes during exposure prove causation? Before→during→after trajectory.`},
+  {id:'regulatory_history',l:'Regulatory History & Safety Signals',q:`
+11. APPROVAL PATHWAY & EARLY WARNINGS: Exact approval/clearance pathway (NDA/BLA, 510(k)/PMA, De Novo, HDE, accelerated approval). Dissenting reviewer memos, advisory-committee splits, CRLs, post-marketing requirements, conditions on approval. Early agency skepticism = manufacturer notice.
+12. LABELING & WARNING CHRONOLOGY: Every significant label change, contraindication, precaution, warning, black-box warning, Dear Healthcare Provider letter, REMS imposition, or withdrawal. For EACH: date, triggering safety signal, exact language. Compare against when industry/agency knew of the risk — the gap is the failure-to-warn case.
+13. ADVERSE EVENT SURVEILLANCE: FAERS or MAUDE case counts, death counts, serious AE trends, published post-marketing studies, FDA safety communications. Note these are hypothesis-generating, not confirmatory.
+14. INSPECTIONS, RECALLS & ENFORCEMENT: FDA Form 483 observations, warning letters, Class I/II/III recalls, untitled letters, consent decrees, DOJ activity. Manufacturing/quality-system failures support independent defect theories.
+15. INTERNATIONAL REGULATORY ACTIONS: EMA, MHRA, Health Canada, TGA, PMDA actions. Foreign actions predating US conduct go to manufacturer knowledge and blunt preemption.`},
 
-  {id:'conf_defense',l:'Confounders, Comorbidities & Defenses',q:`
-13. CONFOUNDERS — FRAMED AS DEFENSE ARGUMENTS: For each potential confounder:
-  (a) What the defense will argue: "[Confounder] caused the injury, not the product"
-  (b) What chart documentation DEFEATS that argument
-  (c) What chart documentation SUPPORTS the defense (reviewer flags case risk)
-  Search for confounding factors, differential diagnosis, other causes.
-  Cover: cardiovascular, pulmonary, infections, metabolic (diabetes, obesity/BMI), renal, environmental, lifestyle (smoking, alcohol — MD-diagnosed only), concomitant medications/exposures, genetic factors, age/frailty.
-14. COMORBIDITY RULES: What must be physician-documented vs. self-reported? BMI documentation. Pre-existing conditions must be documented BEFORE exposure to be valid confounders.
-15. STANDARD OF CARE & TREATMENT: What alternatives existed? Was this product appropriate? What treatments are needed for the injuries once they occur? What monitoring should have been done? Search for treatment guidelines. This matters for causation AND damages.
-16. SPECIALISTS: What specialists are involved in treating the condition and injuries? Which notes matter most for the case?`}
+  {id:'legal_landscape_research',l:'Legal Landscape, MDL, Daubert, Preemption, SOL & Economics',q:`
+16. MDL & COORDINATED PROCEEDINGS: Does a federal MDL exist? MDL number, transferee judge, district, creation date. Any pending JPML motion. State-court coordinated proceedings (CA JCCP, NJ MCL, etc.). PSC composition and lead counsel. Current intake posture of the MDL (open / closing / resolution). Bellwether schedule and most recent trial outcomes.
+17. DAUBERT / FRYE HISTORY: Every published admissibility ruling on the principal plaintiff general-causation experts. Jurisdiction, reasoning, appellate treatment. Prior exclusions are litigation-killers; prior admissions are green lights.
+18. PREEMPTION POSTURE: For PMA devices, Riegel v. Medtronic and parallel-claim exception — what has survived preemption motions? For generic drugs, Mensing / Bartlett exposure. For branded drugs, Wyeth v. Levine "clear evidence" standard. Any published preemption rulings specific to this product.
+19. STATUTE OF LIMITATIONS & REPOSE: State-by-state SOL and statute-of-repose analysis for products liability, negligence, warranty, consumer protection. Discovery-rule treatment. Any tolling orders in the MDL. States where the claim is already barred or at imminent risk.
+20. VERDICTS, SETTLEMENTS & PER-CASE VALUE: Bellwether outcomes with dollar figures, remittiturs, reversals, aggregate settlements, matrix deals, Lone Pine orders. Publicly reported per-case value tiers by injury grade. Current competitive posture — which plaintiff firms are still taking intake, which have closed.
+21. CASE ECONOMICS INPUTS: Expected workup cost per case (medical records, experts, testing). Defendant insurance signals, solvency, bankruptcy risk. Strategic posture — is it early, mid-docket, or late to enter?`}
 ];
 
 let ac=null,allRes={},secMD={},allMD='',genModel='claude-sonnet-4-20250514';
@@ -724,17 +719,17 @@ let activeSelectedSecs=[];
 let activeRP=[];
 
 // Maps each output section to the research passes it needs.
-// review_guide_notes and reviewer_checklist synthesize from all research,
+// exec_summary and intake_verdict synthesize from all research,
 // so they require every pass.
 const SEC_TO_RESEARCH={
-  product_exposure:['product_exposure_reg'],
-  injuries_severity:['injury_severity_dx'],
-  causation_mechanism:['mechanism_clinical'],
-  medical_context:['mechanism_clinical'],
-  confounders_defense:['conf_defense'],
-  treatment_soc:['conf_defense'],
-  review_guide_notes:['product_exposure_reg','injury_severity_dx','mechanism_clinical','conf_defense'],
-  reviewer_checklist:['product_exposure_reg','injury_severity_dx','mechanism_clinical','conf_defense'],
+  exec_summary:['product_market_research','scientific_literature','regulatory_history','legal_landscape_research'],
+  product_market:['product_market_research'],
+  scientific_evidence:['scientific_literature'],
+  regulatory_signals:['regulatory_history','product_market_research'],
+  causation_analysis:['scientific_literature','regulatory_history'],
+  legal_landscape:['legal_landscape_research'],
+  case_economics:['legal_landscape_research','product_market_research'],
+  intake_verdict:['product_market_research','scientific_literature','regulatory_history','legal_landscape_research'],
 };
 
 const DEPTH_CONFIG={
@@ -924,22 +919,10 @@ function selDepth(el,d){
 /* ═══════ SECTIONS ═══════ */
 function initSec(){
   const grid=document.getElementById('secGrid');
-  grid.innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':'';onSecToggle()"><span class="ck">✓</span><span class="sec-label">${s.l}</span></label>`).join('');
+  grid.innerHTML=SEC.map(s=>`<label class="stog on" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">✓</span><span class="sec-label">${s.l}</span></label>`).join('');
   initSidebarDrag();
 }
-function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checked=v;c.parentElement.classList.toggle('on',v);c.parentElement.querySelector('.ck').textContent=v?'✓':''});onSecToggle()}
-/* When any section checkbox changes, update activeSelectedSecs and re-render if output exists */
-function onSecToggle(){
-  const checked=getSecs();
-  if(checked.length>0)activeSelectedSecs=[...checked];
-  estimateCost();
-  // Re-render output if it exists (live filtering)
-  const gBody=document.getElementById('gBody');
-  if(gBody&&gBody.children.length>0&&Object.values(secMD).some(v=>v&&v.trim())){
-    splitOutputIntoSections();
-    updWC();buildTOC();
-  }
-}
+function togAll(v){document.querySelectorAll('.stog input').forEach(c=>{c.checked=v;c.parentElement.classList.toggle('on',v);c.parentElement.querySelector('.ck').textContent=v?'✓':''})}
 function getSecs(){return Array.from(document.querySelectorAll('.stog input:checked')).map(c=>c.parentElement.dataset.id)}
 function getSecOrder(){return Array.from(document.querySelectorAll('.stog')).map(el=>el.dataset.id)}
 /* Return only checked section IDs in sidebar order */
@@ -949,7 +932,7 @@ function resetSecOrder(){
   const checked=new Set(getSecs());
   grid.innerHTML=SEC.map(s=>{
     const on=checked.has(s.id);
-    return `<label class="stog${on?' on':''}" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox"${on?' checked':''} onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':'';onSecToggle()"><span class="ck">${on?'✓':''}</span><span class="sec-label">${s.l}</span></label>`;
+    return `<label class="stog${on?' on':''}" data-id="${s.id}" draggable="true"><span class="drag-h">⠿</span><input type="checkbox"${on?' checked':''} onchange="this.parentElement.classList.toggle('on',this.checked);this.parentElement.querySelector('.ck').textContent=this.checked?'✓':''"><span class="ck">${on?'✓':''}</span><span class="sec-label">${s.l}</span></label>`;
   }).join('');
   initSidebarDrag();
 }
@@ -994,173 +977,96 @@ function initSidebarDrag(){
 /* ═══════ OUTPUT SECTION REORDER ═══════ */
 let outDragEl=null;
 
-/* ═══════ ENSURE secMD IS POPULATED ═══════ */
-/* If secMD is empty (e.g., loaded an old guide), parse allMD into secMD by matching
-   H1 headings to known section IDs. This is a one-time migration for backward compat. */
-function ensureSecMD(){
-  const hasContent=Object.values(secMD).some(v=>v&&v.trim().length>50);
-  if(hasContent)return; // already populated
-  if(!allMD||!allMD.trim())return;
-
-  const lines=allMD.split('\n');
-  const chunks=[];
-  let current=null;
-  for(const line of lines){
-    if(line.startsWith('# ')){
-      if(current)chunks.push(current);
-      current={title:line.replace(/^# /,'').trim(),lines:[line]};
-    }else if(current){
-      current.lines.push(line);
-    }
-  }
-  if(current)chunks.push(current);
-
-  const labels=getSecLabels();
-  const used=new Set();
-  for(const id of SEC_IDS){
-    const label=(labels[id]||'').toLowerCase();
-    const labelWords=label.split(/[\s&/,]+/).filter(w=>w.length>2);
-    if(!labelWords.length)continue;
-    let bestIdx=-1,bestScore=0;
-    for(let ci=0;ci<chunks.length;ci++){
-      if(used.has(ci))continue;
-      const heading=chunks[ci].title.toLowerCase();
-      const score=labelWords.filter(w=>heading.includes(w)).length;
-      if(score>bestScore){bestScore=score;bestIdx=ci}
-    }
-    if(bestIdx>=0&&bestScore>=Math.ceil(labelWords.length*0.3)){
-      secMD[id]=chunks[bestIdx].lines.join('\n');
-      used.add(bestIdx);
-    }
-  }
-  console.log('[ensureSecMD] Parsed allMD into secMD:',Object.keys(secMD).filter(k=>secMD[k]).length,'sections');
-}
-
-/* ═══════ GET ALLOWED SECTION IDS ═══════ */
-/* Single source of truth for which sections to display.
-   Priority: 1) Current checkbox state, 2) activeSelectedSecs, 3) whatever has content in secMD */
-function getAllowedSectionIds(){
-  const checked=getSecs();
-  if(checked.length>0)return checked;
-  if(activeSelectedSecs&&activeSelectedSecs.length>0)return[...activeSelectedSecs];
-  // Last resort: sections that have content
-  return SEC_IDS.filter(id=>secMD[id]&&secMD[id].trim().length>0);
-}
-
 function splitOutputIntoSections(){
-  // RENDERS FROM secMD KEYED BY ID — no positional matching, no fuzzy matching.
-  // Only sections whose ID is in getAllowedSectionIds() AND has content in secMD are shown.
-  try{
+  // COMPLETE REWRITE: Parse allMD as a STRING, not the DOM.
+  // Previous versions tried to parse gBody.innerHTML but content was always
+  // wrapped inside nested divs, making the parser see one giant block.
+  // This version works purely from the allMD string — no DOM parsing at all.
+
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML='';
+  gBody.innerHTML=''; // Clear completely
 
-  // 1. Ensure secMD is populated (backward compat for loaded guides)
-  ensureSecMD();
-
-  // 2. Determine which sections to show — ALWAYS filtered
-  const allowedIds=getAllowedSectionIds();
-  if(!allowedIds.length)return;
-
-  // 3. Collect markdown ONLY for allowed sections that have content
-  const sectionsToShow=allowedIds.filter(id=>secMD[id]&&secMD[id].trim().length>0);
-  if(!sectionsToShow.length)return;
-
-  // 4. Build combined markdown from ONLY allowed sections (for global citation numbering)
-  const combinedMD=sectionsToShow.map(id=>secMD[id]).join('\n\n---\n\n');
-
-  // 5. Convert citations globally ONCE (produces {{CITE:N:url}} markers + Works Cited)
-  const cited=convertToNumericalCitations(combinedMD);
-  lastCitationMap=cited.citations;
-  const citedMD=cited.md;
-
-  // 6. Parse the CITED markdown into H1 blocks
-  const lines=citedMD.split('\n');
-  const blocks=[];
+  // 1. Split allMD into sections by # headings (string-level, zero DOM)
+  const lines=allMD.split('\n');
+  const parsedSections=[]; // [{heading, md, secId}]
   let curHeading=null,curLines=[];
+
   for(const line of lines){
     if(line.startsWith('# ')){
-      if(curHeading!==null)blocks.push({heading:curHeading,md:curLines.join('\n')});
+      if(curHeading!==null){
+        parsedSections.push({heading:curHeading,md:curLines.join('\n')});
+      }
       curHeading=line.replace(/^# /,'').trim();
       curLines=[line];
     }else if(curHeading!==null){
       curLines.push(line);
     }
+    // Content before first # heading is silently dropped
   }
-  if(curHeading!==null)blocks.push({heading:curHeading,md:curLines.join('\n')});
-
-  // 7. Separate Works Cited from content blocks
-  const contentBlocks=[];
-  let worksCitedBlock=null;
-  for(const b of blocks){
-    if(b.heading.replace(/\{\{CITE:\d+:[^}]+\}\}/g,'').trim()==='Works Cited'){
-      worksCitedBlock=b;
-    }else{
-      contentBlocks.push(b);
-    }
+  if(curHeading!==null){
+    parsedSections.push({heading:curHeading,md:curLines.join('\n')});
   }
 
-  // 8. Render content blocks — one per allowed section ID (positional is safe here
-  //    because combinedMD was built from sectionsToShow in order)
-  const maxBlocks=Math.min(contentBlocks.length,sectionsToShow.length);
-  console.log('[split] Rendering '+maxBlocks+' sections (allowed: '+sectionsToShow.length+', checked: '+getSecs().length+')');
+  // 2. Match each section to a SEC ID using keyword overlap
+  parsedSections.forEach(sec=>{
+    const hWords=sec.heading.toLowerCase().split(/[\s&/,\-–—]+/).filter(w=>w.length>2);
+    let bestId=null,bestScore=0;
+    SEC.forEach(s=>{
+      const labelWords=s.l.toLowerCase().split(/[\s&/,\-–—]+/).filter(w=>w.length>2);
+      const overlap=labelWords.filter(lw=>hWords.some(hw=>hw.includes(lw)||lw.includes(hw))).length;
+      const score=labelWords.length>0?overlap/labelWords.length:0;
+      if(score>bestScore){bestScore=score;bestId=s.id}
+    });
+    sec.secId=(bestScore>=0.3)?bestId:null;
+  });
 
-  for(let i=0;i<maxBlocks;i++){
-    const secId=sectionsToShow[i];
+  // 3. HARD FILTER: Only keep sections the user checked.
+  //    activeSelectedSecs is set at the start of run() and retryGeneration().
+  //    For loaded guides it's empty, so we show everything.
+  let filtered;
+  if(activeSelectedSecs&&activeSelectedSecs.length>0){
+    filtered=parsedSections.filter(sec=>sec.secId&&activeSelectedSecs.includes(sec.secId));
+  }else{
+    filtered=parsedSections; // Loaded guides — show all
+  }
 
+  // 4. Sort by sidebar order
+  const sidebarOrder=getSecOrder();
+  filtered.sort((a,b)=>{
+    const ai=a.secId?sidebarOrder.indexOf(a.secId):-1;
+    const bi=b.secId?sidebarOrder.indexOf(b.secId):-1;
+    return (ai<0?999:ai)-(bi<0?999:bi);
+  });
+
+  // 5. Build DOM — each section gets its own sec-block > gc wrapper
+  filtered.forEach((sec,i)=>{
     const block=document.createElement('div');
     block.className='sec-block';
     block.draggable=true;
     block.dataset.secIdx=i;
-    block.id='sb-'+secId;
+    if(sec.secId)block.id='sb-'+sec.secId;
 
     const handle=document.createElement('div');
     handle.className='out-drag-h';handle.textContent='⠿';handle.title='Drag to reorder';
     block.appendChild(handle);
 
-    const rbtn=document.createElement('button');
-    rbtn.className='regen-btn';rbtn.textContent='↻ Regenerate';
-    rbtn.onclick=()=>regenSec(secId);
-    block.appendChild(rbtn);
+    if(sec.secId){
+      const rbtn=document.createElement('button');
+      rbtn.className='regen-btn';rbtn.textContent='↻ Regenerate';
+      rbtn.onclick=()=>regenSec(sec.secId);
+      block.appendChild(rbtn);
+    }
 
     const gc=document.createElement('div');gc.className='gc';
-    gc.innerHTML=md2html(contentBlocks[i].md);
+    gc.innerHTML=md2html(sec.md);
     block.appendChild(gc);
 
     gBody.appendChild(block);
-  }
-
-  // 9. Append Works Cited as a non-draggable block at the end
-  if(worksCitedBlock){
-    const wcBlock=document.createElement('div');
-    wcBlock.className='sec-block';
-    wcBlock.id='sb-works-cited';
-    wcBlock.style.borderTop='2px solid var(--bd)';
-    const wcGc=document.createElement('div');wcGc.className='gc';
-    wcGc.innerHTML=md2html(worksCitedBlock.md);
-    wcBlock.appendChild(wcGc);
-    gBody.appendChild(wcBlock);
-  }
+  });
 
   initOutputDrag();
+  // Rebuild TOC from the filtered sections now in the DOM
   buildTOC();
-  }catch(e){console.error('[splitOutputIntoSections] CRASHED:',e);alert('Section rendering error: '+e.message)}
-}
-
-/* ═══════ SECTION CAP SAFEGUARD ═══════ */
-/* Called after every render. Uses getAllowedSectionIds() — never no-ops. */
-function enforceSectionCap(){
-  const allowed=getAllowedSectionIds();
-  if(!allowed.length)return;
-  const gBody=document.getElementById('gBody');
-  if(!gBody)return;
-  const blocks=[...gBody.querySelectorAll('.sec-block:not(#sb-works-cited)')];
-  const max=allowed.length;
-  if(blocks.length>max){
-    console.warn('[SAFEGUARD] Removing '+(blocks.length-max)+' extra section blocks (had '+blocks.length+', allowed '+max+')');
-    for(let i=max;i<blocks.length;i++){
-      blocks[i].remove();
-    }
-  }
 }
 
 function initOutputDrag(){
@@ -1198,10 +1104,36 @@ function initOutputDrag(){
 }
 
 function rebuildMDFromOutput(){
-  // Rebuild allMD from secMD for currently allowed sections only
-  const allowed=getAllowedSectionIds();
-  const parts=allowed.map(id=>secMD[id]).filter(m=>m&&m.trim());
-  if(parts.length)allMD=parts.join('\n\n---\n\n');
+  const gBody=document.getElementById('gBody');
+  const blocks=gBody.querySelectorAll('.sec-block');
+  const parts=[];
+  blocks.forEach(block=>{
+    const gc=block.querySelector('.gc');
+    if(!gc)return;
+    const id=block.id?.replace('sb-','');
+    if(id&&secMD[id]){
+      parts.push(secMD[id]);
+    }else{
+      const h1=gc.querySelector('h1');
+      if(h1){
+        const heading=h1.textContent.trim();
+        const lines=allMD.split('\n');
+        const h1Lines=[];lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
+        let found=false;
+        for(let i=0;i<h1Lines.length;i++){
+          const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+          if(hText===heading||hText.toLowerCase().includes(heading.toLowerCase().split(' ')[0])){
+            const start=h1Lines[i];
+            const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+            parts.push(lines.slice(start,end).join('\n').trim());
+            found=true;break;
+          }
+        }
+        if(!found)parts.push('# '+heading);
+      }
+    }
+  });
+  allMD=parts.join('\n\n---\n\n');
   updWC();
 }
 
@@ -1447,8 +1379,6 @@ SEARCH STRATEGY — SOURCE QUALITY:
 }
 
 async function doResearch(keys,drug,cond,inj,extra,sig,passes){
-  // Fallback: if no passes provided, use activeRP or full RP set
-  if(!passes||!passes.length) passes=(activeRP&&activeRP.length)?activeRP:RP;
   const results={};
   const nKeys=keys.length;
   const states=keys.map(()=>'ready');
@@ -1517,11 +1447,7 @@ async function doResearch(keys,drug,cond,inj,extra,sig,passes){
           const txt=await streamToText(r);
           if(txt.trim().length<100){throw new Error('Response too short ('+txt.trim().length+' chars)');}
           results[pass.id]=txt.trim();
-          const resCitations=countCitations(results[pass.id]);
-          let resStatus=((Date.now()-t0)/1000|0)+'s — '+results[pass.id].length.toLocaleString()+' chars — '+resCitations+' citation'+(resCitations!==1?'s':'');
-          if(results[pass.id].length<500)resStatus+=' ⚠ thin';
-          if(resCitations<2)resStatus+=' ⚠ low sources';
-          setP(pi,'done',resStatus);
+          setP(pi,'done',((Date.now()-t0)/1000|0)+'s — '+results[pass.id].length.toLocaleString()+' chars');
           passSuccess=true;
         }catch(e){
           if(e.name==='AbortError')throw e;
@@ -1553,24 +1479,28 @@ async function doResearch(keys,drug,cond,inj,extra,sig,passes){
 /* ═══════ GAP ANALYSIS ═══════ */
 async function gapAnalysis(key,drug,research,sig){
   const allText=Object.values(research).join('\n\n');
-  const sys=`You are a medical-legal research auditor. Review the research notes below and identify SPECIFIC gaps — data that is missing that would be needed to build cases and get clients paid. Focus on the five litigation elements: exposure proof, injury identification, severity grading, causation evidence, and confounder documentation.
+  const sys=`You are a partner-level mass tort research auditor. Review the research notes below and identify SPECIFIC gaps — missing data a partner would need to decide whether to pursue this litigation. Focus on the five viability elements: scientific evidence of causation, regulatory validation of risk, legal viability (Daubert/preemption/SOL/forum), case economics, and strategic posture.
 
 RESEARCH NOTES:
 ${allText.substring(0,60000)}
 
 Look for:
-- Missing severity grading scales for alleged injuries (CTCAE, NYHA, CKD stage, etc.)
-- Missing diagnostic criteria (what confirms the injury exists?)
-- Missing causation timeline (drug exposure → injury onset timing)
-- Missing dechallenge/rechallenge data
-- Missing clinical trial safety data (drug vs. placebo rates)
-- Missing ICD-10 codes for injuries
-- Missing confounder documentation rules
-- Missing lab thresholds that define severity grades
-- Missing dosing information for exposure verification
-- Missing specific dates (FDA approval, safety communications, withdrawal)
-- Missing complication names or synonyms
-- Any category that seems thin
+- Missing principal peer-reviewed epidemiology (named studies, authors, journal, year, effect sizes with CIs)
+- Missing meta-analyses or systematic reviews on the causation question
+- Missing dose-response or latency data (Bradford Hill factors)
+- Missing mechanism-of-harm literature — molecular target, pathway, or engineering/materials failure mode
+- Missing opposing/null literature that defense experts will rely on
+- Missing regulatory chronology: approval pathway, labeling history, black-box warnings, REMS, withdrawals with exact dates and triggering signals
+- Missing FAERS/MAUDE adverse event data or FDA safety communications
+- Missing foreign regulatory actions (EMA, MHRA, Health Canada, TGA, PMDA)
+- Missing MDL specifics: MDL number, transferee judge, district, creation date, PSC composition, bellwether schedule
+- Missing published Daubert/Frye rulings on general-causation experts in this litigation
+- Missing preemption analysis specific to this product (Riegel for PMA devices, Mensing/Bartlett for generics, Wyeth v. Levine for branded drugs)
+- Missing state-by-state SOL / statute-of-repose analysis or tolling orders
+- Missing verdict and settlement history with dollar figures (bellwethers, aggregate settlements, matrix deals)
+- Missing defendant corporate structure, parent/subsidiary relationships, insurance or solvency signals
+- Missing per-case value tier data
+- Missing current intake posture of the MDL (open, closing, resolution)
 
 For each gap, provide a SPECIFIC web search query that would fill it. Format:
 GAP: [what's missing]
@@ -1618,361 +1548,121 @@ function getSP(){
   const isProduct=t.product_lc==='product';
 
   return {
-product_exposure:`# ${labels.product_exposure}
-PURPOSE: Establish WHAT the client was exposed to, PROVE exposure from records, and show the manufacturer KNEW about risks.
-
-## Product Identity
-- Full names (brand, generic, model numbers, lot numbers if device)
-- ALL manufacturers past and present, corporate acquisition/merger history
-- Product class/category, all formulations/versions/models
-- Approved/intended use, indications, target population
-- 2-3 sentence summary of why litigation exists
-
-## Exposure Proof — What Records Establish Use
-- ${t.exposure_records}
-- How to verify: start date, stop date, total duration of exposure
-- ${t.dosing_desc}
-- ${t.off_label} (strengthens the case if present)
-
-## Regulatory & Safety Timeline
-TABLE or dated bullet format:
-- ${t.regulatory}
-- For each safety action: exact date, what injury triggered it, regulatory language
-- Key question for each: did this safety action occur BEFORE or AFTER the client's exposure period?
-- This timeline proves the manufacturer had KNOWLEDGE of risk`,
-
-injuries_severity:`# Injuries & Severity Grading
-PURPOSE: This section directly determines case value. Higher severity grade = more damages = higher payout.
-
-For EACH alleged injury, use this structure:
-
-**INJURY NAME** (ICD-10: codes)
-*Also documented as:* every synonym, alternate chart term, nursing shorthand, coding abbreviation the reviewer might see
-
-**Diagnostic Criteria — How to Confirm This Injury Exists:**
-- Name the formal criteria set (e.g., KDIGO for AKI, Framingham for CHF, Berlin for ARDS)
-- Lab values that CONFIRM: specific thresholds, not just "elevated"
-- Imaging/test findings that CONFIRM: specific findings
-- Where to look in the chart: physician assessments, specialist consults, discharge summaries, problem list
-- What makes a CONFIRMED diagnosis vs. "rule out" or "possible" — only confirmed counts
-
-**Severity Grading — THIS IS WHAT DETERMINES DAMAGES:**
-${isDevice?`For device cases, severity is driven by WHAT THE FAILURE REQUIRED — grade by clinical outcome:
-| Severity Tier | Clinical Outcome | Damages Implication |
-| Tier 1 — Conservative | Pain management, orthotics, injections, physical therapy only | Lower damages |
-| Tier 2 — Revision Surgery | Device removal, replacement, or secondary procedure required | Significant damages |
-| Tier 3 — Salvage Procedure | Joint fusion (arthrodesis), reconstruction with bone graft, major corrective surgery | High damages — permanent loss of function |
-| Tier 4 — Amputation/Permanent Disability | Toe/partial foot amputation, permanent immobility, inability to walk normally | Highest damages |
-Document: which tier, what procedures were performed, dates, whether outcome is permanent.
-Also note: bone loss (mm of shortening), nerve damage, chronic pain status, mobility limitations.
-If formal medical grading scales exist for specific complications (e.g., CTCAE for nerve damage), use those as well.`
-:`Name the specific grading scale (CTCAE Grade 1-5, NYHA Class I-IV, CKD Stage 1-5, Child-Pugh A-C, MELD, NIHSS, mRS, etc.).
-TABLE format:
-| Grade/Stage | Clinical Definition | Key Labs/Findings | Functional Impact | Damages Implication |
-For each grade: what SPECIFIC findings put the client at that grade. The reviewer must be able to read chart entries and assign a grade.
-- Grade 1-2 = mild injury, lower damages
-- Grade 3 = serious, significant damages
-- Grade 4 = life-threatening, high damages
-- Grade 5 = fatal, wrongful death`}
-Document: HIGHEST severity reached. Whether RESOLVED or PERMANENT (permanent = ongoing damages).
-
-**Causation Link:**
-- How the ${t.product_lc} causes this injury (1-2 sentences)
-- Expected onset timeline after exposure
-${isDevice?`- Imaging evidence: what X-ray/MRI/CT findings show the failure (subsidence, migration, lucency, fragmentation)
-- Operative findings: what the revision surgeon documented about the failed device
-- Comparison: pre-implant imaging vs. post-failure imaging`
-:`- Dechallenge: did it improve when ${t.product_lc} was stopped/removed?
-- Rechallenge: did it recur on re-exposure? (strongest evidence)`}
-
-**${t.product}-Caused vs. Other Causes:**
-- What evidence in the chart points to ${t.product_lc} causation
-- What evidence points to other causes
-- How the reviewer distinguishes them`,
-
-causation_mechanism:`# ${labels.causation_mechanism}
-PURPOSE: Arm the reviewer with the scientific argument connecting ${t.product_lc} → injury, and the evidence patterns to look for in the chart.
-
-## How the ${t.product} Causes Harm
-- ${t.mechanism_desc}
-- Step-by-step pathway: ${t.product_lc} action → physiological/mechanical effect → tissue/organ damage → clinical injury
-- Write so a non-clinician can explain it in a demand letter
-
-## Clinical/Epidemiological Evidence
-- Study data showing higher injury rates in exposed vs. unexposed populations (cite rates)
-- Key study names and results
-- Post-marketing surveillance data
-- Controversy or debate about the mechanism (defense will exploit this)
-
-## Causation Evidence Patterns in the Chart
-${isDevice?`**For device cases, causation follows a different pattern than drug cases:**
-- IMAGING TIMELINE: Pre-implant X-ray (normal bone) → post-implant X-ray (device in place) → follow-up imaging showing failure (subsidence, migration, lucency, fragmentation, bone erosion)
-- OPERATIVE FINDINGS: What the revision surgeon saw and documented — device condition, tissue damage, bone loss
-- TIME TO FAILURE: How long from implantation to first symptoms? To imaging confirmation? To revision surgery?
-- DEVICE CONDITION: Was the device intact or fragmented? Did it migrate? Manufacturing defect visible?
-- COMPARISON TO EXPECTED PERFORMANCE: Manufacturer claimed X% success rate — actual failure contradicts this
-- PHYSICIAN ATTRIBUTION: Surgeon's assessment that the device failed, not that the underlying condition worsened
-- ADVERSE EVENT REPORTS: Was an MDR filed? Was the device returned to the manufacturer?`
-:`- Timeline: exposure start → injury onset. What timing is consistent?
-- Lab trajectory: baseline (pre-exposure) → on-exposure → post-injury. This before/during/after comparison is often the strongest evidence
-- Dechallenge: injury improved when ${t.product_lc} was stopped/removed
-- Rechallenge: injury recurred on re-exposure (strongest causation evidence)
-- Physician notes attributing injury to the ${t.product_lc}
-- Adverse event reports filed`}`,
-
-medical_context:`# Medical Context & Monitoring
-PURPOSE: Only what the reviewer needs to (a) understand why the client used this ${t.product_lc}, (b) distinguish pre-existing conditions from ${t.product_lc}-caused injury, and (c) track lab values that prove causation and severity.
-
-## Underlying Condition (Brief)
-- What condition led to ${t.product_lc} use? Definition, how diagnosed, prevalence
-- Natural history WITHOUT the ${t.product_lc}: what complications occur from the condition alone? On what timeline?
-- The defense will argue every injury is from the underlying condition — the reviewer needs to know what the condition does on its own to counter that
-
-## Lab Values — Before/During/After Tracking
-TABLE format: Lab Test | Normal Range | Injury Threshold | Severity Grade It Maps To | When to Check
-- BASELINE (pre-exposure): what values should exist? If missing, flag it — weakens causation but doesn't kill it
-- DURING EXPOSURE: what changes suggest ${t.product_lc}-caused harm vs. natural progression?
-- POST-INJURY: what values confirm severity grade?
-- The trajectory from baseline → on-exposure → post-injury is the clearest causation proof
-
-## What's the Condition vs. What's the ${t.product}?
-- Complications expected from the underlying condition (with typical onset timeline)
-- Injuries specific to the ${t.product_lc} (with typical onset timeline)
-- How to distinguish them in the chart — timing, lab patterns, clinical presentation differences`,
-
-confounders_defense:`# Confounders & Defense Arguments
-PURPOSE: The defense will argue the injury was NOT caused by the ${t.product_lc}. This section prepares the reviewer to find documentation that defeats each argument AND to flag case risks early.
-
-For EACH confounder:
-**CONFOUNDER NAME** (ICD-10 if applicable)
-- **Defense argument:** "[Confounder] caused the injury, not the ${t.product_lc}"
-- **To DEFEAT this:** Chart evidence showing [specific documentation that undermines this argument]
-- **CAUTION — this HURTS our case:** Chart documentation that [supports the defense position]
-- **Documentation rule:** [what must be physician-documented, timing requirements]
-${isDevice?`
-**DEVICE-SPECIFIC DEFENSE ARGUMENTS — the defense will likely raise these:**
-- **Surgical technique error:** "The surgeon implanted it incorrectly" — To defeat: operative report shows standard technique, surgeon is experienced. HURTS case if: surgeon deviated from protocol, implant placed at wrong angle/depth.
-- **Patient non-compliance:** "Patient didn't follow post-op restrictions" — To defeat: documented compliance with weight-bearing restrictions, follow-up attendance. HURTS case if: notes show early weight-bearing, missed follow-ups.
-- **Patient anatomy/bone quality:** "Patient's bone was too weak/deformed for this device" — To defeat: pre-op imaging showed adequate bone stock. HURTS case if: pre-op showed osteoporosis, severe deformity, prior surgery in area.
-- **Pre-existing condition severity:** "The arthritis was too advanced for this device" — To defeat: pre-op grading showed appropriate candidacy per device labeling. HURTS case if: patient was outside labeled indications.
-- **Alternative etiology:** "Complication is from infection/trauma, not device failure" — To defeat: cultures negative, no trauma documented. HURTS case if: post-op infection documented, patient reports injury to area.
-- **Known/accepted risk:** "This is a known surgical complication the patient consented to" — To defeat: consent form didn't disclose actual failure rates, manufacturer concealed true risk. HURTS case if: informed consent explicitly listed this complication.`
-:`- **Key question:** Was this condition STABLE before ${t.product_lc} exposure, or already progressing?`}
-
-Cover ALL relevant categories: ${isDevice
-?'pre-existing bone/joint conditions, prior surgeries in the area, osteoporosis/bone density, obesity/BMI (affects mechanical load), diabetes (affects healing), smoking (affects healing and bone integration), peripheral vascular disease, inflammatory conditions (RA, gout), patient activity level, compliance with post-op protocol, surgical technique factors.'
-:'pre-existing cardiovascular conditions (specify each type), pulmonary, infections, metabolic (diabetes type, obesity — BMI MUST be documented at exposure start), renal, environmental, lifestyle factors (alcohol = MUST be MD-diagnosed, not self-reported; smoking status), concomitant medications/exposures (list each that could cause similar injuries), genetic/hereditary factors, age/frailty.'}
-
-**Other ${t.products} in the Records:**
-- ${t.products} that CONFIRM the injury (prescribed/used to treat it — proves injury exists)
-- ${t.products} that are CONFOUNDERS (could independently cause similar injury — defense will use)
-- Document each with: name, why it matters, whether it helps or hurts the case
-
-CRITICAL RULE: A confounder only works as a defense argument if it is documented BEFORE ${t.product_lc} exposure. Conditions appearing in records AFTER exposure may be ADDITIONAL ${t.product_lc}-caused injuries, not confounders.`,
-
-treatment_soc:`# Treatment & Standard of Care
-PURPOSE: (1) What medical treatment did the injury REQUIRE? (2) Was the ${t.product_lc} the right choice? (3) Should the ${t.admin_by} have done something differently?
-
-## Treatment Required for Injuries
-For each alleged injury, what treatment was needed?
-- Hospitalizations (dates, length of stay, ICU days)
-- Surgeries/procedures (each one = damages)
-- Ongoing treatment (chronic medication, monitoring, follow-up visits)
-- Specialist referrals triggered by the injury
-- Death (date, cause of death, was ${t.product_lc}/injury listed)
-
-## Standard of Care — Was the ${t.product} Appropriate?
-- Was this ${t.product_lc} the appropriate choice for this client? Were safer alternatives available?
-- Were ${t.monitoring} followed? Did the ${t.admin_by} monitor appropriately?
-- Failure to follow standard of care = potential additional claim
-- What alternatives exist? For each: name, why it might have been preferred
-
-## Specialists Involved
-Bullet list: **Specialist Title** — what they manage, what notes from them matter for the case (one line each)`,
-
-review_guide_notes:`# Review Guide & Notes
-PURPOSE: Practical reference for the reviewer to keep open while reading medical records. This section tells them exactly what to look for, where to find it, and what terminology they will encounter. This is NOT a medical education resource — it is a field guide for building the case from the chart.
-
-## ICD-10 & Terminology Quick Reference
-TABLE format for each alleged injury:
-| Injury | ICD-10 Code(s) | Chart Synonyms / Alternate Terms | Nursing Shorthand | Coding Terms |
-Reviewers will see the same injury documented under multiple names. Every synonym that might appear in physician notes, nursing assessments, discharge summaries, or problem lists should be listed here.
-
-## What to Look For in the Chart — By Record Type
-For each record type, what specific entries matter for THIS case:
-- **Physician Assessment/Plan:** What diagnosis language confirms the injury? What phrases indicate attribution to the ${t.product_lc}?
-- **Specialist Consults:** Which specialties matter? What findings from their notes are case-relevant?
-- **Operative Reports:** What procedure details document ${t.product_lc} exposure or injury treatment?
-- **Nursing Notes:** What documented symptoms, vitals, or observations support injury claims?
-- **Lab Results:** Which specific labs to track, what values matter, at what time points?
-- **Imaging Reports:** What findings confirm injury or ${t.product_lc} failure?
-- **Discharge Summaries:** What diagnosis lists, medication changes, or follow-up plans matter?
-- **Medication Records (MAR/eMAR):** What medication entries prove exposure or confirm injury treatment?
-${isDevice?`- **Implant Records / Product Stickers:** Device ID, lot number, model, manufacturer — must match the product in litigation
-- **Surgical Technique Notes:** Compliance with manufacturer instructions for use`:''}
-
-## Red Flags & Case Alerts
-Items the reviewer should flag IMMEDIATELY for attorney attention:
-- Entries that suggest the injury existed BEFORE ${t.product_lc} exposure
-- Physician notes attributing the injury to a cause OTHER than the ${t.product_lc}
-- Documentation gaps in exposure records (missing dates, missing records for key time periods)
-- Conflicting information between different providers or record entries
-- Evidence of ${t.off_label}
-- Evidence of failure to monitor per ${t.monitoring}
-- Any adverse event report or incident report in the chart
-
-## Chronology Tips
-- Build the timeline from: ${t.exposure_records}
-- Key dates to anchor: first exposure date, injury onset date, ${isDevice?'revision/removal date':'discontinuation date'}, current status
-- Look for temporal gaps — missing records between exposure and injury onset weaken causation
-- Chart entries are not always in order — check dates carefully, especially across facilities
-
-## Common Pitfalls
-- "Rule out" or "possible" is NOT a confirmed diagnosis — look for definitive language
-- Self-reported history (e.g., patient says they drink alcohol) is NOT the same as a physician diagnosis — only MD-documented conditions count as confounders
-- Pre-existing conditions documented AFTER exposure start may actually be ${t.product_lc}-caused injuries, not confounders
-- Do not assume the problem list is complete — search physician notes and specialist consults for diagnoses that may not be on the problem list`,
-
-reviewer_checklist:`# Reviewer Extraction Checklist
-PURPOSE: Extract ONLY what the attorneys need to value the case, build the demand, and anticipate the defense. Do not summarize the medical history — extract the litigation-relevant data points.
-
----
-
-## 1. EXPOSURE GATE — Is there a case?
-This is pass/fail. Without documented exposure, stop here.
-
-- ${t.product} name, manufacturer: ____
-- First exposure date: ____ Last exposure date: ____ Total duration: ____
-- ${t.dosing_desc}: ____
-- Source records proving exposure: ${t.exposure_records}
-- ${t.off_label}? ____ (if yes, note it — strengthens the case)
-
-**STOP if:** No records documenting exposure. No case without this.
-
----
-
-## 2. INJURY & SEVERITY — What is the case worth?
-Severity is the single biggest driver of case value. Get this right.
-
-For EACH alleged injury/complication:
-- Injury name: ____ ICD-10: ____ Date first documented: ____
-- Diagnosed by: ____ (name, specialty) — must be a physician diagnosis, not "rule out" or "possible"
-${isDevice?`- Severity tier: Conservative / Revision Surgery / Salvage (Fusion) / Amputation (see Injuries & Severity section)
-- **What procedure was required:** ____
-- **Bone loss documented:** ____ (mm of shortening, bone graft required?)
-- **Imaging evidence of failure:** ____ (subsidence, migration, lucency, fragmentation on X-ray/CT)`
-:`- Grading scale used: ____ (see Injuries & Severity section for the correct scale)
-- **Assigned grade/stage: ____** — cite the specific chart findings that support this grade`}
-- Highest severity reached: ____ Date: ____
-- Current status: RESOLVED / ONGOING / PERMANENT / FATAL
-  - Resolved = past damages only (lower value)
-  - Ongoing/permanent = continuing damages (significantly higher value)
-  - Fatal = wrongful death
-
-${isDevice
-?`**What increases case value:** Revision surgery, fusion, amputation, permanent bone loss, chronic pain, mobility impairment, multiple surgeries
-**What decreases case value:** Conservative treatment only, pain resolved, no revision needed, full recovery`
-:`**What increases case value:** Grade 3+, ICU stay, surgery, permanent impairment, ongoing treatment, death
-**What decreases case value:** Grade 1, self-resolved, no hospitalization, brief duration`}
-
----
-
-## 3. CAUSATION — Can we connect the ${t.product_lc} to the injury?
-
-${isDevice?`- **Implant date:** ____ → **First symptoms:** ____ → **Failure confirmed (imaging):** ____ → **Revision surgery:** ____
-- **Imaging timeline:** Pre-implant X-ray ____ → Post-implant X-ray ____ → Failure X-ray/CT showing ____
-  - Subsidence (device sinking into bone)? Migration? Lucency (loosening)? Fragmentation?
-- **Revision operative report:** What did the surgeon find? Device condition? Tissue damage? Bone loss?
-- **Physician attribution:** Any surgeon note attributing failure to the device itself?
-  - Exact language: ____
-  - Look for: "device failure," "implant subsidence," "device migration," "revision due to failed implant"
-- **Adverse event report:** Was an MDR (Medical Device Report) filed with the FDA?
-- **Was device returned to manufacturer for analysis?**
-
-**Strong causation:** Imaging shows progressive device failure + revision surgeon documents device-related damage + failure within known timeframe
-**Weak causation:** No imaging documenting failure + surgeon attributes pain to other cause + infection documented`
-:`- **Timeline:** Exposure start ____ → Injury onset ____
-  - Does timing match the known onset pattern for this injury? (see Causation section)
-- **Dechallenge:** Was ${t.product_lc} stopped? ____ Did injury improve after? ____
-  - This is the strongest evidence short of rechallenge
-- **Rechallenge:** Was ${t.product_lc} restarted? ____ Did injury return? ____
-  - If yes, document — this is the best causation evidence available
-- **Lab trajectory:** Key lab value ____ baseline (pre-exposure): ____ → on-exposure: ____ → post-injury: ____
-  - Normal → abnormal during exposure = strong causation
-- **Physician attribution:** Any note linking the injury to the ${t.product_lc}?
-  - Exact language: ____
-  - Look for: "d/c due to," "adverse reaction," "likely related to," "secondary to"
-
-**Strong causation:** Clean timeline + dechallenge improvement + physician attribution
-**Weak causation:** Long onset gap + no dechallenge + no physician attribution + multiple alternative causes`}
-
----
-
-## 4. DEFENSE RISKS — What will reduce the case value?
-
-The defense only needs ONE strong confounder to shift blame. Document these so the legal team is not surprised.
-
-${isDevice?`**Device-specific defense ammunition to flag:**
-- [ ] Surgeon experience with this device: ____ (defense may blame technique)
-- [ ] Operative report deviations: Did surgeon follow manufacturer's surgical technique guide? ____
-- [ ] Patient compliance with post-op restrictions: weight-bearing, activity, follow-up attendance ____
-- [ ] Pre-op bone quality: osteoporosis, osteopenia, DEXA scan results ____
-- [ ] Pre-op severity: Was arthritis stage within device labeling/indications? ____
-- [ ] Prior surgeries on same joint/area: ____
-- [ ] BMI at implant date: ____ (mechanical load on joint)
-- [ ] Diabetes: ____ (affects healing and bone integration)
-- [ ] Smoking status: ____ (affects healing)
-- [ ] Post-op infection documented? ____ (defense will argue infection, not device failure)
-- [ ] Trauma to the area post-implant? ____
-- [ ] Informed consent: What failure risks were disclosed? ____
-- [ ] Any surgeon note suggesting cause OTHER than device failure: ____ (flag this immediately)
-
-**Low defense risk:** Experienced surgeon followed technique guide, patient compliant, no pre-op bone issues, no infection, device clearly failed on imaging
-**High defense risk:** Surgeon inexperience/technique deviation, patient non-compliance, poor bone quality, infection documented, surgeon blames something other than device`
-:`**Pre-existing conditions that could explain the injury:**
-For each: Condition ____ | Diagnosed BEFORE or AFTER exposure? ____ | Stable or progressing pre-exposure? ____
-- If diagnosed BEFORE exposure AND progressing = defense will use this aggressively
-- If diagnosed BEFORE but STABLE, then worsened after exposure = helps our causation argument
-- If diagnosed AFTER exposure = may be additional ${t.product_lc}-caused injury (helps us)
-
-**Specific defense ammunition to flag:**
-- [ ] BMI at exposure start: ____ (>30 = defense will argue obesity)
-- [ ] Alcohol use documented? ____ MD-diagnosed or self-reported? ____ (only MD-diagnosed counts)
-- [ ] Smoking status: ____
-- [ ] Other products/medications that could cause the same injury: ____
-- [ ] Family/genetic history relevant to the injury: ____
-- [ ] Any physician note suggesting an alternative cause for the injury: ____ (flag this immediately)
-
-**Low defense risk:** Few/no confounders, pre-existing conditions stable, no competing causes documented
-**High defense risk:** Multiple uncontrolled comorbidities, physician note attributing injury to something else, same injury documented before exposure`}
-
----
-
-## 5. MEDICAL TREATMENT — What did the injury require?
-
-This section documents the medical intervention the injury required.
-
-- [ ] Hospitalizations: dates, LOS, ICU days ____
-- [ ] Surgeries/procedures directly related to injury: ____
-- [ ] Ongoing treatment required (medications, monitoring, follow-up): ____
-- [ ] ER visits related to injury: ____
-- [ ] If fatal: date of death ____, cause of death ____, ${t.product_lc}/injury on death certificate? ____
-
----
-
-## CASE VALUATION QUICK READ
-
-**HIGH VALUE:** Documented exposure + confirmed diagnosis by specialist + severity Grade 3-5 + clean causation timeline + dechallenge evidence + few confounders + significant medical intervention (hospitalization/surgery/death)
-
-**MODERATE VALUE:** Documented exposure + confirmed diagnosis + Grade 2 + causation timeline consistent but no dechallenge + manageable confounders + some treatment documented
-
-**LOW VALUE / AT RISK:** Exposure gaps + Grade 1 or unconfirmed diagnosis + weak causation + multiple strong confounders + minimal treatment documented
-
-**FLAG FOR ATTORNEY IMMEDIATELY:**
-- Injury documented BEFORE ${t.product_lc} exposure
-- Physician note attributing injury to something other than the ${t.product_lc}
-- Records conflict on exposure dates
-- No records confirming exposure at all`
+exec_summary:`# ${labels.exec_summary}
+PURPOSE: This is the BLUF — the bottom-line-up-front summary the firm's leadership will read first. It must give a partner, in roughly a page of tight analytic prose, everything needed to decide whether this ${t.product_lc} warrants investment of further firm resources. It is a synthesis of the sections that follow, not a place to introduce new facts. Every claim made here must be developed and cited in the body sections.
+
+Open with a one-paragraph "Bottom Line" that states the preliminary recommendation (Pursue / Monitor / Decline), the injury or injuries driving viability, and the single most important reason the firm should or should not take this litigation. Keep the recommendation conditional where honest — e.g., "Pursue, contingent on favorable resolution of the pending Daubert motion in the MDL."
+
+Follow with a short analytic narrative — not a bullet list — covering, in this order: (i) what the ${t.product_lc} is and who makes it; (ii) the strength of the scientific and epidemiologic evidence connecting it to the signal injuries; (iii) the regulatory posture and what it signals about manufacturer knowledge; (iv) the current legal landscape, with particular attention to MDL status, general causation rulings, and preemption exposure; (v) the rough case-economics picture, including expected per-case value tiers and the solvency of the likely defendants; and (vi) the firm's strategic posture — whether we would be entering early, mid-docket, or late, and what that implies for intake strategy.
+
+Close with an explicit "Key Uncertainties" paragraph listing the two or three factual or legal questions whose resolution would flip the recommendation. These are the items the firm should prioritize in any follow-up workup.
+
+Do not use bullets in this section. Write as you would a partner-level memo cover page.`,
+
+product_market:`# ${labels.product_market}
+PURPOSE: Establish, in flowing cited prose, what the ${t.product_lc} is, who is responsible for it, and how large the exposed population and potential recovery pool are. This section frames the defendants and the docket ceiling; it does not develop the science of causation (that belongs to §3) or the regulatory chronology (§4).
+
+## Product Identity and Development History
+Introduce the ${t.product_lc} in a substantive narrative paragraph or two: brand name(s), generic or chemical name, model numbers or formulations, the clinical or engineering problem it was designed to solve, the pivotal pre-market studies or development milestones, and the approval pathway at a high level (the detailed regulatory chronology belongs in §4 Regulatory Signals — cross-reference it rather than duplicating it here). For drugs, briefly introduce the pharmacologic class and principal mechanism; for devices, the design category, materials, and intended biomechanical function. Leave deeper mechanism analysis to §5 Causation Theory and cross-reference it by name.
+
+## Manufacturers, Corporate History, and Defendants
+Identify every manufacturer — past and present — and trace the corporate history (acquisitions, mergers, spin-offs, licensing deals, and successor-liability posture) in paragraph form. Name the parent companies, relevant subsidiaries, and any non-US affiliates that might be joined. The objective is to enumerate viable defendants and surface any successor-liability, personal-jurisdiction, or corporate-separateness issues the firm should anticipate. Where research has surfaced revenue figures, insurance signals, or solvency concerns, mention them briefly and cross-reference §7 Case Economics & Defendant Profile for the full financial analysis.
+
+## Market, Exposed Population, and Commercial Footprint
+Analyze, in prose, the commercial footprint of the ${t.product_lc}: peak and cumulative US sales where known, market share, international distribution, prescribing or implantation volumes, and the typical user/patient population. This establishes both the size of the potential plaintiff pool and a coarse upper bound on the docket. Briefly note documented off-label use patterns and aggressive marketing or promotional conduct, because both can expand the plaintiff pool and strengthen liability theories; leave the detailed failure-to-warn and marketing-misconduct chronology to §4.`,
+
+scientific_evidence:`# ${labels.scientific_evidence}
+PURPOSE: This is the analytical heart of the memorandum. It evaluates, with the rigor of a doctoral literature review, the peer-reviewed scientific and epidemiologic evidence that the ${t.product_lc} causes the signal injuries. The firm cannot rationally decide whether to pursue a mass tort without understanding how strong the underlying science is — this section must answer that question and make the evidentiary case a partner will rely on when evaluating whether a general-causation expert can survive Daubert (detailed Daubert posture belongs in §6 Legal Landscape — cross-reference rather than duplicate).
+
+## Epidemiologic Evidence
+Walk the reader through the principal epidemiologic literature in flowing analytic paragraphs. For each major study or meta-analysis, identify the authors, journal, year, study design, exposed and unexposed populations, and the reported effect sizes (RR, OR, HR) with confidence intervals. Explain what the study actually shows and weigh its methodological strengths and limitations. Prefer high-impact peer-reviewed sources (NEJM, JAMA, Lancet, BMJ, Cochrane, major specialty journals) over secondary summaries. A compact table of the key studies with effect sizes and confidence intervals is appropriate here as a supplement to — not a replacement for — the prose analysis.
+
+## Strength of the Association and Consistency
+Evaluate, in paragraph form, the strength of the association across studies, its consistency, and whether effect sizes are robust to different populations, exposure definitions, and outcome ascertainment methods. A large, consistent effect across well-designed studies is what a general-causation expert needs; a scattered or modest signal is a warning.
+
+## Opposing and Null Literature
+Do not pretend the opposing literature does not exist. Describe, with equal care, the best-designed studies that found no association or attributed the signal to confounding or detection bias. These are the studies defense experts will rely on. Explain, in prose, how plaintiff experts in the existing litigation have reconciled or critiqued that literature, and whether those reconciliations are likely to hold up under cross-examination. Cross-reference §6 Legal Landscape for the Daubert treatment of those rebuttals.
+
+## Signal Injury Catalog
+Close this section with a structured but prose-driven catalog of the injuries alleged or plausibly alleged in the litigation, tiered by the strength of the scientific evidence: injuries with strong peer-reviewed support, injuries with emerging or contested support, and injuries that are speculative or unsupported. For each tier, cite the leading sources and explain why that tier classification is warranted. This catalog is the scientific input to §8 Intake Criteria — the intake section will operationalize it, and this is where the substantive analysis lives.`,
+
+regulatory_signals:`# ${labels.regulatory_signals}
+PURPOSE: Translate the regulatory history of the ${t.product_lc} into evidence bearing on (a) manufacturer knowledge of risk (failure to warn), (b) independent validation of the scientific signal, and (c) corporate conduct likely to resonate with juries. This section builds on the commercial background laid out in §2 and the scientific evidence developed in §3; do not restate that material — invoke it and push the analysis forward.
+
+## Approval Pathway and Early Warnings
+In paragraph form, summarize the approval or clearance pathway (e.g., NDA/BLA, 510(k)/PMA, De Novo, HDE, accelerated approval) and any early warning signals that appeared in the approval record — dissenting reviewer memos, advisory-committee splits, CRLs, post-marketing requirements, or conditions on approval. Early skepticism inside the agency is powerful evidence of manufacturer notice.
+
+## Labeling, Warnings, and the Failure-to-Warn Timeline
+Develop the labeling chronology as a narrative argument, not a bare list. For each significant label change, contraindication, precaution, warning, black-box warning, Dear Healthcare Provider letter, REMS imposition, or withdrawal, state the date, the triggering safety signal, and the exact regulatory language. Then analyze whether the label change came before or after the bulk of exposure — the gap between agency knowledge (or industry knowledge) and the warning is the core of any failure-to-warn theory. A compact chronology table may supplement the prose, but the analysis must carry the section.
+
+## Adverse Event Surveillance (FAERS / MAUDE) and Post-Market Data
+Analyze post-market surveillance signals in paragraph form: FAERS or MAUDE case counts, death counts, serious adverse event trends, published post-marketing studies, and any FDA-issued safety signals. Explain what these signals actually support and what they do not — FAERS/MAUDE are hypothesis-generating, not hypothesis-confirming, and you should say so. Cross-reference the epidemiologic literature in §3 for the confirmatory analysis.
+
+## Inspections, Recalls, and Enforcement Actions
+Describe any FDA inspection findings (Form 483 observations, warning letters), recalls (Class I/II/III), untitled letters, consent decrees, or DOJ activity. Manufacturing or quality-system failures can support independent design-defect or manufacturing-defect theories and often carry significant jury appeal.
+
+## International Regulatory Actions
+Briefly analyze any EMA, MHRA, Health Canada, TGA, or PMDA actions that predate or reinforce US regulatory conduct. Foreign actions often go to manufacturer knowledge and can blunt preemption defenses.`,
+
+causation_analysis:`# ${labels.causation_analysis}
+PURPOSE: Marry the biologic/engineering mechanism to the epidemiologic signal and produce the causation story a general-causation expert would present. This section is the bridge between §3 Scientific & Medical Literature and §6 Legal Landscape (where Daubert exposure is analyzed). Do not re-summarize the epidemiology developed in §3; cross-reference it and focus on mechanism, plausibility, dose-response, and the Bradford Hill synthesis.
+
+## Mechanism of Harm
+Present, in sophisticated non-clinician prose, the causal pathway: for drugs, the molecular target, pathway, pharmacokinetics, and how chronic engagement of that pathway translates into the signal injury; for devices, the engineering or material failure mode and the biomechanical or physiologic cascade it triggers. Write this at the depth a partner needs to understand, and cross-examine, a plaintiff's mechanism expert. Cite the mechanism literature precisely.
+
+## Dose-Response and Temporality
+Analyze dose-response and temporality in paragraph form. Is there a documented gradient between exposure magnitude or duration and injury frequency or severity? What is the published latency distribution? A clean dose-response curve and a well-characterized latency window are among the strongest Bradford Hill factors.
+
+## Bradford Hill Synthesis
+Walk through the Bradford Hill considerations — strength, consistency, specificity, temporality, biologic gradient, plausibility, coherence, experimental evidence, and analogy — as a connected analytical argument rather than a bullet checklist. Tie each consideration back to specific studies cited in §3 and to the mechanism developed above. Be candid about where the Hill case is weak; a partner needs to know what a Daubert court will see.
+
+## Plaintiff Causation Theory vs. Defense Critique
+Close by articulating the plaintiff's causation theory in the form a lead expert would present it, then the principal defense critique — confounding, reverse causation, detection bias, selection bias, or alternative etiologies. Explain which critiques are likely to gain traction in court and which do not survive the literature. This hand-off into the legal analysis in §6 is the point of the section.`,
+
+legal_landscape:`# ${labels.legal_landscape}
+PURPOSE: Evaluate, in a single consolidated section, the legal posture of the litigation. This section answers four partner-level questions: is there a viable forum, has general causation survived the gatekeeper, is the claim preemption-proof, and what do existing verdicts, settlements, and SOL rules imply about case value and timing? Build on (but do not restate) the causation analysis in §5 and the regulatory chronology in §4.
+
+## MDL and Coordinated Proceedings
+Narrate the current procedural posture: whether a federal MDL exists (and if so, the number, the transferee judge, the district, and the creation date), any pending JPML motion, and any state-court coordinated proceedings (California JCCP, New Jersey MCL, and the like). Identify the Plaintiffs' Steering Committee composition, lead counsel, and the firm's relationships to that leadership. Describe the current intake posture of the MDL (open, closing, in resolution), the bellwether schedule, and the most recent trial outcomes and appellate rulings.
+
+## Daubert and General-Causation Admissibility
+Analyze, in paragraph form, the Daubert or Frye history of the principal plaintiff experts on general causation. Identify each published admissibility ruling, the jurisdiction, the reasoning, and whether the ruling survived appellate review. A prior exclusion of general causation is a litigation-killer; a prior admission is a green light. Cross-reference the mechanism and Bradford Hill analysis in §5 for the substantive basis.
+
+## Preemption Posture
+Analyze preemption exposure with precision. For devices subject to PMA, walk through Riegel v. Medtronic and the parallel-claim exception and state whether plaintiff theories have survived preemption motions in this litigation. For generic drugs, analyze Mensing and Bartlett exposure; for branded drugs, Wyeth v. Levine and the "clear evidence" standard. Identify any published preemption rulings specific to this ${t.product_lc}.
+
+## Statute of Limitations and Repose
+Provide a concise but rigorous state-by-state SOL and statute-of-repose analysis for the relevant causes of action (products liability, negligence, express and implied warranty, consumer protection). A compact state matrix table is appropriate here. Identify discovery-rule treatment by state, any tolling orders entered in the MDL, and the states where the claim is already barred or imminently at risk. Flag the jurisdictions that would drive the firm's intake geography.
+
+## Verdicts, Settlements, and Per-Case Value Signals
+Summarize the verdict and settlement history: bellwether outcomes with dollar figures, remittiturs and reversals, aggregate settlements, matrix deals, Lone Pine orders, and publicly reported per-case value tiers by injury grade. Feed this directly into §7 Case Economics by cross-reference rather than restating the numerical analysis.`,
+
+case_economics:`# ${labels.case_economics}
+PURPOSE: Translate the scientific, regulatory, and legal record into the economic decision the firm actually has to make: what is the expected value per case, what is the workup cost, can the defendants actually pay, and what is the firm's competitive and strategic position in this docket. This section cross-references §3 for injury tiers, §6 for verdict and settlement data, and §2 for the defendant footprint — do not restate any of that.
+
+## Injury-Tier Value Framework
+Working from the signal injury catalog in §3 and the settlement/verdict data in §6, develop a tiered per-case value framework in flowing analysis with a supporting compact table if helpful. Distinguish wrongful-death and permanently-disabling injury tiers from moderate and mild tiers, and note the range of historical per-case outcomes at each tier. Be candid about where the data is thin and where estimates are speculative.
+
+## Workup Cost and Break-Even Analysis
+Discuss, in paragraph form, the expected workup cost per case: medical-record collection, expert review, any product testing, and the litigation tax of bellwether participation where applicable. Identify the break-even case value and the inventory size the firm would need to make participation economically rational.
+
+## Defendant Solvency and Recovery Risk
+Analyze the financial capacity of the likely defendants, drawing on the corporate profile in §2. Identify the parent and subsidiary defendants, known insurance signals, and any bankruptcy or restructuring risk. A scientifically strong case against an insolvent defendant is not a viable mass tort, and the memo should say so plainly if that is the situation.
+
+## Competitive and Strategic Posture
+Close by assessing the firm's strategic position: whether entering the docket now would be early, mid-docket, or late; which plaintiff firms are currently accepting intake and which have closed; the state of advertising and media attention; and any PSC or lead-counsel opportunities that could change the calculus. This sets up the intake strategy in §8.`,
+
+intake_verdict:`# ${labels.intake_verdict}
+PURPOSE: This is the operational output of the memorandum. It converts the analysis developed in §§1–7 into two concrete deliverables: (a) an explicit intake protocol the firm can use to screen prospective clients, and (b) a final partner-level Go / No-Go recommendation with a viability scorecard. This section does not introduce new substantive analysis; it operationalizes everything above. Cross-reference the earlier sections rather than restating them.
+
+## Intake Criteria — Inclusion and Exclusion
+Produce a concrete, field-usable set of intake criteria the firm can apply to prospective clients. Inclusion criteria should identify the exposure history, signal injuries, diagnosis requirements, and jurisdictional posture that make a prospective case presumptively acceptable. Exclusion criteria should identify disqualifying facts — absence of exposure documentation, wrong injury, injury predating exposure, SOL expiration by state, prior resolution, and other deal-breakers. Bullets and a compact table are appropriate here because these criteria are genuinely enumerable and will be used as a screening instrument; still, each criterion should be stated precisely enough that an intake paralegal can apply it without interpretation.
+
+## Viability Scorecard
+Provide a compact scorecard rating each of the five viability elements on a clear scale (e.g., Strong / Moderate / Weak / Fatal) with a one-sentence justification tied by cross-reference to the section where the underlying analysis lives: (1) Scientific Evidence of Causation — §3; (2) Regulatory Validation of Risk — §4; (3) Legal Viability (Daubert, preemption, SOL, forum) — §6; (4) Case Economics (damages, solvency, workup cost) — §7; (5) Strategic Posture (MDL stage, firm fit) — §6 and §7. The scorecard is appropriate as a table.
+
+## Go / No-Go Recommendation
+Close the memorandum with the partner-level recommendation, written in the voice of a senior attorney advising firm leadership. State the recommendation plainly (Pursue / Monitor / Decline), identify the single most important factor driving it, and list the specific follow-up questions or contingencies whose resolution would flip the recommendation. If the recommendation is conditional — e.g., "Pursue, contingent on the Daubert ruling in the pending MDL bellwether" — say so explicitly and identify the trigger. End with a one-paragraph statement of what the firm should do in the next 30–60 days if it accepts this recommendation.`,
   };
 }
 
@@ -1984,19 +1674,26 @@ function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
   const numSecs=secIds.length;
   const t=T();
 
+  // Weighted word budgets — the analytical heart sections get more room.
+  // Heavy sections: scientific_evidence, legal_landscape (doctoral-level analysis)
+  // Medium-heavy: regulatory_signals, causation_analysis, case_economics
+  // Lighter: exec_summary, product_market, intake_verdict
   const budgets={};
-  const heavyW=Math.round(dc.totalWords*0.22);
-  const guideW=Math.round(dc.totalWords*0.15);
-  const checklistW=Math.round(dc.totalWords*0.15);
-  const remaining=dc.totalWords-heavyW*2-guideW-checklistW;
-  const otherCount=numSecs-4;
-  const otherW=otherCount>0?Math.round(remaining/otherCount):0;
+  const heavyW=Math.round(dc.totalWords*0.20);      // scientific_evidence, legal_landscape
+  const midW=Math.round(dc.totalWords*0.13);        // regulatory_signals, causation_analysis, case_economics
+  const execW=Math.round(dc.totalWords*0.08);       // exec_summary
+  const productW=Math.round(dc.totalWords*0.10);    // product_market
+  const intakeW=Math.round(dc.totalWords*0.12);     // intake_verdict
   secIds.forEach(id=>{
-    if(id==='injuries_severity')budgets[id]=heavyW;
-    else if(id==='confounders_defense')budgets[id]=heavyW;
-    else if(id==='review_guide_notes')budgets[id]=guideW;
-    else if(id==='reviewer_checklist')budgets[id]=checklistW;
-    else budgets[id]=otherW;
+    if(id==='scientific_evidence')budgets[id]=heavyW;
+    else if(id==='legal_landscape')budgets[id]=heavyW;
+    else if(id==='regulatory_signals')budgets[id]=midW;
+    else if(id==='causation_analysis')budgets[id]=midW;
+    else if(id==='case_economics')budgets[id]=midW;
+    else if(id==='exec_summary')budgets[id]=execW;
+    else if(id==='product_market')budgets[id]=productW;
+    else if(id==='intake_verdict')budgets[id]=intakeW;
+    else budgets[id]=Math.round(dc.totalWords/Math.max(numSecs,1));
   });
   const budgetTable=secIds.map(id=>{
     const label=getSEC().find(s=>s.id===id)?.l||id;
@@ -2007,45 +1704,49 @@ function buildGenSys(drug,cond,litType,research,followUp,userInj,extra,secIds){
     brief:`WORD BUDGETS — STRICT:
 Total: ~${dc.totalWords} words. Per-section budgets:
 ${budgetTable}
-- One-line bullet points only. No paragraphs.
-- If you are running long on a section, STOP and move to the next one.
-- The Reviewer Checklist section MUST be complete — it is the most important section. Budget ${checklistW} words for it.
-- The Review Guide & Notes section must include the ICD-10 table and chart navigation reference. Budget ${guideW} words for it.`,
+- Tight analytic prose. No bullet dumps. Paragraphs, not fragments.
+- If you are running long on a section, tighten and move on — never abandon a section mid-analysis.
+- Scientific & Medical Literature and Legal Landscape are the analytical heart. Protect their word budgets.
+- Intake Criteria & Go/No-Go MUST be complete — it is the operational output of the memo.`,
 
     standard:`WORD BUDGETS — STRICT:
 Total: ~${dc.totalWords} words. Per-section budgets:
 ${budgetTable}
-- Tight bullet points, not paragraphs. Tables for lab values.
-- Track your word count as you write each section. When you hit a section's budget, move on.
-- The Reviewer Checklist section is NON-NEGOTIABLE — it MUST be written in full. Reserve at least ${checklistW} words for it. If you are running long, compress the earlier sections to make room.
-- The Review Guide & Notes section must include the ICD-10 table and chart navigation reference.`,
+- Write in flowing analytic prose, not bullet lists. Tables are allowed only where explicitly useful (SOL matrix, study table, viability scorecard, per-case value tiers).
+- Track your word count as you write each section. When you approach a section's budget, conclude that section gracefully and move on.
+- Scientific & Medical Literature and Legal Landscape are the analytical heart of the memo — protect their word budgets.
+- Intake Criteria & Go/No-Go is NON-NEGOTIABLE. Reserve at least ${intakeW} words for it. If you are running long earlier, compress — do not skip.`,
 
     thorough:`WORD BUDGETS:
 Total: ~${dc.totalWords} words. Per-section budgets:
 ${budgetTable}
-- Room for 2-3 sentence descriptions. Full tables.
-- The Reviewer Checklist section MUST be complete — reserve ${checklistW} words.`,
+- Room for sophisticated, doctoral-level analytic prose. Cite extensively. Tables only where they genuinely add clarity (study effect sizes, SOL matrix, scorecard).
+- Scientific & Medical Literature and Legal Landscape should read like the work of a partner-level attorney with a research analyst's literature review.
+- Intake Criteria & Go/No-Go MUST be complete and decision-ready.`,
 
     exhaustive:`WORD GUIDANCE:
 Total: ~${dc.totalWords} words. Per-section budgets:
 ${budgetTable}
-- Be thorough but the Reviewer Checklist MUST be complete — reserve ${checklistW} words.`
+- Be thorough and rigorous. This memo will be read by firm leadership deciding whether to commit firm resources to a new litigation. Write accordingly.
+- Scientific & Medical Literature should approach the depth of a published systematic review.
+- Legal Landscape should be precise enough that a litigator can rely on it for initial strategy.
+- Intake Criteria & Go/No-Go MUST be complete and operational.`
   };
 
-  return `You are a senior medical-legal consultant writing a COMPLETE Litigation Review Guide in a single pass — a practical tool for nurse reviewers and paralegals who review medical records to BUILD CASES THAT GET CLIENTS PAID.
+  return `You are a senior partner-level research attorney at a plaintiffs' mass tort firm. You specialize in evaluating potential pharmaceutical, medical device, and product-liability litigations. Your audience is the firm's leadership — partners deciding whether to commit firm resources to a new mass tort. Your job is to produce a PhD-level research memorandum in a single pass that answers, with analytical rigor and cited evidence, whether this ${t.product_lc} litigation is worth pursuing.
 
-LITIGATION TYPE: ${litType.replace(/_/g,' ')} — adapt all terminology accordingly. This is a ${t.product_lc} case, NOT necessarily a pharmaceutical drug case. Use "${t.product}" instead of "drug" throughout. Refer to exposure as "${t.exposure}" and records as "${t.exposure_records}."
+LITIGATION TYPE: ${litType.replace(/_/g,' ')}. This is a ${t.product_lc} case. Use "${t.product}" where the generic label is appropriate; use specific drug/device/product terminology when it sharpens the analysis.
 
-Write this as ONE COHESIVE DOCUMENT. Define every medical term on first use ONLY — do not redefine it in later sections. Cross-reference between sections where relevant. The reader will have the complete guide; write as if they'll read it front to back.
+This is ONE COHESIVE MEMORANDUM. Sections must talk to each other. Introduce concepts once and cross-reference (e.g., "as discussed in §3") rather than restating. Write as if the partner will read the entire document front to back.
 
-This is NOT a medical education document. Every sentence must serve one of these five litigation elements:
-1. EXPOSURE — proving the client ${t.exposure_verb} the ${t.product_lc} (${t.exposure_records})
-2. INJURY — proving the client has the alleged injury (diagnosis, chart terms, ICD-10 codes)
-3. SEVERITY — grading the injury using medical scales (higher grade = more damages = higher payout)
-4. CAUSATION — connecting ${t.product_lc} to injury (timeline, baseline vs. post-exposure labs, dechallenge/rechallenge)
-5. CONFOUNDERS — anticipating defense arguments and documenting what defeats them
+This is NOT a medical record review guide. It is NOT a chart audit tool. It is NOT a checklist for nurse reviewers. Do not use the words "chart," "ICD-10," "reviewer," "nurse," or "paralegal." Do not discuss how to read medical records or assign severity grades from chart entries. The medical record review is downstream; this memo is UPSTREAM, informing the firm's decision to pursue the litigation in the first place.
 
-If something doesn't help the reviewer find, document, or prove one of these five elements, leave it out.
+Every section must contribute to the partner's decision on these FIVE VIABILITY ELEMENTS:
+1. SCIENTIFIC EVIDENCE OF CAUSATION — is the peer-reviewed literature strong enough to support a general-causation expert surviving Daubert?
+2. REGULATORY VALIDATION OF RISK — does the regulatory record (labels, warnings, recalls, FAERS/MAUDE, foreign actions) demonstrate manufacturer knowledge and independent validation of the signal?
+3. LEGAL VIABILITY — is there a viable forum (MDL/JCCP), has general causation survived prior admissibility rulings, is the claim preemption-proof (Riegel/Mensing/Bartlett/Wyeth), and is the SOL landscape workable?
+4. CASE ECONOMICS — what are the per-case value tiers, what is the workup cost, are the defendants solvent, and does the math work?
+5. STRATEGIC POSTURE — is the firm entering early, mid-docket, or late, and does that fit the firm's business model?
 
 RESEARCH NOTES:
 <research>
@@ -2054,165 +1755,120 @@ ${researchText}
 
 ${followUp?'FOLLOW-UP RESEARCH (filling identified gaps):\n<followup>\n'+followUp+'\n</followup>':''}
 ${extra?'USER CONTEXT: '+extra:''}
-${userInj?'USER-SPECIFIED INJURIES: '+userInj:''}
+${userInj?'USER-IDENTIFIED INJURIES / LITIGATION FOCUS: '+userInj:''}
 
 ${t.product.toUpperCase()}: ${drug}
-${cond?'CONDITION: '+cond:'(From research)'}
+${cond?'INDICATION / CONTEXT: '+cond:'(From research)'}
 TYPE: ${litType.replace(/_/g,' ')}
 
-${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED:
-The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output.
+${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM FIRM LEADERSHIP:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED AND RIGOROUS:
+The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output and cite aggressively. A partner-level memo without citations is not credible.
 - Use markdown link format: [Short Label](URL)
-- If a fact has no source URL in the research notes, do NOT invent one
-- When the research notes have multiple sources for the same fact, prefer medical literature (journals, FDA, clinical guidelines) over attorney/law firm pages
-- Use attorney page citations for litigation-specific facts only (MDL status, case count, settlements, legal theories)
+- If a fact has no source URL in the research notes, do NOT invent one. Either omit the fact or flag it as requiring further workup.
+- For scientific claims (effect sizes, study results, mechanism): prefer peer-reviewed journals (NEJM, JAMA, Lancet, BMJ, Cochrane) and government sources (FDA, EMA, NIH) over attorney/law-firm pages.
+- Use attorney and litigation-tracking pages only for litigation-specific facts (MDL number, PSC composition, bellwether outcomes, settlement figures).
+- When multiple sources support the same fact, cite the strongest primary source.
 
-FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key terms first use. Bullets for lists. Tables for lab values. --- between major sections.
+FORMAT RULES — READ CAREFULLY:
+- Write in FLOWING ANALYTIC PROSE. Paragraphs, not bullet fragments. This is a partner-level memorandum, not a slide deck.
+- Bullets are permitted ONLY in: (a) Intake Criteria (inclusion/exclusion lists), (b) Viability Scorecard (if rendered as a table), and (c) very targeted lists where enumeration genuinely helps (e.g., a list of named defendants, a list of bellwether verdicts with dollar figures).
+- Tables are permitted where they add clarity: key studies with effect sizes/CIs, SOL state matrix, verdict/settlement summary, per-case value tiers, viability scorecard.
+- Every section must begin with a brief analytic paragraph, NOT a bullet list.
+- Use # for section titles, ## for subsection headings, ### sparingly. Do not over-format.
+- Use --- between major sections.
+- Bold key terms on first substantive use. Do not bold every other phrase.
 
 ${depthInstructions[outputDepth]}
 
-CRITICAL RULES — READ THESE BEFORE WRITING:
+CROSS-REFERENCING — REQUIRED:
+Sections must be integrated, not independent. Explicitly cross-reference earlier sections instead of restating:
+- §1 Executive Summary synthesizes §§2–8 — do NOT introduce new facts there.
+- §2 Product & Market cross-references §4 for regulatory chronology and §7 for corporate solvency.
+- §3 Scientific Literature is the substantive science — §5 Causation builds on it; §6 Legal references its Daubert implications.
+- §4 Regulatory Signals builds on §2 and §3; do not restate market or science.
+- §5 Causation cross-references §3 for epidemiology; it focuses on mechanism + Bradford Hill.
+- §6 Legal Landscape cross-references §5 for Daubert substance and §3 for expert literature.
+- §7 Case Economics cross-references §2 (defendants), §3 (injury tiers), §6 (verdicts).
+- §8 Intake & Go/No-Go operationalizes §§1–7 — do NOT re-develop analysis.
+
+CRITICAL RULES:
 1. You MUST write ALL ${numSecs} sections. Missing ANY section is a FAILURE. Count them as you go.
-2. BEFORE writing each section, check: how many words have I written so far? How many sections remain? Divide remaining budget evenly if you're running long.
-3. The Review Guide & Notes and Reviewer Extraction Checklist are the MOST IMPORTANT sections. If you must compress, compress Product & Exposure and Medical Context FIRST. NEVER compress Review Guide, Checklist, Injuries, or Confounders.
-4. HARD WORD LIMIT: ~${dc.totalWords} words total. Each section has a budget above — TRACK IT.
-5. If a section hits its word budget, STOP that section and move to the next one. An incomplete section is better than a missing section.
-6. Every section must have a proper ending — never stop mid-sentence or mid-list.
-7. Write the sections in the order listed below. Do not skip ahead or combine sections.
+2. Write the sections in the order listed below. Do not reorder or merge.
+3. BEFORE writing each section, check: how many words have I written so far? How many sections remain? If you are running long, compress — do not skip.
+4. HARD WORD LIMIT: ~${dc.totalWords} words total. Each section has a budget above — track it.
+5. Every section must have a proper ending — never stop mid-sentence or mid-analysis.
+6. Intake Criteria & Go/No-Go is the operational output. It MUST be complete. Compress earlier sections before sacrificing it.
+7. Be honest about uncertainty. A partner reading a memo that overstates the case will lose confidence in your judgment. Flag weaknesses, null studies, preemption exposure, and SOL risk explicitly.
+8. NEVER use the language of chart review, medical record audit, nurse reviewers, ICD-10 codes, or severity grading from records. This memo is about the LITIGATION, not record review.
 
 SECTIONS TO WRITE (in this order):
 ${secInstr}
 
-Output ONLY Markdown. No preamble. No closing. Start with first # heading.`;
-}
-
-function buildSectionSys(drug,cond,litType,research,followUp,userInj,extra,secId,allSecIds,priorSectionsMD){
-  const sp=getSP()[secId];
-  if(!sp)return '';
-  const t=T();
-  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-
-  // Calculate word budget for this section using same weighting as buildGenSys
-  const numSecs=allSecIds.length;
-  const heavyW=Math.round(dc.totalWords*0.22);
-  const guideW=Math.round(dc.totalWords*0.15);
-  const checklistW=Math.round(dc.totalWords*0.15);
-  const remaining=dc.totalWords-heavyW*2-guideW-checklistW;
-  const otherCount=Math.max(numSecs-4,1);
-  const otherW=Math.round(remaining/otherCount);
-
-  let wordBudget;
-  if(secId==='injuries_severity')wordBudget=heavyW;
-  else if(secId==='confounders_defense')wordBudget=heavyW;
-  else if(secId==='review_guide_notes')wordBudget=guideW;
-  else if(secId==='reviewer_checklist')wordBudget=checklistW;
-  else wordBudget=otherW;
-
-  // Only include research passes relevant to this section
-  const relevantPassIds=SEC_TO_RESEARCH[secId]||[];
-  const researchText=relevantPassIds.map(rpId=>research[rpId]||'').filter(t=>t.trim()).join('\n\n---\n\n');
-
-  // Prior sections context for cross-referencing (headings + abbreviated content)
-  const priorHeadings=priorSectionsMD?priorSectionsMD.split('\n').filter(l=>l.startsWith('# ')).join('\n'):'';
-  const priorContext=priorSectionsMD?`
-SECTIONS ALREADY WRITTEN (do NOT repeat their content — cross-reference instead):
-${priorHeadings}
-
-ABBREVIATED PRIOR CONTENT (for cross-reference):
-<prior>
-${priorSectionsMD.substring(0,15000)}
-</prior>`:'';
-
-  return `You are a senior medical-legal consultant writing ONE section of a Litigation Review Guide — a practical tool for nurse reviewers and paralegals who review medical records to BUILD CASES THAT GET CLIENTS PAID.
-
-LITIGATION TYPE: ${litType.replace(/_/g,' ')} — adapt all terminology accordingly. This is a ${t.product_lc} case, NOT necessarily a pharmaceutical drug case. Use "${t.product}" instead of "drug" throughout. Refer to exposure as "${t.exposure}" and records as "${t.exposure_records}."
-
-This is NOT a medical education document. Every sentence must serve one of these five litigation elements:
-1. EXPOSURE — proving the client ${t.exposure_verb} the ${t.product_lc}
-2. INJURY — proving the client has the alleged injury
-3. SEVERITY — grading the injury using medical scales
-4. CAUSATION — connecting ${t.product_lc} to injury
-5. CONFOUNDERS — anticipating defense arguments
-
-If something doesn't help the reviewer find, document, or prove one of these five elements, leave it out.
-
-RESEARCH NOTES (specific to this section):
-<research>
-${researchText||'(No specific research available — use your expertise and cross-reference prior sections)'}
-</research>
-
-${followUp?'FOLLOW-UP RESEARCH:\n<followup>\n'+followUp+'\n</followup>':''}
-${extra?'USER CONTEXT: '+extra:''}
-${userInj?'USER-SPECIFIED INJURIES: '+userInj:''}
-
-${t.product.toUpperCase()}: ${drug}
-${cond?'CONDITION: '+cond:'(From research)'}
-TYPE: ${litType.replace(/_/g,' ')}
-${priorContext}
-
-${(()=>{const ci=document.getElementById('customInstr').value.trim();return ci?'CUSTOM INSTRUCTIONS FROM LEGAL TEAM:\n'+ci+'\n\nFollow these instructions carefully.\n':''})()}CITATIONS — REQUIRED:
-The research notes contain source URLs in [Source](URL) format. You MUST preserve these citations in your output.
-- Use markdown link format: [Short Label](URL)
-- If a fact has no source URL in the research notes, do NOT invent one
-- When the research notes have multiple sources for the same fact, prefer medical literature over attorney pages
-
-FORMAT: Clean Markdown. # major, ## sub, ### sub-sub, #### minor. **Bold** key terms first use. Bullets for lists. Tables for lab values.
-
-WORD BUDGET: ~${wordBudget} words for this section. Track your word count.
-${secId==='reviewer_checklist'?'This is the MOST IMPORTANT section of the entire guide. Write it COMPLETELY — every field, every checkbox, every extraction prompt. Do NOT cut short.':''}
-${secId==='review_guide_notes'?'This is a critical section. MUST include the ICD-10 table and chart navigation reference.':''}
-
-SECTION TO WRITE:
-${sp}
-
-Output ONLY this section's Markdown. Start with the # heading. No preamble, no closing, no summary.`;
+Output ONLY Markdown. No preamble. No closing. Start with the first # heading.`;
 }
 
 /* ═══════ VERIFICATION ═══════ */
 async function verify(key,drug,research,guide,sig){
   const researchText=Object.values(research).join('\n\n').substring(0,40000);
   const guideText=guide.substring(0,40000);
-  const sys=`You are a medical-legal accuracy auditor. Cross-check the generated litigation review guide against the research notes, with special focus on whether the guide adequately covers the five case elements: exposure, injury, severity grading, causation, and confounders.
+  const sys=`You are a partner-level mass tort litigation auditor. Cross-check the generated research memorandum against the research notes. Evaluate whether the memo is decision-ready for firm leadership considering whether to pursue this litigation.
 
 RESEARCH NOTES:
 ${researchText}
 
-GENERATED GUIDE:
+GENERATED MEMORANDUM:
 ${guideText}
 
 AUDIT TASKS:
-1. UNSOURCED CLAIMS: Identify any specific factual claims (dates, numbers, drug names, dosing, clinical trial results, severity grades) that do NOT appear in the research notes. These could be hallucinations.
-2. MISSING SEVERITY GRADING: Are severity grading scales included for every alleged injury? Are the grade definitions specific (what labs/findings define each grade)?
-3. MISSING CAUSATION DATA: Is the exposure→injury timeline documented? Is dechallenge/rechallenge data included if available? Are clinical trial rates (drug vs placebo) cited?
-4. INCOMPLETE CONFOUNDERS: Is the confounder section framed as defense arguments with what defeats each? Are documentation rules included?
-5. MISSING DIAGNOSTIC CRITERIA: For each injury, are the specific tests and thresholds that confirm the diagnosis included?
-6. IMPORTANT RESEARCH DATA MISSING: Facts from research notes that were NOT included but should have been.
-7. SOURCE QUALITY: Flag any medical/scientific claims (injury mechanisms, failure rates, adverse event data, clinical findings) that cite only attorney/law firm pages when medical literature sources are available in the research notes. Medical claims should cite medical sources.
+1. UNSOURCED CLAIMS: Identify any specific factual claims (effect sizes, confidence intervals, study names, authors, dates, MDL numbers, verdict amounts, preemption rulings, SOL provisions) that do NOT appear in the research notes. These are potential hallucinations.
+2. SCIENTIFIC LITERATURE RIGOR: Is the epidemiology section grounded in named peer-reviewed studies with effect sizes and CIs? Are methodologic strengths/limitations discussed? Is the opposing/null literature honestly engaged?
+3. DAUBERT ACCURACY: Are the Daubert/Frye rulings cited accurately? Are jurisdictions, outcomes, and appellate treatment correct? No vague gestures at "Daubert concerns" without specific rulings.
+4. PREEMPTION ANALYSIS: For PMA devices, is Riegel walked through? For generics, Mensing/Bartlett? For branded drugs, Wyeth v. Levine? Any product-specific preemption rulings cited?
+5. SOL ANALYSIS: Is there a state-by-state treatment, or only generic language? Are tolling orders in the MDL addressed?
+6. MDL SPECIFICS: MDL number, transferee judge, district, creation date, PSC composition, bellwether schedule — all correct against research notes?
+7. CASE ECONOMICS REALITY: Are per-case value tiers supported by verdict/settlement data in research? Is defendant solvency analyzed, not assumed?
+8. CROSS-REFERENCING INTEGRITY: Is the memo integrated, or do sections repeat each other? Does Exec Summary synthesize without introducing new facts?
+9. BULLET POINT DISCIPLINE: Does the memo use flowing analytic prose where required, reserving bullets for intake criteria and scorecards?
+10. PROHIBITED LANGUAGE: Any references to "chart review," "ICD-10 codes," "nurse reviewer," "severity grading from records," or other record-review artifacts that do not belong in this upstream memo?
+11. UNWARRANTED CONFIDENCE: Is the memo honest about weaknesses, null studies, preemption exposure, and SOL risk — or does it overstate the case?
+12. IMPORTANT RESEARCH DATA MISSING: Facts from the research notes that were not incorporated but should have been.
 
 Format your audit as:
 
 ## Unsourced Claims (Potential Hallucinations)
 [list each, or "None identified"]
 
-## Severity Grading Gaps
-[list each injury missing a grading scale, or "All injuries have grading scales"]
+## Scientific Literature Rigor
+[missing studies, missing effect sizes, unengaged null literature]
 
-## Causation Evidence Gaps
-[missing timeline data, trial rates, dechallenge/rechallenge info]
+## Daubert / Admissibility Gaps
+[inaccurate or missing rulings]
 
-## Confounder & Defense Gaps
-[missing confounders, missing defense-framing, missing documentation rules]
+## Preemption Analysis Gaps
+[missing Riegel/Mensing/Wyeth analysis as applicable]
 
-## Diagnostic Criteria Gaps
-[injuries missing diagnostic criteria or specific thresholds]
+## SOL / Forum Gaps
+[missing state-by-state analysis, tolling orders]
 
-## Source Quality Issues
-[medical claims citing attorney pages when journal/FDA sources were available, or "Sources appropriately prioritized"]
+## MDL & Procedural Accuracy Issues
+[inaccurate MDL number, PSC, bellwether info]
 
-## Important Research Data Missing from Guide
+## Case Economics Issues
+[unsupported value tiers, missing solvency analysis]
+
+## Cross-Referencing / Integration Issues
+[sections repeating each other, exec summary introducing new facts]
+
+## Format / Prohibited Language Issues
+[bullet overuse, chart-review artifacts]
+
+## Unwarranted Confidence
+[places where the memo overstates the case]
+
+## Important Research Data Missing from Memo
 [list each]
 
-Be thorough but fair. Focus on what's missing that a reviewer would need to build the case.`;
+Be thorough but fair. Focus on whether a partner could rely on this memo to make an investment decision.`;
 
   const r=await callApi(key,[{role:'user',content:'Conduct the accuracy audit now.'}],sys,{model:'claude-sonnet-4-20250514',maxTok:6000,signal:sig,stream:true,
     onRetry:(msg)=>{const el=document.querySelector('.ps.run .pd');if(el)el.textContent=msg}
@@ -2254,68 +1910,9 @@ async function streamTo(resp,el,onChunk){
   el.innerHTML=md2html(md);if(mainPanel)mainPanel.scrollTop=mainPanel.scrollHeight;if(onChunk)onChunk(md);return md;
 }
 
-/* ═══════ NUMERICAL CITATIONS ═══════ */
-/* Converts [label](url) inline citations to numbered references [1], [2], etc.
-   Appends a "Works Cited" section at the end. Returns {md, citations} where
-   citations is an array of {num, label, url}. The raw allMD is kept with
-   original [label](url) format for Claude interactions and regeneration. */
-function convertToNumericalCitations(md){
-  if(!md)return{md:'',citations:[]};
-  const re=/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-  const citations=[];
-  const urlIndex={};
-  let m;
-  // First pass: collect unique URLs and assign numbers
-  const tempMd=md;
-  while((m=re.exec(tempMd))!==null){
-    const label=m[1],url=m[2];
-    if(!urlIndex[url]){
-      const num=citations.length+1;
-      urlIndex[url]={num,label,url};
-      citations.push({num,label,url});
-    }
-  }
-  if(!citations.length)return{md,citations:[]};
-  // Second pass: replace inline citations with [N] markers
-  // Use a special format that md2html can detect: {{CITE:N:url}}
-  let converted=md.replace(re,(match,label,url)=>{
-    const entry=urlIndex[url];
-    if(!entry)return match;
-    return '{{CITE:'+entry.num+':'+url+'}}';
-  });
-  // Append Works Cited section
-  converted+='\n\n---\n\n# Works Cited\n\n';
-  for(const c of citations){
-    converted+='**['+c.num+']** '+c.label+' — ['+c.url+']('+c.url+')\n\n';
-  }
-  return{md:converted,citations};
-}
-
-/* Global: last-computed citation map for PDF/export use */
-let lastCitationMap=[];
-
-/* Render markdown with numerical citations for display.
-   Converts [label](url) → [N] superscripts + Works Cited, then runs md2html.
-   Use for final display only, NOT during streaming. */
-function renderWithCitations(md){
-  const result=convertToNumericalCitations(md);
-  lastCitationMap=result.citations;
-  return md2html(result.md);
-}
-
-/* Get numerically-cited markdown (for PDF export etc.) */
-function getCitedMD(md){
-  const result=convertToNumericalCitations(md);
-  lastCitationMap=result.citations;
-  return result;
-}
-
 /* ═══════ MD→HTML ═══════ */
-function md2html(md,raw){
+function md2html(md){
   let h=md;
-  // Convert {{CITE:N:url}} markers to clickable superscript numbers
-  h=h.replace(/\{\{CITE:(\d+):(https?:\/\/[^\s}]+)\}\}/g,
-    '<a href="$2" target="_blank" rel="noopener" class="cite-num" style="color:var(--cy);font-size:0.7em;vertical-align:super;text-decoration:none;font-weight:700;cursor:pointer" title="Citation [$1] — click to view source">[$1]</a>');
   h=h.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm,(m,hd,sp,bd)=>{
     const ths=hd.split('|').filter(c=>c.trim()).map(c=>'<th>'+c.trim()+'</th>').join('');
     const trs=bd.trim().split('\n').map(r=>'<tr>'+r.split('|').filter(c=>c.trim()).map(c=>'<td>'+c.trim()+'</td>').join('')+'</tr>').join('');
@@ -2330,7 +1927,6 @@ function md2html(md,raw){
   h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
   h=h.replace(/(?<![*\\])\*([^*\n]+?)\*(?!\*)/g,'<em>$1</em>');
   h=h.replace(/__(.+?)__/g,'<u>$1</u>');
-  // Standard markdown links (any remaining, e.g. in Works Cited URLs)
   h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--cy);text-decoration:underline;text-underline-offset:2px">$1</a>');
   h=h.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
   h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
@@ -2340,19 +1936,9 @@ function md2html(md,raw){
 }
 
 function countW(md){return md.split(/\s+/).filter(w=>w.length>0&&!/^[#*\-|>]$/.test(w)).length}
-function countCitations(md){return(md.match(/\[[^\]]+\]\(https?:\/\/[^)]+\)/g)||[]).length}
-function updWC(){
-  const wc=countW(allMD);
-  const cc=countCitations(allMD);
-  document.getElementById('wc').textContent=wc.toLocaleString()+' words'+' · '+cc+' citation'+(cc!==1?'s':'');
-  if(allMD&&cc===0){
-    document.getElementById('wc').innerHTML+=
-      ' <span style="color:var(--am);font-size:10px" title="No citations found — guide may lack source attribution">⚠ no sources</span>';
-  }
-}
+function updWC(){document.getElementById('wc').textContent=countW(allMD).toLocaleString()+' words'}
 function buildTOC(){
-  // Only include content section h1s, not Works Cited
-  const h1s=[...document.getElementById('gBody').querySelectorAll('.sec-block:not(#sb-works-cited) h1')];
+  const h1s=document.getElementById('gBody').querySelectorAll('h1');
   if(!h1s.length){document.getElementById('toc').style.display='none';return}
   const list=document.getElementById('tocList');list.innerHTML='';
   h1s.forEach((h,i)=>{h.id='s'+i;const li=document.createElement('li');const a=document.createElement('a');a.href='#s'+i;a.textContent=h.textContent;li.appendChild(a);list.appendChild(li)});
@@ -2361,84 +1947,56 @@ function buildTOC(){
 
 /* ═══════ STRIP UNREQUESTED SECTIONS FROM MARKDOWN ═══════ */
 function filterMDToSections(md,allowedSecIds){
-  // HYBRID approach:
-  // 1. Match blocks to allowed sections by label (exact → contains)
-  // 2. Hard cap: NEVER return more blocks than allowedSecIds.length
-  // This handles both cases: Claude writes only checked (positional) AND
-  // Claude writes extras (matching filters to the right ones).
-  console.log('%c[filterMDToSections] Called with '+((allowedSecIds&&allowedSecIds.length)||0)+' allowed IDs: '+JSON.stringify(allowedSecIds),'color:cyan;font-weight:bold');
-  if(!allowedSecIds||!allowedSecIds.length){console.log('[filter] No allowed IDs — returning full MD');return md}
+  // Hard filter: scan every H1, identify which SEC ID it belongs to,
+  // and REMOVE it unless that ID is in allowedSecIds.
+  // Headings that don't match ANY known section are also removed.
+  if(!allowedSecIds||!allowedSecIds.length)return md;
 
   const lines=md.split('\n');
   const h1Lines=[];
   lines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
-  if(!h1Lines.length){console.log('[filter] No H1 lines found — returning full MD');return md}
+  if(!h1Lines.length)return md;
 
-  const blocks=h1Lines.map((start,i)=>{
-    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
-    const heading=lines[start].replace(/^# /,'').trim();
-    return{heading,text:lines.slice(start,end).join('\n'),start};
+  // Build lookup: for each SEC entry, generate match keywords from label
+  const secLookup=SEC.map(s=>{
+    const words=s.l.toLowerCase().split(/[\s&/,]+/).filter(w=>w.length>2);
+    return{id:s.id,words};
   });
-  console.log('[filter] Found '+blocks.length+' H1 blocks: '+blocks.map(b=>'"'+b.heading+'"').join(', '));
 
-  const maxSections=allowedSecIds.length;
-  const secLabels={};
-  SEC.forEach(s=>{secLabels[s.id]=s.l});
-
-  // STEP 1: Try to match each allowed section to a block by label
-  const usedBlocks=new Set();
-  const matchedByLabel=[]; // [{secId, blockIdx}]
-  for(const secId of allowedSecIds){
-    const label=(secLabels[secId]||'').toLowerCase().trim();
-    if(!label)continue;
-    let found=-1;
-    // Exact match
-    for(let i=0;i<blocks.length;i++){
-      if(usedBlocks.has(i))continue;
-      if(blocks[i].heading.toLowerCase().trim()===label){found=i;break}
+  function identifySection(headingText){
+    // Returns the SEC id this heading belongs to, or null
+    const ht=headingText.toLowerCase();
+    const hWords=ht.split(/[\s&/,]+/).filter(w=>w.length>2);
+    let bestId=null,bestScore=0;
+    for(const entry of secLookup){
+      // Score: how many of the SEC label words appear in the heading?
+      const overlap=entry.words.filter(w=>hWords.some(hw=>hw.includes(w)||w.includes(hw))).length;
+      const score=entry.words.length>0?overlap/entry.words.length:0;
+      if(score>bestScore){bestScore=score;bestId=entry.id}
     }
-    // Contains match
-    if(found<0){
-      for(let i=0;i<blocks.length;i++){
-        if(usedBlocks.has(i))continue;
-        const h=blocks[i].heading.toLowerCase().trim();
-        if(h.includes(label)||label.includes(h)){found=i;break}
-      }
-    }
-    if(found>=0){
-      matchedByLabel.push({secId,blockIdx:found});
-      usedBlocks.add(found);
-      console.log('[filter] LABEL MATCH: "'+blocks[found].heading+'" → '+secId);
-    }
+    return bestScore>=0.35?bestId:null;
   }
 
-  let kept;
-  if(matchedByLabel.length===maxSections){
-    // All sections matched by label — use those (sorted by block order)
-    matchedByLabel.sort((a,b)=>a.blockIdx-b.blockIdx);
-    kept=matchedByLabel.map(m=>blocks[m.blockIdx].text);
-    console.log('[filter] All '+maxSections+' sections matched by label');
-  }else{
-    // Fallback: take first N blocks (positional) — Claude wrote them in order
-    console.log('[filter] Only '+matchedByLabel.length+'/'+maxSections+' matched by label — using positional fallback');
-    kept=[];
-    for(let i=0;i<blocks.length&&kept.length<maxSections;i++){
-      kept.push(blocks[i].text);
-      console.log('[filter] POSITIONAL KEEP block '+i+': "'+blocks[i].heading+'"');
-    }
+  const kept=[];
+
+  // Keep preamble (content before first H1)
+  if(h1Lines[0]>0){
+    const preamble=lines.slice(0,h1Lines[0]).join('\n').trim();
+    if(preamble)kept.push(preamble);
   }
 
-  // HARD CAP: never return more than maxSections
-  if(kept.length>maxSections)kept=kept.slice(0,maxSections);
+  for(let i=0;i<h1Lines.length;i++){
+    const hText=lines[h1Lines[i]].replace(/^# /,'').trim();
+    const start=h1Lines[i];
+    const end=i+1<h1Lines.length?h1Lines[i+1]:lines.length;
+    const secId=identifySection(hText);
 
-  // Log dropped
-  const keptCount=kept.length;
-  for(let i=0;i<blocks.length;i++){
-    if(!usedBlocks.has(i)&&matchedByLabel.length===maxSections){
-      console.log('[filter] DROPPED: "'+blocks[i].heading+'"');
+    // Only keep if we identified which section it is AND it's in the allowed list
+    if(secId&&allowedSecIds.includes(secId)){
+      kept.push(lines.slice(start,end).join('\n'));
     }
+    // Everything else is silently dropped
   }
-  console.log('%c[filter] Result: '+keptCount+' kept, '+(blocks.length-keptCount)+' dropped (max: '+maxSections+')','color:cyan;font-weight:bold');
 
   return kept.join('\n\n---\n\n');
 }
@@ -2494,9 +2052,6 @@ function splitBatchMD(grpMD,secIds){
 
 /* ═══════ SECTION REGEN ═══════ */
 async function regenSec(secId){
-  // Verify section is currently checked/allowed
-  const allowed=getAllowedSectionIds();
-  if(!allowed.includes(secId)){console.warn('[regenSec] Section '+secId+' is not checked — skipping');return}
   const keys=getKeys();if(!keys.length)return alert('No API keys configured on server.');
   const drug=document.getElementById('drugName').value.trim();
   const block=document.getElementById('sb-'+secId);if(!block)return;
@@ -2516,12 +2071,12 @@ async function regenSec(secId){
   const researchText=needsResearch?Object.values(allRes).join('\n\n---\n\n').substring(0,40000):'';
 
   const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-  const sys=`You are a senior medical-legal consultant rewriting ONE section of a Litigation Review Guide. Write for nurse reviewers and paralegals building cases.
+  const sys=`You are a senior partner-level research attorney rewriting ONE section of a mass tort viability research memorandum. The audience is firm leadership deciding whether to pursue this litigation. Write in flowing analytic prose, not bullet fragments.
 
-DRUG: ${drug}
+PRODUCT / DRUG: ${drug}
 ${researchText?'RESEARCH NOTES:\n<research>\n'+researchText+'\n</research>\n':''}
 ${existingSec?'CURRENT SECTION (rewrite this):\n<current>\n'+existingSec+'\n</current>\n':''}
-OTHER SECTIONS IN THIS GUIDE (for cross-reference — do NOT repeat their content):
+OTHER SECTIONS IN THIS MEMORANDUM (for cross-reference — do NOT repeat their content):
 ${otherSections||'(none yet)'}
 
 SECTION TO WRITE:
@@ -2529,10 +2084,12 @@ ${secPrompt}
 
 RULES:
 - Write ONLY this one section. Start with the # heading.
-- Do NOT redefine terms already covered in other sections — cross-reference instead.
-- Include [Source](URL) citations where facts are cited.
-- Target ~${Math.round(dc.totalWords/SEC.length)} words for this section.
-- Every sentence must serve: exposure, injury, severity, causation, or confounder defense.
+- Paragraphs, not bullet dumps. Bullets only where explicitly useful (intake lists, scorecards, SOL matrices, verdict tables).
+- Do NOT redefine concepts already covered in other sections — cross-reference instead (e.g., "as discussed in §3").
+- Cite sources aggressively using [Label](URL) format. Prefer peer-reviewed journals and government sources for scientific claims; attorney/tracking pages only for litigation-specific facts.
+- Target ~${Math.round(dc.totalWords/SEC.length)} words.
+- Every paragraph must contribute to the partner's decision on the five viability elements: scientific evidence, regulatory validation, legal viability, case economics, strategic posture.
+- NEVER use the language of chart review, nurse reviewers, ICD-10 codes, or severity grading from medical records. This is an upstream litigation viability memo, not a record review guide.
 
 Output ONLY the section Markdown.`;
 
@@ -2579,7 +2136,6 @@ async function run(){
   const inj=document.getElementById('injuries').value.trim();
   const extra=document.getElementById('extra').value.trim();
   const secs=getSecs();
-  console.log('%c[run] CHECKED SECTIONS: '+secs.length+' → '+JSON.stringify(secs),'color:lime;font-weight:bold;font-size:14px');
 
   if(!keys.length)return alert('No API keys configured on the server. Add ANTHROPIC_KEY_1 to your Netlify environment variables.');
   if(!drug)return alert('Enter a drug or device name.');
@@ -2598,18 +2154,6 @@ async function run(){
   activeRP=RP.filter(p=>neededResearchIds.has(p.id));
 
   const est=estimateCost();
-  if(!confirm('Estimated cost: $'+est.low+' \u2013 $'+est.high+'\n\nProceed with generation?'))return;
-  const btn=document.getElementById('btnGo'),stopBtn=document.getElementById('btnStop');
-  btn.disabled=true;btn.textContent='Working...';stopBtn.style.display='block';
-
-  const secLabels=getSecLabels();
-  const steps=[
-    ...activeRP.map(p=>({l:'🔍 '+p.l,d:'Queued'})),
-    {l:'🔎 Gap Analysis + Follow-Up',d:'Queued'},
-    ...secs.map(id=>({l:'✍ '+(secLabels[id]||id),d:'Queued'})),
-    {l:'✓ Verification Audit',d:'Queued'}
-  ];
-  initProg(steps);
 
   document.getElementById('emptyState').style.display='none';
   document.getElementById('outWrap').style.display='block';
@@ -2620,8 +2164,8 @@ async function run(){
 
   const gHead=document.getElementById('gHead');
   const gBody=document.getElementById('gBody');
-  gHead.innerHTML='<h1>Litigation Review Guide: '+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
-  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+activeRP.length+' research passes + '+secs.length+' section generations across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(getBudget().parallel)+' parallel). This takes 3–8 minutes...</p></div>';
+  gHead.innerHTML='<h1>Mass Tort Viability Memo:'+drug+'</h1><div class="meta" id="gMeta">'+(cond||'(auto-discovered)')+' — '+litType.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+'</div>';
+  gBody.innerHTML='<div class="gc"><p style="color:var(--tx3)">Running '+activeRP.length+' research passes across '+keys.length+' API key'+(keys.length>1?'s':'')+' (max '+(getBudget().parallel)+' parallel, '+(getBudget().stagger)+'s stagger). Auto-retries on rate limits with exponential backoff. This takes 3–8 minutes...</p></div>';
   document.getElementById('toc').style.display='none';
   document.getElementById('wc').textContent='';
 
@@ -2631,14 +2175,14 @@ async function run(){
 
   try{
     // ═══ PHASE 1: PARALLEL RESEARCH ═══
-    allRes=await doResearch(keys,drug,cond,inj,extra,ac.signal);
+    allRes=await doResearch(keys,drug,cond,inj,extra,ac.signal,activeRP);
 
     const rpBody=document.getElementById('rpBody');
-    rpBody.innerHTML=RP.map((p,i)=>{
+    rpBody.innerHTML=activeRP.map((p,i)=>{
       const failed=allRes[p.id]?.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
     }).join('');
-    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars · '+countCitations(Object.values(allRes).join(''))+' citations';
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
     document.getElementById('rpanel').style.display='block';
     const anyResFailed=Object.values(allRes).some(v=>v.startsWith('[Failed:'));
     if(anyResFailed)document.getElementById('rpanel').open=true;
@@ -2660,7 +2204,7 @@ async function run(){
         followUp=gapResult.followUp;
         if(followUp){
           rpBody.innerHTML+='<details class="rp-pass"><summary>Follow-Up Research (Gap Fills)</summary><div class="rp-pass-body">'+followUp+'</div></details>';
-          document.getElementById('rcount').textContent=(Object.values(allRes).join('').length+followUp.length).toLocaleString()+' chars · '+countCitations(Object.values(allRes).join('')+followUp)+' citations';
+          document.getElementById('rcount').textContent=(Object.values(allRes).join('').length+followUp.length).toLocaleString()+' chars';
         }
         setP(gapIdx,'done','Found '+(gapResult.gaps.match(/GAP:/gi)||[]).length+' gaps, ran follow-up searches');
       }catch(e){
@@ -2672,91 +2216,134 @@ async function run(){
 
     await sleep(10000,ac.signal);
 
-    // ═══ PHASE 3: PER-SECTION GENERATION ═══
-    // Each checked section gets its own API call with ONLY its relevant research.
-    // No filtering needed — each call produces exactly one section.
+    // ═══ PHASE 3: GENERATION (single call, all sections) ═══
     gBody.innerHTML='';
-    let priorSectionsMD='';
-    let genSuccess=true;
-    let sectionsWritten=0;
-    const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+    const genIdx=activeRP.length+gapStepCount;
+    const genKey=keys[0];
+    setP(genIdx,'run','Writing full guide with '+(genModel.includes('opus')?'Opus':'Sonnet')+'...');
 
-    for(let si=0;si<secs.length;si++){
-      const secId=secs[si];
-      const secLabel=(getSecLabels()[secId])||secId;
-      const genIdx=activeRP.length+gapStepCount+si;
-      const genKey=keys[si%keys.length];
+    const genDiv=document.createElement('div');genDiv.className='sec-block';genDiv.id='sb-gen';
+    genDiv.innerHTML='<div class="gc"></div>';
+    gBody.appendChild(genDiv);
 
-      // Cooldown between section API calls (skip before first)
-      if(si>0){
-        setP(genIdx,'par','Cooling down before next section...');
-        await sleep(5000,ac.signal);
+    let genSuccess=false;
+    for(let genAttempt=0;genAttempt<3&&!genSuccess;genAttempt++){
+      if(genAttempt>0){
+        const retryWait=20000*genAttempt;
+        setP(genIdx,'par','Generation failed — retry '+(genAttempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
+        await sleep(retryWait,ac.signal);
+        setP(genIdx,'run','Retrying generation (attempt '+(genAttempt+1)+')...');
+        genDiv.querySelector('.gc').innerHTML='';
       }
+      try{
+        const allSecIds=secs;
+        const sys=buildGenSys(drug,cond,litType,allRes,followUp,inj,extra,allSecIds);
+        const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+        const resp=await callApi(genKey,[{role:'user',content:'Write the COMPLETE mass tort viability research memorandum — all '+allSecIds.length+' sections as one cohesive document. Target ~'+dc.totalWords+' words. Write in flowing analytic prose, not bullet dumps. The Scientific & Medical Literature and Legal Landscape sections are the analytical heart — protect their word budgets. The Intake Criteria & Go/No-Go section MUST be complete — it is the operational output. If running long, compress — never skip. Include [Source](URL) citations aggressively. Output only Markdown.'}],sys,{
+          stream:true,maxTok:dc.tokPerCall,model:genModel,signal:ac.signal,
+          onRetry:(msg)=>setP(genIdx,'par',msg)
+        });
 
-      setP(genIdx,'run','Writing '+secLabel+' with '+(genModel.includes('opus')?'Opus':'Sonnet')+'...');
-
-      // Create DOM block for this section
-      const secDiv=document.createElement('div');
-      secDiv.className='sec-block';
-      secDiv.id='sb-'+secId;
-      secDiv.innerHTML='<div class="gc"></div>';
-      gBody.appendChild(secDiv);
-
-      let secSuccess=false;
-      for(let attempt=0;attempt<3&&!secSuccess;attempt++){
-        if(attempt>0){
-          const retryWait=15000*attempt;
-          setP(genIdx,'par',secLabel+' failed — retry '+(attempt+1)+'/3 in '+(retryWait/1000|0)+'s...');
-          await sleep(retryWait,ac.signal);
-          setP(genIdx,'run','Retrying '+secLabel+' (attempt '+(attempt+1)+')...');
-          secDiv.querySelector('.gc').innerHTML='';
-        }
-        try{
-          const sys=buildSectionSys(drug,cond,litType,allRes,followUp,inj,extra,secId,secs,priorSectionsMD);
-          const secTok=Math.min(dc.tokPerCall,8000);
-          const resp=await callApi(genKey,[{role:'user',content:'Write the complete '+secLabel+' section now. Include [Source](URL) citations from the research notes. Output only Markdown.'}],sys,{
-            stream:true,maxTok:secTok,model:genModel,signal:ac.signal,
-            onRetry:(msg)=>setP(genIdx,'par',msg)
+        const gc=genDiv.querySelector('.gc');
+        allMD=await streamTo(resp,gc,()=>updWC());
+        if(allMD.trim().length<100){throw new Error('Generation returned empty or too short');}
+        // Filter out any sections the model generated that weren't requested
+        allMD=filterMDToSections(allMD,allSecIds);
+        gc.innerHTML=md2html(allMD);
+        splitBatchMD(allMD,allSecIds);
+        setP(genIdx,'done',countW(allMD).toLocaleString()+' words');
+        genSuccess=true;
+      }catch(e){
+        if(e.name==='AbortError')throw e;
+        if(genAttempt===2){
+          setP(genIdx,'err','Failed after 3 attempts: '+e.message);
+          const gc=genDiv.querySelector('.gc');
+          gc.innerHTML='<p style="color:var(--rd)">⚠ Generation failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Generation</button>';
+          logError(e,{
+            step:'generation',
+            stepLabel:'Guide Generation',
+            type:'generation',
+            keyIndex:genKey,
+            retryAttempts:3,
+            retryFn:"retryGeneration()",
           });
-
-          const gc=secDiv.querySelector('.gc');
-          const sectionMD=await streamTo(resp,gc,()=>updWC());
-          if(sectionMD.trim().length<50){throw new Error(secLabel+' returned empty or too short');}
-
-          // Store this section's markdown
-          secMD[secId]=sectionMD;
-          priorSectionsMD+=(priorSectionsMD?'\n\n---\n\n':'')+sectionMD;
-          allMD=priorSectionsMD;
-
-          gc.innerHTML=md2html(sectionMD);
-          updWC();
-          sectionsWritten++;
-          setP(genIdx,'done',countW(sectionMD).toLocaleString()+' words');
-          secSuccess=true;
-        }catch(e){
-          if(e.name==='AbortError')throw e;
-          if(attempt===2){
-            setP(genIdx,'err',secLabel+' failed after 3 attempts: '+e.message);
-            genSuccess=false;
-            logError(e,{
-              step:'generation',
-              stepLabel:secLabel+' Generation',
-              type:'generation',
-              keyIndex:genKey,
-              retryAttempts:3,
-              retryFn:"retryGeneration()",
-            });
-          }
         }
       }
     }
 
-    console.log('[run] Per-section generation complete: '+sectionsWritten+'/'+secs.length+' sections written');
     updWC();buildTOC();
+
+    // ═══ COMPLETION CHECK: Recover missing SELECTED sections only ═══
+    if(genSuccess&&allMD){
+      const labels=getSecLabels();
+      // FIX: Only check sections the user actually selected, not all sections
+      const selectedSecIds=secs;
+      const missingSections=[];
+
+      for(const id of selectedSecIds){
+        const label=labels[id]||id;
+        const headingWords=label.split(/\s+/).filter(w=>w.length>3);
+        const found=allMD.split('\n').some(line=>{
+          if(!line.startsWith('# '))return false;
+          const lineLower=line.toLowerCase();
+          return headingWords.filter(w=>lineLower.includes(w.toLowerCase())).length>=Math.ceil(headingWords.length*0.5);
+        });
+        if(!found)missingSections.push({id,label});
+      }
+
+      if(missingSections.length>0){
+        setP(genIdx,'par',missingSections.length+' section'+(missingSections.length>1?'s':'')+' missing — recovering...');
+
+        for(const missing of missingSections){
+          setP(genIdx,'par','Recovering: '+missing.label+'...');
+          try{
+            await sleep(3000,ac.signal);
+            const sp=getSP()[missing.id];
+            if(!sp)continue;
+
+            const recoverSys=`You are a senior partner-level research attorney. Write ONE section of a mass tort viability research memorandum. The memo already has these sections written — do NOT duplicate their content:
+
+${allMD.split('\n').filter(l=>l.startsWith('# ')).join('\n')}
+
+GUIDE CONTEXT (abbreviated):
+<guide>
+${allMD.substring(0,20000)}
+</guide>
+
+SECTION TO WRITE:
+${sp}
+
+Write the COMPLETE section. Start with the # heading. Match the style and depth of the existing sections.
+
+Output ONLY this section's Markdown.`;
+            const recResp=await callApi(genKey,[{role:'user',content:'Write the complete '+missing.label+' section now.'}],recoverSys,{
+              stream:true,maxTok:4000,model:genModel,signal:ac.signal
+            });
+            const tmpEl=document.createElement('div');tmpEl.style.display='none';document.body.appendChild(tmpEl);
+            const recoveredMD=await streamTo(recResp,tmpEl);
+            document.body.removeChild(tmpEl);
+
+            if(recoveredMD&&recoveredMD.trim().length>100){
+              allMD+='\n\n---\n\n'+recoveredMD;
+              secMD[missing.id]=recoveredMD;
+              const gc=genDiv.querySelector('.gc');
+              gc.innerHTML=md2html(allMD);
+              updWC();buildTOC();
+            }
+            if(missingSections.indexOf(missing)<missingSections.length-1)await sleep(3000,ac.signal);
+          }catch(e){
+            if(e.name==='AbortError')throw e;
+            setP(genIdx,'par',missing.label+' recovery failed — use Refine to add it');
+            logError(e,{step:'section_recovery',stepLabel:missing.label+' Recovery',type:'generation'});
+          }
+        }
+        setP(genIdx,'done',countW(allMD).toLocaleString()+' words ('+missingSections.length+' section'+(missingSections.length>1?'s':'')+' recovered)');
+      }
+    }
 
     // ═══ PHASE 4: VERIFICATION (mandatory) ═══
     {
-      const vIdx=activeRP.length+gapStepCount+secs.length;
+      const vIdx=genIdx+1;
       setP(vIdx,'run','Cooling before verification...');
       await sleep(10000,ac.signal);
       setP(vIdx,'run','Cross-checking guide against research...');
@@ -2774,22 +2361,21 @@ async function run(){
       }
     }
 
-    // Final render with numerical citations
     splitOutputIntoSections();
 
     const elapsed=((Date.now()-t0)/1000/60).toFixed(1);
 
     const failedResearch=Object.entries(allRes).filter(([k,v])=>v.startsWith('[Failed:')).map(([k])=>k);
-    const failedSections=secs.length-sectionsWritten;
-    const totalFailed=failedResearch.length+failedSections;
+    const genFailed=!genSuccess;
+    const totalFailed=failedResearch.length+(genFailed?1:0);
 
     if(totalFailed>0){
-      let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — '+sectionsWritten+'/'+secs.length+' sections';
-      if(failedResearch.length)failMsg+=' — ⚠ '+failedResearch.length+' research failure'+(failedResearch.length>1?'s':'');
-      if(failedSections>0)failMsg+=' — ⚠ '+failedSections+' section'+(failedSections>1?'s':'')+' failed';
-      document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryGeneration()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry Failed Sections</button>';
+      let failMsg='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — ⚠ '+totalFailed+' failure'+(totalFailed>1?'s':'');
+      if(failedResearch.length)failMsg+=' ('+failedResearch.length+' research)';
+      if(genFailed)failMsg+=' (generation)';
+      document.getElementById('pfoot').innerHTML=failMsg+' <button onclick="retryAllFailed()" style="margin-left:8px;padding:4px 12px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:10px;cursor:pointer;font-weight:600">↻ Retry All Failed</button>';
     }else{
-      document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words — '+sectionsWritten+'/'+secs.length+' sections';
+      document.getElementById('pfoot').textContent='Completed in '+elapsed+' min — '+countW(allMD).toLocaleString()+' words';
     }
 
     showRefineBar();
@@ -2803,7 +2389,8 @@ async function run(){
     if(err.name==='AbortError'){document.getElementById('pfoot').textContent='Stopped';if(allMD)showRefineBar()}
     else{document.getElementById('pfoot').textContent='Error: '+err.message;if(!allMD)gBody.innerHTML='<div class="gc"><p style="color:var(--rd)">'+err.message+'</p></div>';else showRefineBar()}
   }finally{
-    btn.disabled=false;btn.textContent='Generate Review Guide';stopBtn.style.display='none';ac=null;
+    btn.disabled=false;btn.textContent='Generate Viability Memo';stopBtn.style.display='none';ac=null;
+    togAll(false);
   }
 }
 
@@ -2824,70 +2411,30 @@ async function retryGeneration(){
   activeSelectedSecs=[...allSecIds];
 
   const gBody=document.getElementById('gBody');
-  gBody.innerHTML='<p style="color:var(--tx3);padding:16px">Retrying generation — '+allSecIds.length+' sections...</p>';
-
-  // Determine which sections need regeneration (missing from secMD or failed)
-  const secsToRetry=allSecIds.filter(id=>!secMD[id]||secMD[id].trim().length<50);
-  const secsToKeep=allSecIds.filter(id=>secMD[id]&&secMD[id].trim().length>=50);
-
-  // If all sections already exist, retry all of them (user explicitly clicked retry)
-  const targetSecs=secsToRetry.length>0?secsToRetry:allSecIds;
-
-  const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
-  let priorSectionsMD=secsToKeep.map(id=>secMD[id]).join('\n\n---\n\n');
-
-  gBody.innerHTML='';
-
-  // First, re-render any kept sections
-  for(const id of secsToKeep){
-    const secDiv=document.createElement('div');
-    secDiv.className='sec-block';secDiv.id='sb-'+id;
-    secDiv.innerHTML='<div class="gc">'+md2html(secMD[id])+'</div>';
-    gBody.appendChild(secDiv);
-  }
+  gBody.innerHTML='<div class="sec-block" id="sb-gen"><div class="gc"><p style="color:var(--tx3)">Retrying full guide generation...</p></div></div>';
 
   try{
-    for(let si=0;si<targetSecs.length;si++){
-      const secId=targetSecs[si];
-      const secLabel=(getSecLabels()[secId])||secId;
+    const sys=buildGenSys(drug,cond,litType,allRes,'',inj,extra,allSecIds);
+    const dc=DEPTH_CONFIG[outputDepth]||DEPTH_CONFIG.standard;
+    const resp=await callApi(keys[0],[{role:'user',content:'Write the COMPLETE mass tort viability research memorandum now — all '+allSecIds.length+' sections as one cohesive document written in flowing analytic prose. Target ~'+dc.totalWords+' words. Include [Source](URL) citations aggressively. Output only Markdown.'}],sys,{
+      stream:true,maxTok:dc.tokPerCall,model:genModel,signal:null
+    });
 
-      if(si>0)await new Promise(r=>setTimeout(r,5000));
-
-      const secDiv=document.createElement('div');
-      secDiv.className='sec-block';secDiv.id='sb-'+secId;
-      secDiv.innerHTML='<div class="gc"><p style="color:var(--tx3)">Writing '+secLabel+'...</p></div>';
-      gBody.appendChild(secDiv);
-
-      const sys=buildSectionSys(drug,cond,litType,allRes,'',inj,extra,secId,allSecIds,priorSectionsMD);
-      const secTok=Math.min(dc.tokPerCall,8000);
-      const resp=await callApi(keys[si%keys.length],[{role:'user',content:'Write the complete '+secLabel+' section now. Include [Source](URL) citations. Output only Markdown.'}],sys,{
-        stream:true,maxTok:secTok,model:genModel,signal:null
-      });
-
-      const gc=secDiv.querySelector('.gc');
-      const sectionMD=await streamTo(resp,gc,()=>updWC());
-      if(sectionMD.trim().length<50)throw new Error(secLabel+' returned empty or too short');
-
-      secMD[secId]=sectionMD;
-      priorSectionsMD+=(priorSectionsMD?'\n\n---\n\n':'')+sectionMD;
-      gc.innerHTML=md2html(sectionMD);
-      updWC();
-    }
-
-    // Rebuild allMD from secMD in correct order
-    allMD=allSecIds.map(id=>secMD[id]||'').filter(m=>m.trim()).join('\n\n---\n\n');
+    const gc=gBody.querySelector('.gc');
+    allMD=await streamTo(resp,gc,()=>updWC());
+    if(allMD.trim().length<100)throw new Error('Response too short');
+    // Filter out any sections the model generated that weren't requested
+    allMD=filterMDToSections(allMD,allSecIds);
+    gc.innerHTML=md2html(allMD);
+    splitBatchMD(allMD,allSecIds);
     updWC();buildTOC();showRefineBar();
     splitOutputIntoSections();
 
     errorLog.filter(e=>e.step==='generation'&&!e.resolved).forEach(e=>resolveError(e.id));
     updateFailureSummary();
   }catch(e){
-    // Rebuild allMD from whatever we have
-    allMD=allSecIds.map(id=>secMD[id]||'').filter(m=>m.trim()).join('\n\n---\n\n');
-    updWC();buildTOC();
-    const errDiv=document.createElement('div');
-    errDiv.innerHTML='<p style="color:var(--rd);padding:16px">⚠ Retry failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Again</button>';
-    gBody.appendChild(errDiv);
+    const gc=gBody.querySelector('.gc');
+    if(gc)gc.innerHTML='<p style="color:var(--rd)">⚠ Retry failed: '+e.message+'</p><button onclick="retryGeneration()" style="margin-top:8px;padding:8px 16px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:6px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;font-weight:600">↻ Retry Again</button>';
     logError(e,{step:'generation',stepLabel:'Retry Guide Generation',type:'generation',retryAttempts:1,retryFn:"retryGeneration()"});
   }
 }
@@ -2912,11 +2459,11 @@ async function retryFailedResearch(passId){
     allRes[passId]=txt.trim();
 
     const rpBody=document.getElementById('rpBody');
-    rpBody.innerHTML=RP.map((p,i)=>{
+    rpBody.innerHTML=(activeRP.length?activeRP:RP).map((p,i)=>{
       const failed=allRes[p.id]?.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${allRes[p.id]||'(empty)'}${failed?'<br><button onclick="retryFailedResearch(\''+p.id+'\')" style="margin-top:8px;padding:6px 14px;background:var(--rdbg);color:var(--rd);border:1px solid var(--rdbd);border-radius:5px;font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;font-weight:600">↻ Retry This Research Pass</button>':''}</div></details>`;
     }).join('');
-    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars · '+countCitations(Object.values(allRes).join(''))+' citations';
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
     errorLog.filter(e=>e.step===passId&&!e.resolved).forEach(e=>resolveError(e.id));
     updateFailureSummary();
   }catch(e){
@@ -2951,189 +2498,115 @@ function updateFailureSummary(){
 function copyHTML(){const tmp=document.createElement('div');tmp.innerHTML=document.getElementById('gBody').innerHTML;tmp.querySelectorAll('.regen-btn,.out-drag-h').forEach(el=>el.remove());navigator.clipboard.writeText(tmp.innerHTML).then(()=>alert('Copied.'))}
 function printGuide(){window.print()}
 function dlPDF(){
-  var drug=document.getElementById('drugName').value.trim()||'Guide';
-  var btn=document.querySelector('.toolbar button[onclick="dlPDF()"]');
+  const drug=document.getElementById('drugName').value.trim()||'Guide';
+  const btn=document.querySelector('.toolbar button[onclick="dlPDF()"]');
   btn.textContent='Generating PDF...';btn.disabled=true;
-  try{
-    var JP=(window.jspdf&&window.jspdf.jsPDF);
-    if(!JP)throw new Error('jsPDF not loaded');
-    var doc=new JP({orientation:'portrait',unit:'pt',format:'letter'});
-    var PW=612,PH=792,ML=54,MR=54,MT=60,MB=58,CW=PW-ML-MR,y=MT;
-    var dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-    var h1Entries=[];
-    var tocPageNumSlots=[];
 
-    /* --- Build PDF markdown from ONLY allowed sections --- */
-    var allowedPDF=getAllowedSectionIds();
-    var pdfSourceMD=allowedPDF.map(function(id){return secMD[id]}).filter(function(m){return m&&m.trim()}).join('\n\n---\n\n');
-    if(!pdfSourceMD)pdfSourceMD=allMD||'';
-    var cited=getCitedMD(pdfSourceMD);
-    var md=cited.md;
-    var pdfCitations=cited.citations; /* [{num,label,url}] */
-    var mLines=md.split('\n');
-    var h1Titles=[];
-    for(var si=0;si<mLines.length;si++){
-      if(mLines[si].indexOf('# ')===0&&mLines[si].indexOf('## ')!==0){
-        var scanRaw=mLines[si].substring(2);
-        h1Titles.push(scanRaw.replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/\{\{CITE:\d+:[^}]+\}\}/g,''));
-      }
-    }
+  const container=document.createElement('div');
+  container.innerHTML=`
+    <div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.5;font-size:11px;max-width:7in;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word">
+      <div style="border-bottom:1.5px solid #1a2e6c;padding-bottom:10px;margin-bottom:18px">
+        ${document.getElementById('gHead').innerHTML.replace(/style="[^"]*"/g,'').replace(/<h1/,'<h1 style="font-size:20px;font-weight:bold;margin:0 0 4px;color:#1a1a2e"').replace(/class="meta"/,'style="font-size:10px;color:#555"')}
+      </div>
+      ${document.getElementById('gBody').innerHTML}
+    </div>`;
 
-    /* --- Helper functions --- */
-    function np(h){if(y+h>PH-MB){doc.addPage();y=MT}}
-    function ss(sz,st,c){doc.setFontSize(sz);doc.setFont('helvetica',st||'normal');doc.setTextColor(c?c[0]:26,c?c[1]:26,c?c[2]:46)}
-    function strip(t){return t.replace(/\{\{CITE:(\d+):[^}]+\}\}/g,'[$1]').replace(/\*\*\*(.+?)\*\*\*/g,'$1').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(?<![\\])_(.+?)(?<![\\])_/g,'$1').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')}
-    function gL(t){var links=[];var re=/\[([^\]]+)\]\(([^)]+)\)/g;var m;while((m=re.exec(t))!==null)links.push({lb:m[1],url:m[2]});var cre=/\{\{CITE:(\d+):(https?:\/\/[^}]+)\}\}/g;while((m=cre.exec(t))!==null)links.push({lb:'['+m[1]+']',url:m[2]});return links}
-    function aHL(raw,x,atY){var ht=strip(raw),hl=gL(raw),sf=0;for(var i=0;i<hl.length;i++){var idx=ht.indexOf(hl[i].lb,sf);if(idx>=0){doc.link(x+doc.getTextWidth(ht.substring(0,idx)),atY-8,doc.getTextWidth(hl[i].lb),11,{url:hl[i].url});sf=idx+hl[i].lb.length}}}
-    function rT(txt,xOff,maxW,sz,st,c,indent){
-      ss(sz||9.5,st||'normal',c||[26,26,46]);
-      var clean=strip(txt);
-      if(!clean||!clean.trim())return;
-      var words=clean.split(/\s+/).filter(function(w){return w});
-      if(!words.length)return;
-      var lh=(sz||9.5)*1.45;
-      var links=gL(txt);
-      var allText=words.join(' ');
-      var lpos=[],sf=0;
-      for(var k=0;k<links.length;k++){var idx=allText.indexOf(links[k].lb,sf);if(idx>=0){lpos.push({s:idx,e:idx+links[k].lb.length,url:links[k].url});sf=idx+links[k].lb.length}}
-      var line='',first=true,cp=0;
-      function emit(l,xB){
-        np(lh);doc.text(l,xB,y);
-        var le=cp+l.length;
-        for(var i=0;i<lpos.length;i++){
-          var os=Math.max(lpos[i].s,cp),oe=Math.min(lpos[i].e,le);
-          if(os<oe){var bef=l.substring(0,os-cp),lt=l.substring(os-cp,oe-cp);doc.link(xB+doc.getTextWidth(bef),y-8,doc.getTextWidth(lt),11,{url:lpos[i].url})}
+  container.querySelectorAll('h1').forEach(el=>{el.style.cssText='font-size:17px;font-weight:bold;border-bottom:1.5px solid #1a2e6c;padding-bottom:5px;margin:20px 0 8px;color:#1a1a2e;overflow-wrap:break-word'});
+  container.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-size:14px;color:#1a2e6c;margin:14px 0 6px;overflow-wrap:break-word'});
+  container.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-size:12.5px;margin:12px 0 5px;overflow-wrap:break-word'});
+  container.querySelectorAll('h4').forEach(el=>{el.style.cssText='font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#444;margin:10px 0 4px'});
+  container.querySelectorAll('p').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:4px;line-height:1.55;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('li').forEach(el=>{el.style.cssText='font-size:11px;margin-bottom:2px;line-height:1.5;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('ul,ol').forEach(el=>{el.style.cssText='margin:3px 0 8px 16px;font-size:11px;padding-left:0'});
+  container.querySelectorAll('strong,b').forEach(el=>{el.style.cssText='font-weight:600;color:#1a1a2e'});
+  container.querySelectorAll('table').forEach(el=>{el.style.cssText='width:100%;border-collapse:collapse;margin:8px 0;font-size:10px;table-layout:fixed'});
+  container.querySelectorAll('th').forEach(el=>{el.style.cssText='background:#e6e8f0;padding:4px 6px;text-align:left;font-weight:600;border-bottom:1.5px solid #bbb;font-size:10px;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('td').forEach(el=>{el.style.cssText='padding:3px 6px;border-bottom:1px solid #ddd;font-size:10px;overflow-wrap:break-word;word-break:break-word'});
+  container.querySelectorAll('blockquote').forEach(el=>{el.style.cssText='border-left:2px solid #1a2e6c;padding:5px 10px;margin:8px 0;background:#f4f5fa;font-size:11px;overflow-wrap:break-word'});
+  container.querySelectorAll('hr').forEach(el=>{el.style.cssText='border:none;border-top:1px solid #ccc;margin:14px 0'});
+  container.querySelectorAll('code').forEach(el=>{el.style.cssText='font-family:monospace;font-size:10px;background:#f0f0f0;padding:1px 3px;border-radius:2px;word-break:break-all'});
+  container.querySelectorAll('a').forEach(el=>{el.style.cssText='color:#1a2e6c;text-decoration:underline;word-break:break-all;font-size:10px'});
+  container.querySelectorAll('.regen-btn,.out-drag-h,.sec-block').forEach(el=>{
+    if(el.classList.contains('sec-block')){el.style.cssText='position:relative;margin-bottom:4px;overflow:hidden'}
+    else el.remove();
+  });
+
+  container.style.cssText='position:fixed;left:0;top:0;width:816px;visibility:hidden;pointer-events:none;z-index:-1';
+  document.body.appendChild(container);
+
+  requestAnimationFrame(()=>{
+    try{
+      const inner=container.firstElementChild;
+      const containerTop=inner.getBoundingClientRect().top;
+      const pxPerIn=816/7.2;
+      const pageH=9.5*pxPerIn;
+
+      const blocks=inner.querySelectorAll('h1,h2,h3,h4,p,li,table,blockquote,hr');
+      let spacerTotal=0;
+
+      blocks.forEach(el=>{
+        const rect=el.getBoundingClientRect();
+        const elTop=rect.top-containerTop+spacerTotal;
+        const elBot=rect.bottom-containerTop+spacerTotal;
+        const elH=rect.height;
+        const pageEnd=Math.ceil(elTop/pageH)*pageH;
+        if(pageEnd===elTop)return;
+
+        if(elBot>pageEnd&&elTop<pageEnd){
+          const onCurrentPage=pageEnd-elTop;
+          if(elH<300||onCurrentPage<elH*0.3){
+            const gap=pageEnd-elTop;
+            const spacer=document.createElement('div');
+            spacer.style.cssText='height:'+gap+'px;width:100%';
+            spacer.className='_pdf_spacer';
+            el.parentNode.insertBefore(spacer,el);
+            spacerTotal+=gap;
+          }
         }
-        cp=le+1;y+=lh
-      }
-      for(var w=0;w<words.length;w++){
-        var test=line?line+' '+words[w]:words[w];
-        if(doc.getTextWidth(test)>(maxW-(first&&indent?indent:0))){
-          emit(line,xOff+(first&&indent?indent:0));
-          line=words[w];first=false
-        }else line=test
-      }
-      if(line)emit(line,xOff+(first&&indent?indent:0))
+
+        if(/^H[1-4]$/.test(el.tagName)){
+          const hBot=rect.bottom-containerTop+spacerTotal;
+          const hPageEnd=Math.ceil(hBot/pageH)*pageH;
+          if(hPageEnd-hBot<50&&hPageEnd!==hBot){
+            const gap=hPageEnd-(rect.top-containerTop+spacerTotal);
+            if(gap>0&&gap<pageH){
+              const prev=el.previousElementSibling;
+              if(!prev||!prev.classList.contains('_pdf_spacer')){
+                const spacer=document.createElement('div');
+                spacer.style.cssText='height:'+gap+'px;width:100%';
+                spacer.className='_pdf_spacer';
+                el.parentNode.insertBefore(spacer,el);
+                spacerTotal+=gap;
+              }
+            }
+          }
+        }
+      });
+
+      document.body.removeChild(container);
+      container.style.cssText='';
+
+      const opt={
+        margin:[0.75,0.65,0.75,0.65],
+        filename:'Litigation_Review_Guide_v1.06_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf',
+        image:{type:'jpeg',quality:0.85},
+        html2canvas:{scale:1.5,useCORS:true,width:816},
+        jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
+        pagebreak:{mode:['css','legacy']}
+      };
+
+      html2pdf().set(opt).from(container).save().then(()=>{
+        btn.textContent='📕 .pdf';btn.disabled=false;
+      }).catch(e=>{
+        alert('PDF generation failed: '+e.message);
+        btn.textContent='📕 .pdf';btn.disabled=false;
+      });
+    }catch(e){
+      if(container.parentNode)document.body.removeChild(container);
+      alert('PDF generation failed: '+e.message);
+      btn.textContent='📕 .pdf';btn.disabled=false;
     }
-
-    /* ========== PAGE 1: TITLE PAGE ========== */
-    y=MT;
-    ss(22,'bold',[26,46,108]);
-    doc.text('Litigation Review Guide',ML,y);y+=14;
-    ss(10,'normal',[100,100,120]);
-    doc.text(drug+' \u2014 Generated '+dateStr,ML,y);y+=10;
-    doc.setDrawColor(26,46,108);doc.setLineWidth(1.5);doc.line(ML,y,PW-MR,y);y+=22;
-
-    /* ========== PAGE 2: TABLE OF CONTENTS ========== */
-    doc.addPage();y=MT;
-    ss(18,'bold',[26,46,108]);
-    doc.text('Table of Contents',ML,y);y+=8;
-    doc.setDrawColor(26,46,108);doc.setLineWidth(1);doc.line(ML,y,ML+160,y);y+=20;
-    var tocLH=18;
-    for(var tci=0;tci<h1Titles.length;tci++){
-      np(tocLH);
-      ss(10,'normal',[26,26,46]);
-      var tocTitle=h1Titles[tci];
-      var tocTitleW=doc.getTextWidth(tocTitle);
-      doc.text(tocTitle,ML,y);
-      /* dotted leader */
-      var dotStart=ML+tocTitleW+4;
-      var dotEnd=PW-MR-30;
-      ss(10,'normal',[160,160,170]);
-      if(dotEnd>dotStart){
-        var dots='';
-        doc.setFontSize(10);
-        while(doc.getTextWidth(dots+'.')<(dotEnd-dotStart))dots+='.';
-        doc.text(dots,dotStart,y);
-      }
-      tocPageNumSlots.push({title:tocTitle,yPos:y});
-      y+=tocLH;
-    }
-
-    /* ========== PAGES 3+: MAIN CONTENT ========== */
-    doc.addPage();y=MT;
-    var mi=0;
-    while(mi<mLines.length){
-      var ln=mLines[mi];
-      if(ln.indexOf('# ')===0&&ln.indexOf('## ')!==0){np(38);y+=8;ss(18,'bold',[26,46,108]);
-        var rawH1=ln.substring(2);var ht=strip(rawH1);doc.text(ht,ML,y);aHL(rawH1,ML,y);
-        h1Entries.push({title:ht,pageNum:doc.internal.getNumberOfPages()});
-        y+=6;
-        doc.setDrawColor(139,123,245);doc.setLineWidth(0.8);doc.line(ML,y,ML+Math.min(doc.getTextWidth(ht)+12,CW),y);y+=14;mi++;continue}
-      if(ln.indexOf('## ')===0&&ln.indexOf('### ')!==0){np(28);y+=6;ss(14,'bold',[139,123,245]);
-        var rawH2=ln.substring(3);doc.text(strip(rawH2),ML,y);aHL(rawH2,ML,y);y+=16;mi++;continue}
-      if(ln.indexOf('### ')===0){np(22);y+=4;ss(11,'bold',[60,60,80]);
-        var rawH3=ln.substring(4);var h3t=strip(rawH3).toUpperCase();doc.text(h3t,ML,y);aHL(rawH3,ML,y);y+=14;mi++;continue}
-      if(ln.indexOf('---')===0){np(12);doc.setDrawColor(200,200,210);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;mi++;continue}
-      if(ln.indexOf('|')===0){
-        var tRows=[],tii=mi;
-        while(tii<mLines.length&&mLines[tii].indexOf('|')===0){
-          if(mLines[tii].replace(/[|\-\s:]/g,'').length>0)
-            tRows.push(mLines[tii].split('|').filter(function(c){return c.trim()!==''}));
-          tii++}
-        mi=tii;
-        if(!tRows.length)continue;
-        var nCols=tRows[0].length;var cW2=CW/nCols;var rH=16;
-        np(rH+4);doc.setFillColor(30,33,52);doc.rect(ML,y-10,CW,rH,'F');
-        ss(8.5,'bold',[139,123,245]);
-        for(var ci=0;ci<tRows[0].length;ci++){var cx=ML+ci*cW2+4;doc.text(strip(tRows[0][ci].trim()).substring(0,Math.floor(cW2/4)),cx,y)}
-        y+=rH;
-        for(var ri=1;ri<tRows.length;ri++){
-          np(rH);ss(8.5,'normal',[180,180,200]);
-          var cells=tRows[ri];
-          for(var ci=0;ci<nCols;ci++){var cx=ML+ci*cW2+4;var ctFull=strip((cells[ci]||'').trim());var ctTrunc=ctFull.length*4.5>cW2-6&&ctFull.length>3;var ct=ctTrunc?ctFull.slice(0,-2)+'\u2026':ctFull;doc.text(ct,cx,y);
-            var cl=gL(cells[ci]||''),csf=0;for(var c=0;c<cl.length;c++){var ci2=ctFull.indexOf(cl[c].lb,csf);if(ci2>=0&&(!ctTrunc||ci2+cl[c].lb.length<=ctFull.length)){var cbw=doc.getTextWidth(ctFull.substring(0,ci2)),clw=doc.getTextWidth(cl[c].lb);doc.link(cx+cbw,y-8,clw,11,{url:cl[c].url});csf=ci2+cl[c].lb.length}}}
-          doc.setDrawColor(200,200,210);doc.setLineWidth(0.3);doc.line(ML,y+3,PW-MR,y+3);y+=rH}y+=6;continue}
-      if(/^\s*-\s+\[[ x]\]\s/.test(ln)){var ct2=ln.replace(/^\s*-\s+\[[ x]\]\s*/,''),chk=/\[x\]/i.test(ln);np(14);ss(10,'normal',[26,26,46]);doc.text(chk?'\u2611':'\u2610',ML+8,y);rT(ct2,ML,CW,9.5,'normal',[26,26,46],22);mi++;continue}
-      if(/^\s*-\s+/.test(ln)){var bt=ln.replace(/^\s*-\s+/,'');np(14);ss(10,'normal',[26,26,46]);doc.text('\u2022',ML+8,y);rT(bt,ML,CW,9.5,'normal',[26,26,46],20);mi++;continue}
-      if(ln.indexOf('> ')===0){np(14);var qy=y;rT(ln.substring(2),ML+14,CW-14,9.5,'italic',[80,80,100]);doc.setDrawColor(26,46,108);doc.setLineWidth(2);doc.line(ML+4,qy-9,ML+4,y-2);mi++;continue}
-      if(!ln.trim()){y+=5;mi++;continue}
-      rT(ln,ML,CW,9.5,'normal',[26,26,46]);y+=2;mi++;
-    }
-
-    /* ========== FILL IN TOC PAGE NUMBERS + CLICKABLE LINKS ========== */
-    var totalPages=doc.internal.getNumberOfPages();
-    doc.setPage(2);
-    for(var ei=0;ei<tocPageNumSlots.length;ei++){
-      var slot=tocPageNumSlots[ei];
-      var matchedPage='';
-      for(var hi=0;hi<h1Entries.length;hi++){
-        if(h1Entries[hi].title===slot.title){matchedPage=''+h1Entries[hi].pageNum;break}
-      }
-      if(matchedPage){
-        ss(10,'normal',[26,46,108]);
-        doc.text(matchedPage,PW-MR-doc.getTextWidth(matchedPage),slot.yPos);
-        doc.link(ML,slot.yPos-10,CW,14,{pageNumber:parseInt(matchedPage,10)});
-      }
-    }
-
-    /* ========== ADD HEADERS & FOOTERS TO ALL PAGES ========== */
-    var headerTitle='Litigation Review Guide \u2014 '+drug;
-    for(var p=1;p<=totalPages;p++){
-      doc.setPage(p);
-      /* --- Footer on every page --- */
-      doc.setDrawColor(180,180,190);doc.setLineWidth(0.3);
-      doc.line(ML,PH-42,PW-MR,PH-42);
-      ss(7,'normal',[130,130,140]);
-      doc.text('Confidential \u2014 Attorney Work Product',ML,PH-32);
-      var pgTxt='Page '+p+' of '+totalPages;
-      doc.text(pgTxt,PW-MR-doc.getTextWidth(pgTxt),PH-32);
-      /* --- Header on pages 2+ (skip title page) --- */
-      if(p>=2){
-        ss(8,'normal',[130,130,140]);
-        doc.text(headerTitle,ML,30);
-        doc.text(dateStr,PW-MR-doc.getTextWidth(dateStr),30);
-        doc.setDrawColor(180,180,190);doc.setLineWidth(0.3);
-        doc.line(ML,36,PW-MR,36);
-      }
-    }
-
-    doc.save('Litigation_Review_Guide_v2.00_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf');
-    btn.textContent='\ud83d\udcd5 .pdf';btn.disabled=false;
-  }catch(e){
-    alert('PDF failed: '+e.message);console.error(e);
-    btn.textContent='\ud83d\udcd5 .pdf';btn.disabled=false;
-  }
+  });
 }
 async function dlDOCX(){
   const drug=document.getElementById('drugName').value.trim()||'Guide';
@@ -3307,7 +2780,7 @@ async function dlDOCX(){
     const buffer=await Packer.toBlob(doc);
     const a=document.createElement('a');
     a.href=URL.createObjectURL(buffer);
-    a.download='Litigation_Review_Guide_v1.05_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
+    a.download='Litigation_Review_Guide_v1.06_'+drug.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
     a.click();
 
     btn.textContent='📝 .docx';btn.disabled=false;
@@ -3316,134 +2789,6 @@ async function dlDOCX(){
     console.error('DOCX error:',e);
     btn.textContent='📝 .docx';btn.disabled=false;
   }
-}
-
-/* ═══════ CITATION VALIDATION ═══════ */
-
-async function validateCitations(){
-  const md = allMD || '';
-  const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-  const urlMap = new Map(); // url -> {labels:[], status:'pending'}
-  let m;
-  while((m = re.exec(md)) !== null){
-    const label = m[1], url = m[2];
-    if(!urlMap.has(url)) urlMap.set(url, {labels:[], status:'pending'});
-    urlMap.get(url).labels.push(label);
-  }
-  if(urlMap.size === 0){ alert('No citation URLs found in output.'); return; }
-
-  // Build modal
-  const overlay = document.createElement('div');
-  overlay.id = 'citeValOverlay';
-  Object.assign(overlay.style, {
-    position:'fixed',top:'0',left:'0',width:'100vw',height:'100vh',
-    background:'rgba(0,0,0,.65)',zIndex:'9999',display:'flex',
-    alignItems:'center',justifyContent:'center',fontFamily:"'Outfit',sans-serif"
-  });
-  const panel = document.createElement('div');
-  Object.assign(panel.style, {
-    background:'var(--sf,#1a1a2e)',border:'1px solid var(--bd,#333)',borderRadius:'12px',
-    padding:'24px',width:'560px',maxWidth:'90vw',maxHeight:'80vh',
-    overflowY:'auto',color:'var(--tx,#e0e0e0)',boxShadow:'0 8px 32px rgba(0,0,0,.5)'
-  });
-  panel.innerHTML = '<h3 style="margin:0 0 6px;font-size:16px;color:var(--tx,#fff)">🔗 Citation Validation</h3>'
-    + '<p id="citeValStatus" style="margin:0 0 14px;font-size:13px;color:var(--tx3,#999)">Checking ' + urlMap.size + ' unique URLs...</p>'
-    + '<div id="citeValProgress" style="height:4px;background:var(--sf2,#222);border-radius:2px;margin-bottom:16px;overflow:hidden">'
-    + '<div id="citeValBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--ac,#8b5cf6),#7b6be5);transition:width .2s"></div></div>'
-    + '<div id="citeValResults" style="font-size:12px"></div>'
-    + '<div id="citeValActions" style="display:none;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"></div>';
-  overlay.appendChild(panel);
-  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
-
-  const statusEl = document.getElementById('citeValStatus');
-  const barEl = document.getElementById('citeValBar');
-  const resultsEl = document.getElementById('citeValResults');
-  const actionsEl = document.getElementById('citeValActions');
-  actionsEl.style.display = 'none';
-
-  // Validate in batches of 5
-  const timeout = 8000;
-  let done = 0;
-  const urls = [...urlMap.keys()];
-
-  for(let i = 0; i < urls.length; i += 5){
-    const batch = urls.slice(i, i + 5);
-    await Promise.all(batch.map(async url => {
-      try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), timeout);
-        await fetch(url, {method:'HEAD', mode:'no-cors', signal:ctrl.signal});
-        clearTimeout(timer);
-        urlMap.get(url).status = 'reachable';
-      } catch(e) {
-        urlMap.get(url).status = 'unreachable';
-      }
-      done++;
-      barEl.style.width = Math.round((done / urls.length) * 100) + '%';
-      statusEl.textContent = 'Checked ' + done + ' of ' + urls.length + ' URLs...';
-    }));
-  }
-
-  // Tally results
-  let reachable = 0, unreachable = 0;
-  const unreachableList = [];
-  urlMap.forEach((info, url) => {
-    if(info.status === 'reachable') reachable++;
-    else { unreachable++; unreachableList.push({url, labels: info.labels}); }
-  });
-
-  statusEl.innerHTML = '<span style="color:var(--gn,#56c490)">✅ ' + reachable + ' reachable</span>'
-    + ' &nbsp;·&nbsp; <span style="color:var(--rd,#e74c5f)">❌ ' + unreachable + ' unreachable</span>'
-    + ' &nbsp;·&nbsp; ' + urlMap.size + ' total unique URLs';
-
-  // Build results list
-  let html = '';
-  if(unreachableList.length > 0){
-    html += '<div style="margin-top:8px"><strong style="color:var(--rd,#e74c5f);font-size:12px">Unreachable URLs:</strong></div>';
-    unreachableList.forEach(item => {
-      const labelStr = item.labels.map(l => '"' + l.replace(/</g,'&lt;') + '"').join(', ');
-      html += '<div style="margin:6px 0;padding:8px 10px;background:var(--sf2,#111);border:1px solid rgba(231,76,95,.25);border-radius:6px">'
-        + '<div style="color:var(--rd,#e74c5f);word-break:break-all;font-size:11.5px">❌ ' + item.url.replace(/</g,'&lt;') + '</div>'
-        + '<div style="color:var(--tx3,#888);font-size:11px;margin-top:3px">Labels: ' + labelStr + '</div></div>';
-    });
-  }
-  if(reachable > 0){
-    html += '<div style="margin-top:10px"><strong style="color:var(--gn,#56c490);font-size:12px">Reachable URLs (' + reachable + '):</strong></div>';
-    let shown = 0;
-    urlMap.forEach((info, url) => {
-      if(info.status !== 'reachable') return;
-      if(shown >= 20){ if(shown === 20) html += '<div style="color:var(--tx3,#888);font-size:11px;margin-top:4px">...and ' + (reachable - 20) + ' more</div>'; shown++; return; }
-      html += '<div style="margin:3px 0;padding:4px 8px;font-size:11px;color:var(--tx3,#999);word-break:break-all">✅ ' + url.replace(/</g,'&lt;') + '</div>';
-      shown++;
-    });
-  }
-  resultsEl.innerHTML = html;
-
-  // Action buttons
-  actionsEl.style.display = 'flex';
-  actionsEl.innerHTML = '';
-  if(unreachableList.length > 0){
-    const copyBtn = document.createElement('button');
-    Object.assign(copyBtn.style, {
-      padding:'7px 14px',background:'var(--sf2,#222)',border:'1px solid var(--bd,#333)',
-      borderRadius:'6px',color:'var(--tx2,#bbb)',fontSize:'11.5px',cursor:'pointer',fontFamily:"'Outfit',sans-serif"
-    });
-    copyBtn.textContent = '📋 Copy Unreachable';
-    copyBtn.onclick = () => {
-      const text = unreachableList.map(item => item.url + '  (labels: ' + item.labels.join(', ') + ')').join('\n');
-      navigator.clipboard.writeText(text).then(() => { copyBtn.textContent = '✓ Copied!'; setTimeout(() => copyBtn.textContent = '📋 Copy Unreachable', 2000); });
-    };
-    actionsEl.appendChild(copyBtn);
-  }
-  const closeBtn = document.createElement('button');
-  Object.assign(closeBtn.style, {
-    padding:'7px 14px',background:'var(--ac,#8b5cf6)',border:'none',
-    borderRadius:'6px',color:'#fff',fontSize:'11.5px',cursor:'pointer',fontWeight:'600',fontFamily:"'Outfit',sans-serif"
-  });
-  closeBtn.textContent = 'Close';
-  closeBtn.onclick = () => overlay.remove();
-  actionsEl.appendChild(closeBtn);
 }
 
 /* ═══════ REFINEMENT ═══════ */
@@ -3521,15 +2866,8 @@ function showTyping(text){
 function getVersionKey(){return 'litguide_versions_'+(loadedGuideId||'unsaved')}
 function getVersions(){try{return JSON.parse(localStorage.getItem(getVersionKey()))||[]}catch(e){return[]}}
 function putVersions(v){
-  if(v.length>50)v.splice(50);
-  try{localStorage.setItem(getVersionKey(),JSON.stringify(v))}
-  catch(e){
-    if(e.name==='QuotaExceededError'&&v.length>1){
-      v.pop();
-      console.warn('Storage full — removed oldest version');
-      putVersions(v);
-    }else{console.error('Version save failed:',e)}
-  }
+  localStorage.setItem(getVersionKey(),JSON.stringify(v));
+  if(v.length>50){v.splice(50);localStorage.setItem(getVersionKey(),JSON.stringify(v))}
 }
 
 function saveVersion(description){
@@ -3556,7 +2894,6 @@ function restoreVersion(id){
 
   allMD=v.allMD;
   secMD=v.secMD||{};
-  ensureSecMD();
   reRender();
   saveGuide();
   document.getElementById('pfoot').textContent='Restored version: '+v.description;
@@ -3726,8 +3063,6 @@ async function chatSend(){
 
   addChatBubble('user',msg,scope);
   chatMessages.push({role:'user',content:msg});
-  // Cap chat history to prevent unbounded memory growth
-  if(chatMessages.length>50)chatMessages.splice(0,chatMessages.length-50);
 
   try{
     const il=msg.toLowerCase();
@@ -3818,7 +3153,7 @@ async function chatSend(){
       const secWords=countW(secText);
       secMaxTok=Math.max(4000, Math.min(secWords*3+2000, 32000));
 
-      systemPrompt=`You are a medical-legal consultant editing a litigation review guide for ${drug||'a pharmaceutical/medical product'}.
+      systemPrompt=`You are a partner-level research attorney editing a mass tort viability research memorandum for ${drug||'a pharmaceutical/medical product'}.
 
 The user is editing ONE SPECIFIC SECTION of their guide. Here is the current section (${secWords} words):
 
@@ -3881,7 +3216,7 @@ RULES FOR SECTION REWRITES:
         }
       }
 
-      systemPrompt=`You are a medical-legal consultant editing a litigation review guide for ${drug||'a pharmaceutical/medical product'}.
+      systemPrompt=`You are a partner-level research attorney editing a mass tort viability research memorandum for ${drug||'a pharmaceutical/medical product'}.
 
 Here is the complete guide:
 
@@ -4063,11 +3398,9 @@ function acceptChanges(){
   saveVersion('Before: '+pendingChanges.description);
 
   let applied=0;
-  const allowed=getAllowedSectionIds();
   for(const rev of pendingChanges.revisions){
     rev.newMD=rev.newMD.replace(/\*?\*?\[UPDATED\]\*?\*?\s*/gi,'');
     if(rev.isNew){
-      // Only add new sections if they match an allowed section ID
       allMD=allMD.trimEnd()+'\n\n---\n\n'+rev.newMD;
       applied++;
     } else if(replaceSection(rev.heading,rev.newMD)){
@@ -4089,8 +3422,6 @@ function acceptChanges(){
     }
   }
 
-  // Re-parse allMD into secMD after changes, then reRender (which filters by checkboxes)
-  secMD={};ensureSecMD();
   reRender();populateScopeSelect();saveGuide();
 
   const reply='Applied '+applied+' change'+(applied>1?'s':'')+' to the guide.';
@@ -4122,12 +3453,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 function reRender(){
-  ensureSecMD();
-  // Rebuild allMD from secMD for allowed sections to keep it in sync
-  const allowed=getAllowedSectionIds();
-  const parts=allowed.map(id=>secMD[id]).filter(m=>m&&m.trim());
-  if(parts.length)allMD=parts.join('\n\n---\n\n');
-  splitBatchMD(allMD,allowed);
+  const gBody=document.getElementById('gBody');
+  gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+  // Use checked sections for splitBatchMD context, fall back to all SEC_IDS for loaded guides
+  const checkedIds=getCheckedSecOrder();
+  const allSecIds=checkedIds.length?checkedIds:SEC.map(s=>s.id);
+  splitBatchMD(allMD,allSecIds);
   updWC();buildTOC();showRefineBar();splitOutputIntoSections();
 }
 
@@ -4148,11 +3479,8 @@ function estimateCost(){
 
   const genInRate=isOpus?15:3;
   const genOutRate=isOpus?75:15;
-  // Per-section generation: each section gets its own API call with relevant research only
-  const perSecInputTok=Math.round((researchInputTok/4)+10000); // avg research per section + context
-  const perSecOutputTok=Math.min(Math.round(dc.tokPerCall*0.8/numSecs),8000);
-  const genInputTok=perSecInputTok*numSecs;
-  const genOutputTok=perSecOutputTok*numSecs;
+  const genInputTok=researchInputTok+20000;
+  const genOutputTok=Math.round(dc.tokPerCall*0.8);
   const genCost=(genInputTok/1e6)*genInRate+(genOutputTok/1e6)*genOutRate;
 
   const verifyCost=(50000/1e6)*3+(4000/1e6)*15;
@@ -4172,15 +3500,7 @@ function estimateCost(){
   el.style.display='block';
   el.innerHTML='<strong style="color:var(--am)">'+(isOpus?'Opus':'Sonnet')+': $'+low+' – $'+high+'</strong>'+
     ' <span style="color:var(--tx3)">('+(isOpus?'Sonnet':'Opus')+': $'+altLow+'–$'+altHigh+')</span>'+
-    '<br><span style="font-size:10px;color:var(--tx3)">'+researchSearches+' searches, gap analysis, '+numSecs+' section calls, '+dc.label+', verification</span>';
-
-  // Show research pass count when not all sections are selected
-  const secs=getSecs(),needed={};
-  secs.forEach(sid=>{(SEC_TO_RESEARCH[sid]||[]).forEach(rpId=>{needed[rpId]=true})});
-  const activeRPCount=RP.filter(p=>needed[p.id]).length;
-  if(activeRPCount&&activeRPCount<RP.length){
-    el.innerHTML+='<br><span style="font-size:9px;color:var(--tx3)">('+activeRPCount+'/'+RP.length+' research passes for selected sections)</span>';
-  }
+    '<br><span style="font-size:10px;color:var(--tx3)">'+numPasses+' research passes, '+researchSearches+' searches, gap analysis, '+dc.label+', verification</span>';
 
   return{low:parseFloat(low),high:parseFloat(high)};
 }
@@ -4196,16 +3516,7 @@ function getSaveKey(){return 'litguide_saves'}
 function getSaves(){
   try{return JSON.parse(localStorage.getItem(getSaveKey()))||[]}catch(e){return[]}
 }
-function putSaves(saves){
-  try{localStorage.setItem(getSaveKey(),JSON.stringify(saves))}
-  catch(e){
-    if(e.name==='QuotaExceededError'&&saves.length>1){
-      saves.pop(); // Remove oldest
-      console.warn('Storage full — removed oldest guide');
-      putSaves(saves); // Retry
-    }else{console.error('Save failed:',e)}
-  }
-}
+function putSaves(saves){localStorage.setItem(getSaveKey(),JSON.stringify(saves))}
 
 function saveGuide(){
   const drug=document.getElementById('drugName').value.trim();
@@ -4281,29 +3592,13 @@ function loadGuide(id){
   allMD=entry.allMD||'';
   secMD=entry.secMD||{};
   loadedGuideId=id;
-
-  // Populate secMD from allMD if it's empty (old saved guides)
-  ensureSecMD();
-
-  // Set activeSelectedSecs to sections that have content
-  const loadedSecIds=SEC_IDS.filter(id2=>secMD[id2]&&secMD[id2].trim().length>0);
-  activeSelectedSecs=loadedSecIds.length>0?loadedSecIds:[...SEC_IDS];
-
-  // Sync checkboxes to match loaded sections
-  document.querySelectorAll('.stog').forEach(label=>{
-    const sid=label.dataset.id;
-    const cb=label.querySelector('input');
-    const hasContent=secMD[sid]&&secMD[sid].trim().length>0;
-    cb.checked=hasContent;
-    label.classList.toggle('on',hasContent);
-    label.querySelector('.ck').textContent=hasContent?'✓':'';
-  });
+  activeSelectedSecs=[]; // Clear — loaded guides show all their sections
 
   document.getElementById('emptyState').style.display='none';
   document.getElementById('outWrap').style.display='block';
 
   const gHead=document.getElementById('gHead');
-  gHead.innerHTML='<h1>Litigation Review Guide: '+entry.name+'</h1><div class="meta" id="gMeta">'+(entry.cond||'(auto-discovered)')+' — '+(entry.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Last saved '+new Date(entry.savedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+(entry.updateCount?' (updated '+entry.updateCount+'×)':'')+'</div>';
+  gHead.innerHTML='<h1>Mass Tort Viability Memo:'+entry.name+'</h1><div class="meta" id="gMeta">'+(entry.cond||'(auto-discovered)')+' — '+(entry.litType||'pharmaceutical').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+' — Last saved '+new Date(entry.savedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})+(entry.updateCount?' (updated '+entry.updateCount+'×)':'')+'</div>';
 
   const gBody=document.getElementById('gBody');
   gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
@@ -4316,12 +3611,12 @@ function loadGuide(id){
       const failed=data.startsWith('[Failed:');
       return `<details class="rp-pass"><summary>Pass ${i+1}: ${p.l}${failed?' <span style="color:var(--rd);font-weight:700">⚠ FAILED</span>':''}</summary><div class="rp-pass-body">${data}</div></details>`;
     }).filter(Boolean).join('');
-    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars · '+countCitations(Object.values(allRes).join(''))+' citations';
+    document.getElementById('rcount').textContent=Object.values(allRes).join('').length.toLocaleString()+' chars';
     document.getElementById('rpanel').style.display='block';
   }
 
   updWC();buildTOC();
-  splitOutputIntoSections();enforceSectionCap();
+  splitOutputIntoSections();
   showRefineBar();
   renderSaves();
   estimateCost();
@@ -4517,7 +3812,7 @@ async function applyUpdates(){
     allLines.forEach((l,i)=>{if(l.startsWith('# '))h1Lines.push(i)});
     const headings=h1Lines.map(i=>allLines[i]);
 
-    const idSys=`New findings for a litigation review guide:
+    const idSys=`New findings for a mass tort viability research memorandum:
 <findings>
 ${findings.substring(0,5000)}
 </findings>
@@ -4548,7 +3843,7 @@ Which section numbers need updating based on these findings? Reply with ONLY a J
 
       actionsDiv.innerHTML='<span style="color:var(--am);font-size:12px;font-weight:500">Updating: '+secTitle.substring(0,40)+'...</span>';
 
-      const secSys=`You are updating ONE SECTION of a litigation review guide with new findings.
+      const secSys=`You are updating ONE SECTION of a mass tort viability research memorandum with new findings.
 
 CURRENT SECTION:
 <section>
@@ -4593,10 +3888,11 @@ Output ONLY the revised section Markdown.`;
       if(secIndices.indexOf(si)<secIndices.length-1)await new Promise(r=>setTimeout(r,2000));
     }
 
-    // Re-parse allMD into secMD after updates, then render filtered by checkboxes
-    secMD={};ensureSecMD();
-    const allowed=getAllowedSectionIds();
-    splitBatchMD(allMD,allowed);
+    const gBody=document.getElementById('gBody');
+    gBody.innerHTML='<div class="gc">'+md2html(allMD)+'</div>';
+    const checkedIds=getCheckedSecOrder();
+    const allSecIds=checkedIds.length?checkedIds:SEC_IDS;
+    splitBatchMD(allMD,allSecIds);
     updWC();buildTOC();splitOutputIntoSections();showRefineBar();
 
     const meta=document.getElementById('gMeta');
@@ -4625,9 +3921,6 @@ initSec();
 checkServerKeys();
 wireUpCostEstimate();
 renderSaves();
-
-/* v2.00 features merged into original functions above */
-
 </script>
 </body>
 </html>
